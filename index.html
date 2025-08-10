@@ -24,7 +24,7 @@
   }
   body {
     overflow:hidden;
-    touch-action:none;              /* prevent scroll/zoom gestures over canvas */
+    touch-action:none;
     -webkit-user-select:none; user-select:none;
     -webkit-touch-callout:none;
   }
@@ -48,11 +48,10 @@
   }
   header .btn:active { transform:scale(0.98); }
   canvas { display:block; width:100%; height:100%; }
-  /* On-screen controls */
   .controls {
     position:absolute; left:0; right:0; bottom:0; z-index:6;
     display:flex; justify-content:space-between; gap:12px; padding:14px;
-    pointer-events:none; /* children enable their own */
+    pointer-events:none;
   }
   .pad {
     flex:1; min-height:92px; border-radius:16px;
@@ -66,9 +65,6 @@
   .pad span {
     font-size:28px; line-height:1; opacity:0.9; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.35));
   }
-  .right { }
-  .left  { }
-  /* Overlay */
   .overlay {
     position:absolute; inset:0; z-index:7; display:flex; align-items:center; justify-content:center;
     background: radial-gradient(1200px 800px at 50% 40%, rgba(88,166,255,0.12), rgba(12,15,20,0.92) 60%);
@@ -92,10 +88,10 @@
     margin-top:14px;
     width:100%; padding:12px 14px; font-weight:800; font-size:18px;
     border-radius:14px; border:none; color:#0b1220; background:var(--accent);
+    pointer-events:auto;
   }
   .go:active { transform: translateY(1px); }
   .muted { color:var(--muted); font-size:13px; margin-top:10px; }
-  .danger { color: var(--danger); }
   .tiny { font-size:11px; opacity:0.8; margin-top:6px; }
 </style>
 </head>
@@ -134,14 +130,12 @@
 (function () {
   "use strict";
 
-  // --- Canvas setup with DPR scaling for crisp rendering on Retina/iOS ---
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
 
   let width = 0, height = 0, dpr = Math.max(1, window.devicePixelRatio || 1);
 
   function fit() {
-    // Use innerWidth/innerHeight to avoid iOS 100vh issues.
     width  = Math.max(320, Math.floor(window.innerWidth  || document.documentElement.clientWidth));
     height = Math.max(480, Math.floor(window.innerHeight || document.documentElement.clientHeight));
     dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -154,7 +148,6 @@
   fit();
   window.addEventListener("resize", fit);
 
-  // --- Game state ---
   const state = {
     running:false, paused:false, over:false,
     score:0, best: Number(localStorage.getItem("dodger_best") || 0),
@@ -165,7 +158,6 @@
     input:{ left:false, right:false, swipeVX:0 }
   };
 
-  // Position player
   function resetPlayer() {
     state.player.w = Math.max(34, Math.min(56, Math.floor(Math.min(width,height) * 0.06)));
     state.player.h = state.player.w;
@@ -175,7 +167,6 @@
   }
   resetPlayer();
 
-  // --- UI elements ---
   const scoreEl = document.getElementById("score");
   const bestEl  = document.getElementById("best");
   const startBtn= document.getElementById("startBtn");
@@ -186,19 +177,18 @@
 
   bestEl.textContent = state.best;
 
-  // --- Input handling (touch / pointer / keyboard) ---
-  // Prevent Safari double-tap zoom / scroll on controls
-  const prevent = (e)=>{ e.preventDefault(); };
-
+  // Prevent scroll/zoom globally, but allow overlay buttons to work
+  const prevent = (e)=>{
+    if (e.target.closest("#overlay")) return; // let Start/Pause through
+    e.preventDefault();
+  };
   ["touchstart","touchmove","touchend","gesturestart"].forEach(ev=>{
     document.addEventListener(ev, prevent, { passive:false });
   });
 
-  // Pads
   function bindPad(el, dir) {
-    let active = false;
-    const onDown = (e)=>{ active = true; if (dir<0) state.input.left=true; else state.input.right=true; };
-    const onUp   = (e)=>{ active = false; if (dir<0) state.input.left=false; else state.input.right=false; };
+    const onDown = (e)=>{ e.preventDefault(); if (dir<0) state.input.left=true; else state.input.right=true; };
+    const onUp   = (e)=>{ if (dir<0) state.input.left=false; else state.input.right=false; };
     el.addEventListener("pointerdown", onDown);
     el.addEventListener("pointerup", onUp);
     el.addEventListener("pointercancel", onUp);
@@ -207,7 +197,7 @@
   bindPad(leftPad, -1);
   bindPad(rightPad, 1);
 
-  // Swipe anywhere
+  // Swipe anywhere on canvas
   let swipeActive=false, swipeStartX=0;
   canvas.addEventListener("pointerdown", (e)=>{
     swipeActive = true; swipeStartX = e.clientX;
@@ -215,13 +205,13 @@
   window.addEventListener("pointermove", (e)=>{
     if (!swipeActive) return;
     const dx = e.clientX - swipeStartX;
-    state.input.swipeVX = dx * 3; // scaled to feel snappy
+    state.input.swipeVX = dx * 3;
   });
   window.addEventListener("pointerup", ()=>{
     swipeActive=false; state.input.swipeVX = 0;
   });
 
-  // Keyboard (for desktop testing)
+  // Keyboard support (desktop testing)
   window.addEventListener("keydown", (e)=>{
     if (e.key === "ArrowLeft" || e.key === "a") state.input.left = true;
     if (e.key === "ArrowRight"|| e.key === "d") state.input.right= true;
@@ -232,9 +222,9 @@
     if (e.key === "ArrowRight"|| e.key === "d") state.input.right= false;
   });
 
-  // --- Buttons ---
-  startBtn.addEventListener("click", startGame);
-  pauseBtn.addEventListener("click", togglePause);
+  // Use pointerdown so iOS doesn't swallow the click
+  startBtn.addEventListener("pointerdown", (e)=>{ e.preventDefault(); startGame(); });
+  pauseBtn.addEventListener("pointerdown", (e)=>{ e.preventDefault(); togglePause(); });
 
   function startGame() {
     state.blocks.length = 0;
@@ -273,7 +263,6 @@
       state.last = performance.now();
       requestAnimationFrame(loop);
     } else {
-      // show a subtle overlay hint
       ctx.save();
       ctx.fillStyle = "rgba(0,0,0,0.25)";
       ctx.fillRect(0,0,width,height);
@@ -285,53 +274,47 @@
     }
   }
 
-  // --- Helpers ---
   function rand(min,max){ return Math.random()*(max-min)+min; }
 
   function spawnBlock() {
     const size = rand(Math.max(22, width*0.03), Math.max(38, width*0.07));
     const x = rand(0, width - size);
-    const speed = rand(140, 190) * state.difficulty; // pixels/sec
+    const speed = rand(140, 190) * state.difficulty;
     state.blocks.push({ x, y: -size, w: size, h: size, vy: speed });
   }
 
   function update(dt) {
     state.time += dt;
     state.score += dt * 10;
-    state.difficulty = 1 + Math.min(2.2, state.time / 24); // ramps up over ~24s
+    state.difficulty = 1 + Math.min(2.2, state.time / 24);
     scoreEl.textContent = Math.floor(state.score);
 
-    // Player velocity from input
     const p = state.player;
     const baseSpeed = p.speed * state.difficulty * 0.95;
     let targetVX = 0;
     if (state.input.left)  targetVX -= baseSpeed;
     if (state.input.right) targetVX += baseSpeed;
-    targetVX += state.input.swipeVX; // swipe adds temporary nudge
-    // Smooth towards target velocity
+    targetVX += state.input.swipeVX;
     p.vx += (targetVX - p.vx) * Math.min(1, dt * 10);
     p.x += p.vx * dt;
-    // Clamp
+
     if (p.x < 0) { p.x = 0; p.vx = Math.max(0, p.vx); }
     if (p.x + p.w > width) { p.x = width - p.w; p.vx = Math.min(0, p.vx); }
 
-    // Spawn blocks
     state.blockTimer -= dt;
     const interval = Math.max(0.22, 0.9 - state.time * 0.03);
     if (state.blockTimer <= 0) {
       spawnBlock();
-      if (state.time > 12 && Math.random() < 0.35) spawnBlock(); // occasional doubles
+      if (state.time > 12 && Math.random() < 0.35) spawnBlock();
       state.blockTimer = interval;
     }
 
-    // Move blocks & cull
     const blocks = state.blocks;
     for (let i=blocks.length-1; i>=0; i--) {
       const b = blocks[i];
       b.y += b.vy * dt;
       if (b.y - b.h > height + 8) { blocks.splice(i,1); continue; }
 
-      // Collision (AABB)
       if (b.x < p.x + p.w && b.x + b.w > p.x && b.y < p.y + p.h && b.y + b.h > p.y) {
         gameOver();
         return;
@@ -340,14 +323,12 @@
   }
 
   function draw() {
-    // Background gradient
     const g = ctx.createLinearGradient(0,0,0,height);
     g.addColorStop(0,"#0b1220");
     g.addColorStop(1,"#0c0f14");
     ctx.fillStyle = g;
     ctx.fillRect(0,0,width,height);
 
-    // Subtle grid
     ctx.globalAlpha = 0.08;
     ctx.strokeStyle = "#8ab4ff";
     ctx.lineWidth = 1;
@@ -358,22 +339,18 @@
     ctx.stroke();
     ctx.globalAlpha = 1;
 
-    // Player
     const p = state.player;
     ctx.fillStyle = "#58a6ff";
     roundRect(ctx, p.x, p.y, p.w, p.h, Math.min(10, p.w*0.25), true);
 
-    // Tail effect
     ctx.globalAlpha = 0.15;
     ctx.fillStyle = "#58a6ff";
     roundRect(ctx, p.x + p.w*0.2, p.y + p.h*0.65, p.w*0.6, p.h*0.9, 8, true);
     ctx.globalAlpha = 1;
 
-    // Blocks
     for (const b of state.blocks) {
       ctx.fillStyle = "#ff6b6b";
       roundRect(ctx, b.x, b.y, b.w, b.h, Math.min(10, b.w*0.25), true);
-      // shine
       ctx.globalAlpha = 0.15;
       ctx.fillStyle = "#ffffff";
       roundRect(ctx, b.x+ b.w*0.1, b.y + b.h*0.08, b.w*0.8, b.h*0.18, 8, true);
@@ -393,19 +370,16 @@
     if (fill) ctx.fill();
   }
 
-  // --- Main loop ---
   function loop(now) {
     if (!state.running || state.paused || state.over) return;
-    const dt = Math.min(0.033, (now - state.last) / 1000); // clamp big jumps
+    const dt = Math.min(0.033, (now - state.last) / 1000);
     state.last = now;
-
     update(dt);
     draw();
-
     requestAnimationFrame(loop);
   }
 
-  // Start screen renders once (behind overlay)
+  // Draw start screen behind overlay
   draw();
 
 })();
