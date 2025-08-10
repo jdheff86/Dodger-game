@@ -14,32 +14,21 @@
   body { overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   canvas { display:block; width:100%; height:100%; }
 
-  header {
-    position:absolute; top:0; left:0; right:0; z-index:8; display:flex; gap:8px; align-items:center; justify-content:space-between;
-    padding:8px 10px; pointer-events:none;
-  }
+  header { position:absolute; top:0; left:0; right:0; z-index:8; display:flex; gap:8px; align-items:center; justify-content:space-between; padding:8px 10px; pointer-events:none; }
   .hud, .btn { pointer-events:auto; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:6px 10px; }
   .hud { display:flex; gap:8px; align-items:center; }
   .btn { font-weight:700; }
   .btn:active { transform: translateY(1px); }
   #userChip { pointer-events:auto; background:rgba(88,166,255,0.18); border-color:rgba(88,166,255,0.4); border-radius:12px; padding:6px 10px; }
 
-  .controls {
-    position:absolute; left:0; right:0; bottom:0; z-index:6; display:flex; justify-content:space-between; gap:12px; padding:14px; pointer-events:none;
-  }
-  .pad {
-    flex:1; min-height:92px; border-radius:16px; pointer-events:auto;
-    background:linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
-    border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center;
-  }
+  .controls { position:absolute; left:0; right:0; bottom:0; z-index:6; display:flex; justify-content:space-between; gap:12px; padding:14px; pointer-events:none; }
+  .pad { flex:1; min-height:92px; border-radius:16px; pointer-events:auto; background:linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)); border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; }
   .pad span { font-size:28px; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.35)); }
   .pad.fire { flex:0.9; }
   .ammo { color:var(--good); font-variant-numeric:tabular-nums; }
 
-  .overlay {
-    position:absolute; inset:0; z-index:7; display:flex; align-items:center; justify-content:center;
-    background: radial-gradient(1200px 800px at 50% 40%, rgba(88,166,255,0.12), rgba(12,15,20,0.92) 60%); text-align:center; padding:24px;
-  }
+  .overlay { position:absolute; inset:0; z-index:7; display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(1200px 800px at 50% 40%, rgba(88,166,255,0.12), rgba(12,15,20,0.92) 60%); text-align:center; padding:24px; }
   .card { max-width:560px; width:92%; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14); border-radius:18px; padding:18px; backdrop-filter:blur(10px); }
   .title { font-size:26px; font-weight:800; margin:4px 0 10px; }
   .subtitle { color:var(--muted); margin-bottom:14px; }
@@ -126,7 +115,6 @@
   import { getAuth, signInAnonymously, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
   import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-  // YOUR Firebase config (from your console)
   const firebaseConfig = {
     apiKey: "AIzaSyD37Lc_tHwEkmXSHwDr6QUTNeWXGOKAftg",
     authDomain: "dodger-4aad1.firebaseapp.com",
@@ -141,10 +129,14 @@
   const auth = getAuth(app);
   const db   = getFirestore(app);
 
-  // Auto sign-in (Anonymous)
-  signInAnonymously(auth).catch(console.warn);
+  // Sign in anonymously so security rules with "request.auth != null" pass
+  signInAnonymously(auth).catch(err => {
+    const chip = document.getElementById('userChip');
+    if (chip) chip.textContent = `Auth error`;
+    console.warn(err);
+  });
 
-  // ✅ Update the header chip when auth state changes
+  // Update the little status chip
   onAuthStateChanged(auth, (u) => {
     const chip = document.getElementById('userChip');
     if (!chip) return;
@@ -153,7 +145,7 @@
       : 'Not signed in';
   });
 
-  // Expose helpers for game code
+  // Expose helpers for the game
   window.firebase = {
     auth, db,
     onUser(cb){ return onAuthStateChanged(auth, cb); },
@@ -175,7 +167,7 @@
         return { ok:true };
       }catch(e){ return { ok:false, error:e.message }; }
     },
-    // ✅ Single sort (no composite index required)
+    // Single orderBy avoids needing a composite index
     async loadTop(n=20){
       const qy = query(collection(db,"scores"), orderBy("score","desc"), limit(n));
       const snap = await getDocs(qy);
@@ -184,7 +176,7 @@
   };
 </script>
 
-<!-- ===== Game code (power-ups + leaderboard hooks) ===== -->
+<!-- ===== Game code (unchanged core, with power-ups + leaderboard hooks) ===== -->
 <script>
 (function () {
   "use strict";
@@ -222,14 +214,12 @@
   const lbClose = document.getElementById("lbClose");
   const lbBody = document.querySelector("#lbTable tbody");
 
-  // Prevent scroll/zoom globally, but let overlays work
   const prevent=(e)=>{ if (e.target.closest(".overlay") || e.target.closest(".modal")) return; e.preventDefault(); };
   ["touchstart","touchmove","touchend","gesturestart"].forEach(ev=>document.addEventListener(ev, prevent, { passive:false }));
 
-  // Firebase user status in header (still supported)
   if (window.firebase && window.firebase.onUser) {
     window.firebase.onUser(u => {
-      userChip.textContent = u ? (u.displayName ? `Signed in as ${u.displayName}` : `Signed in (no name)`) : "Not signed in";
+      userChip.textContent = u ? (u.displayName ? `Signed in as ${u.displayName}` : `Signed in`) : "Not signed in";
     });
   }
 
@@ -251,12 +241,16 @@
       const rows = await window.firebase.loadTop(20);
       if (!rows.length) { lbBody.innerHTML = "<tr><td colspan='4'>No scores yet.</td></tr>"; }
       else {
-        let i=1; lbBody.innerHTML = rows.map(r=>{
-          const when = r.ts?.toDate ? r.ts.toDate() : (r.ts ? new Date(r.ts.seconds*1000) : new Date());
-          return `<tr><td>${i++}</td><td>${escapeHtml(r.name||"Player")}</td><td style="text-align:right">${r.score|0}</td><td>${when.toLocaleDateString()}</td></tr>`;
+        let i=1;
+        lbBody.innerHTML = rows.map(r=>{
+          let when = "-";
+          try { if (r.ts?.toDate) when = r.ts.toDate().toLocaleDateString(); } catch(_){}
+          return `<tr><td>${i++}</td><td>${escapeHtml(r.name||"Player")}</td><td style="text-align:right">${r.score|0}</td><td>${when}</td></tr>`;
         }).join("");
       }
-    }catch(err){ lbBody.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(err.message||String(err))}</td></tr>`; }
+    }catch(err){
+      lbBody.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(err.message||String(err))}</td></tr>`;
+    }
     lbModal.style.display="flex";
   });
   lbClose.addEventListener("pointerdown", e=>{ e.preventDefault(); lbModal.style.display="none"; });
@@ -278,13 +272,12 @@
   bestEl.textContent = state.best; ammoEl.textContent = state.ammo;
 
   function resetPlayer(){
-    const base = Math.max(36, Math.min(56, Math.floor(Math.min(width,height)*0.06)));
+    const base = Math.max(36, Math.min(56, Math.floor(Math.min(width,height)*0.06))));
     state.player.w = base; state.player.h = base;
     state.player.x = (width - state.player.w)/2; state.player.y = height - state.player.h - 22; state.player.vx = 0; state.player.scale=1;
   }
   resetPlayer();
 
-  // Input (pads + swipe)
   function bindPad(el,dir){ const down=(e)=>{ e.preventDefault(); if(dir<0) state.input.left=true; else state.input.right=true; };
     const up=(e)=>{ if(dir<0) state.input.left=false; else state.input.right=false; };
     el.addEventListener("pointerdown", down); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("pointerleave", up); }
@@ -295,7 +288,6 @@
   window.addEventListener("pointermove", e=>{ if(!swipeActive) return; const dx=e.clientX-swipeStartX; state.input.swipeVX=dx*3; });
   window.addEventListener("pointerup", ()=>{ swipeActive=false; state.input.swipeVX=0; });
 
-  // Fire button + spacebar
   firePad.addEventListener("pointerdown", e=>{ e.preventDefault(); shoot(); });
   window.addEventListener("keydown", e=>{
     if(e.key==="ArrowLeft"||e.key==="a") state.input.left=true;
@@ -327,7 +319,6 @@
     p.innerHTML = `You scored <strong>${Math.floor(state.score)}</strong>. ${(state.score>state.best)?`<span style="color:var(--danger)">New high score!</span>`:`Try again!`}`;
     overlay.querySelector(".card").insertBefore(p, overlay.querySelector(".go"));
     state.best=Math.max(state.best, Math.floor(state.score)); localStorage.setItem("dodger_best", String(state.best)); bestEl.textContent=state.best; startBtn.textContent="Play Again";
-    // Save to leaderboard
     if (window.firebase?.saveScore) { try { await window.firebase.saveScore(state.score); } catch(_){} }
   }
 
@@ -339,13 +330,11 @@
       ctx.font="700 20px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif"; ctx.textAlign="center"; ctx.fillText("Paused", width/2, height*0.45); ctx.restore(); }
   }
 
-  // Helpers
   function rand(min,max){ return Math.random()*(max-min)+min; }
   function roundRect(ctx,x,y,w,h,r,fill){ ctx.beginPath(); const rr=Math.min(r,w/2,h/2);
     ctx.moveTo(x+rr,y); ctx.arcTo(x+w,y, x+w,y+h, rr); ctx.arcTo(x+w,y+h, x,y+h, rr);
     ctx.arcTo(x,y+h, x,y, rr); ctx.arcTo(x,y, x+w,y, rr); ctx.closePath(); if(fill) ctx.fill(); }
 
-  // Spawners
   function spawnBlock(){
     const size = rand(Math.max(22,width*0.03), Math.max(38,width*0.07));
     const x = rand(0, width - size);
@@ -353,14 +342,13 @@
     state.blocks.push({ x, y:-size, w:size, h:size, vy:speed });
   }
   function spawnPowerup(){
-    const type = Math.random() < 0.6 ? "blaster" : "shrink"; // 60/40
+    const type = Math.random() < 0.6 ? "blaster" : "shrink";
     const size = Math.max(26, Math.floor(Math.min(width,height)*0.05));
     const x = rand(0, width - size);
     const vy = rand(90, 130);
     state.powerups.push({ type, x, y:-size, w:size, h:size, vy });
   }
 
-  // Shooting
   function shoot(){
     if (state.ammo <= 0 || state.over || !state.running) return;
     state.ammo--; ammoEl.textContent = state.ammo;
@@ -368,15 +356,12 @@
     state.bullets.push({ x: cx, y: p.y - 6, w: 8, h: 14, vy: -620 });
   }
 
-  // Update & draw
   function update(dt){
     state.time += dt; state.score += dt*10; state.difficulty = 1 + Math.min(2.2, state.time/24);
     scoreEl.textContent = Math.floor(state.score);
 
-    // shrink active?
     state.player.scale = (state.effects.shrinkUntil > state.time) ? 0.6 : 1;
 
-    // player move
     const p = state.player, base = p.speed * state.difficulty * 0.95;
     let targetVX = 0;
     if(state.input.left) targetVX -= base;
@@ -388,7 +373,6 @@
     if (p.x < 0) { p.x = 0; p.vx = Math.max(0, p.vx); }
     if (p.x + pw > width) { p.x = width - pw; p.vx = Math.min(0, p.vx); }
 
-    // spawn blocks
     state.blockTimer -= dt;
     const interval = Math.max(0.22, 0.9 - state.time*0.03);
     if (state.blockTimer <= 0) {
@@ -397,20 +381,17 @@
       state.blockTimer = interval;
     }
 
-    // spawn powerups
     state.powTimer -= dt;
     if (state.powTimer <= 0) {
       spawnPowerup();
       state.powTimer = rand(9, 14);
     }
 
-    // move blocks
     for (let i=state.blocks.length-1; i>=0; i--) {
       const b = state.blocks[i]; b.y += b.vy * dt;
       if (b.y - b.h > height + 8) { state.blocks.splice(i,1); continue; }
     }
 
-    // move powerups & collect
     for (let i=state.powerups.length-1; i>=0; i--) {
       const u = state.powerups[i]; u.y += u.vy * dt;
       if (u.y - u.h > height + 8) { state.powerups.splice(i,1); continue; }
@@ -421,7 +402,6 @@
       }
     }
 
-    // move bullets + bullet vs block
     for (let i=state.bullets.length-1; i>=0; i--) {
       const bullet = state.bullets[i]; bullet.y += bullet.vy * dt;
       if (bullet.y + bullet.h < -10) { state.bullets.splice(i,1); continue; }
@@ -436,7 +416,6 @@
       }
     }
 
-    // block vs player
     for (let i=state.blocks.length-1; i>=0; i--) {
       const b = state.blocks[i];
       if (b.x < p.x + pw && b.x + b.w > p.x && b.y < p.y + ph && b.y + b.h > p.y) {
@@ -451,4 +430,41 @@
     ctx.globalAlpha = 0.08; ctx.strokeStyle = "#8ab4ff"; ctx.lineWidth = 1;
     const grid = Math.max(20, Math.floor(Math.min(width, height)*0.04));
     ctx.beginPath(); for(let x=(width%grid); x<width; x+=grid){ ctx.moveTo(x,0); ctx.lineTo(x,height); }
-    for(let y=(height%grid); y<height; y
+    for(let y=(height%grid); y<height; y+=grid){ ctx.moveTo(0,y); ctx.lineTo(width,y); } ctx.stroke(); ctx.globalAlpha = 1;
+
+    const p = state.player, pw = p.w*p.scale, ph = p.h*p.scale;
+    ctx.fillStyle = "#58a6ff"; roundRect(ctx, p.x, p.y, pw, ph, Math.min(10, pw*0.25), true);
+    ctx.globalAlpha = 0.15; ctx.fillStyle = "#58a6ff"; roundRect(ctx, p.x+pw*0.2, p.y+ph*0.65, pw*0.6, ph*0.9, 8, true); ctx.globalAlpha = 1;
+
+    for (const b of state.blocks) {
+      ctx.fillStyle = "#ff6b6b";
+      roundRect(ctx, b.x, b.y, b.w, b.h, Math.min(10, b.w*0.25), true);
+      ctx.globalAlpha = 0.15; ctx.fillStyle = "#ffffff";
+      roundRect(ctx, b.x+b.w*0.1, b.y+b.h*0.08, b.w*0.8, b.h*0.18, 8, true); ctx.globalAlpha = 1;
+    }
+
+    for (const u of state.powerups) {
+      ctx.fillStyle = (u.type==="blaster") ? "#ffd166" : "#34d399";
+      roundRect(ctx, u.x, u.y, u.w, u.h, 10, true);
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.font = "700 14px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial";
+      ctx.textAlign = "center"; ctx.fillText(u.type==="blaster"?"🔫":"✂", u.x+u.w/2, u.y+u.h/2+6);
+    }
+
+    ctx.fillStyle = "#f8fafc";
+    for (const b of state.bullets) roundRect(ctx, b.x, b.y, b.w, b.h, 4, true);
+  }
+
+  function loop(now){
+    if (!state.running || state.paused || state.over) return;
+    const dt = Math.min(0.033, (now - state.last)/1000);
+    state.last = now;
+    update(dt); draw();
+    requestAnimationFrame(loop);
+  }
+
+  draw(); // first paint
+})();
+</script>
+</body>
+</html>
