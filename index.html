@@ -1,119 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<title>Dodger — Leaderboard + Power-Ups</title>
-<style>
-  :root { --bg:#0c0f14; --fg:#e9efff; --accent:#58a6ff; --danger:#ff6b6b; --muted:#8a94a6; --good:#4ade80; }
-  * { box-sizing:border-box; }
-  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
-    font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent; }
-  body { overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
-  canvas { display:block; width:100%; height:100%; }
-
-  header { position:absolute; top:0; left:0; right:0; z-index:8; display:flex; gap:8px; align-items:center; justify-content:space-between; padding:8px 10px; pointer-events:none; }
-  .hud, .btn { pointer-events:auto; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:6px 10px; }
-  .hud { display:flex; gap:8px; align-items:center; }
-  .btn { font-weight:700; }
-  .btn:active { transform: translateY(1px); }
-  #userChip { pointer-events:auto; background:rgba(88,166,255,0.18); border-color:rgba(88,166,255,0.4); border-radius:12px; padding:6px 10px; }
-
-  .controls { position:absolute; left:0; right:0; bottom:0; z-index:6; display:flex; justify-content:space-between; gap:12px; padding:14px; pointer-events:none; }
-  .pad { flex:1; min-height:92px; border-radius:16px; pointer-events:auto; background:linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)); border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; }
-  .pad span { font-size:28px; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.35)); }
-  .pad.fire { flex:0.9; }
-  .ammo { color:var(--good); font-variant-numeric:tabular-nums; }
-
-  .overlay { position:absolute; inset:0; z-index:7; display:flex; align-items:center; justify-content:center;
-    background: radial-gradient(1200px 800px at 50% 40%, rgba(88,166,255,0.12), rgba(12,15,20,0.92) 60%); text-align:center; padding:24px; }
-  .card { max-width:560px; width:92%; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14); border-radius:18px; padding:18px; backdrop-filter:blur(10px); }
-  .title { font-size:26px; font-weight:800; margin:4px 0 10px; }
-  .subtitle { color:var(--muted); margin-bottom:14px; }
-  .go { margin-top:12px; width:100%; padding:12px 14px; font-weight:800; font-size:18px; border-radius:14px; border:none; color:#0b1220; background:var(--accent); }
-  .muted { color:var(--muted); font-size:13px; margin-top:8px; }
-
-  .modal { position:absolute; inset:0; z-index:12; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.55); padding:18px; }
-  .panel { width:min(520px,92%); background:#121826; border:1px solid rgba(255,255,255,0.12); border-radius:16px; padding:16px; }
-  .panel h2 { margin:4px 0 12px; font-size:20px; }
-  .grid { display:grid; gap:10px; }
-  .grid input { width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:#0f141f; color:var(--fg); }
-  .actions { display:flex; gap:10px; margin-top:8px; }
-  .btn2 { flex:1; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.06); color:var(--fg); font-weight:700; }
-  .btn2.primary { background:var(--accent); color:#0b1220; border-color:transparent; }
-  .x { float:right; background:transparent; border:none; color:var(--muted); font-size:22px; }
-</style>
-</head>
-<body>
-<canvas id="game" aria-label="Dodger game area"></canvas>
-
-<header>
-  <div style="display:flex; gap:8px; align-items:center;">
-    <div class="hud"><strong>Score:</strong><span id="score">0</span></div>
-    <div class="hud"><strong>Best:</strong><span id="best">0</span></div>
-    <div class="hud"><strong>Ammo:</strong><span id="ammo" class="ammo">0</span></div>
-    <div id="userChip">Connecting…</div>
-  </div>
-  <div style="display:flex; gap:8px;">
-    <button class="btn" id="lbBtn">Leaderboard</button>
-    <button class="btn" id="nameBtn">Set name</button>
-    <button class="btn" id="pauseBtn" aria-label="Pause or resume">Pause</button>
-  </div>
-</header>
-
-<!-- Controls -->
-<div class="controls">
-  <div class="pad" id="leftPad"><span>⟵</span></div>
-  <div class="pad fire" id="firePad"><span>🔫 FIRE</span></div>
-  <div class="pad" id="rightPad"><span>⟶</span></div>
-</div>
-
-<!-- Start overlay -->
-<div class="overlay" id="overlay">
-  <div class="card">
-    <div class="title">DODGER</div>
-    <div class="subtitle">Avoid the falling blocks. Power-ups: 🔫 Blaster (tap FIRE), ✂ Shrink (tiny hitbox).</div>
-    <button class="go" id="startBtn">Start</button>
-    <div class="muted">Tip: Add to Home Screen on iPhone for full-screen play.</div>
-  </div>
-</div>
-
-<!-- Name modal -->
-<div class="modal" id="nameModal">
-  <div class="panel">
-    <button class="x" id="nameClose">×</button>
-    <h2>Set display name</h2>
-    <div class="grid">
-      <input id="displayName" type="text" maxlength="24" placeholder="e.g., JohnH">
-    </div>
-    <div class="actions">
-      <button class="btn2" id="cancelName">Cancel</button>
-      <button class="btn2 primary" id="saveName">Save</button>
-    </div>
-    <div class="muted">Used on the global leaderboard.</div>
-  </div>
-</div>
-
-<!-- Leaderboard modal -->
-<div class="modal" id="lbModal">
-  <div class="panel">
-    <button class="x" id="lbClose">×</button>
-    <h2>Global Leaderboard (Top 20)</h2>
-    <table id="lbTable" style="width:100%; border-collapse:collapse;">
-      <thead><tr><th style="text-align:left;">#</th><th style="text-align:left;">Name</th><th>Score</th><th>When</th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <div class="muted">Finish a run to submit your score.</div>
-  </div>
-</div>
-
-<!-- ===== Firebase (Auth + Firestore) ===== -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-  import { getAuth, signInAnonymously, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-  import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+  import {
+    getAuth, signInAnonymously, onAuthStateChanged, updateProfile,
+    createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    EmailAuthProvider, linkWithCredential, signOut, setPersistence, browserLocalPersistence
+  } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+  import {
+    getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyD37Lc_tHwEkmXSHwDr6QUTNeWXGOKAftg",
@@ -129,23 +23,83 @@
   const auth = getAuth(app);
   const db   = getFirestore(app);
 
-  // Sign in anonymously so security rules with "request.auth != null" pass
-  signInAnonymously(auth).catch(err => {
-    const chip = document.getElementById('userChip');
-    if (chip) chip.textContent = `Auth error`;
-    console.warn(err);
+  // Persist across reloads (including anonymous)
+  await setPersistence(auth, browserLocalPersistence);
+
+  // Sign in as guest immediately (fast start). This user is later "upgraded" if they register.
+  signInAnonymously(auth).catch(console.warn);
+
+  const chip = document.getElementById('userChip');
+  const loginBtn  = document.getElementById('loginBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  // Modal elems
+  const authModal  = document.getElementById('authModal');
+  const authClose  = document.getElementById('authClose');
+  const authTitle  = document.getElementById('authTitle');
+  const authEmail  = document.getElementById('authEmail');
+  const authPass   = document.getElementById('authPass');
+  const authToggle = document.getElementById('authToggle');
+  const authSubmit = document.getElementById('authSubmit');
+  const authMsg    = document.getElementById('authMsg');
+
+  let mode = 'login'; // or 'signup'
+
+  function openAuth(){ authMsg.textContent = ""; authModal.style.display = "flex"; }
+  function closeAuth(){ authModal.style.display = "none"; }
+  loginBtn.addEventListener('pointerdown', e => { e.preventDefault(); mode='login'; authTitle.textContent='Log in'; authSubmit.textContent='Log in'; authToggle.textContent='Need an account?'; openAuth(); });
+  logoutBtn.addEventListener('pointerdown', async e => { e.preventDefault(); await signOut(auth); });
+  authClose.addEventListener('pointerdown', e => { e.preventDefault(); closeAuth(); });
+  authToggle.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (mode === 'login') { mode='signup'; authTitle.textContent='Create account'; authSubmit.textContent='Sign up'; authToggle.textContent='Have an account?'; }
+    else { mode='login'; authTitle.textContent='Log in'; authSubmit.textContent='Log in'; authToggle.textContent='Need an account?'; }
   });
 
-  // Update the little status chip
+  async function doAuth() {
+    authMsg.textContent = "";
+    const email = authEmail.value.trim();
+    const pass  = authPass.value;
+    if (!email || !pass) { authMsg.textContent = "Enter email and password."; return; }
+
+    try {
+      if (mode === 'signup') {
+        // If currently anonymous, link it so the UID (and scores) stay the same.
+        if (auth.currentUser && auth.currentUser.isAnonymous) {
+          const cred = EmailAuthProvider.credential(email, pass);
+          await linkWithCredential(auth.currentUser, cred);
+        } else {
+          await createUserWithEmailAndPassword(auth, email, pass);
+        }
+        // Set a default display name from email (before @)
+        const name = email.split('@')[0].slice(0,24);
+        if (auth.currentUser && !auth.currentUser.displayName) {
+          await updateProfile(auth.currentUser, { displayName: name });
+        }
+      } else {
+        await signInWithEmailAndPassword(auth, email, pass);
+      }
+      closeAuth();
+    } catch (err) {
+      authMsg.textContent = err.message || String(err);
+    }
+  }
+  authSubmit.addEventListener('pointerdown', e => { e.preventDefault(); doAuth(); });
+
   onAuthStateChanged(auth, (u) => {
-    const chip = document.getElementById('userChip');
     if (!chip) return;
-    chip.textContent = u
-      ? (u.displayName ? `Signed in as ${u.displayName}` : 'Signed in')
-      : 'Not signed in';
+    if (u) {
+      chip.textContent = u.displayName ? `Signed in as ${u.displayName}` : (u.isAnonymous ? 'Guest (not saved)' : 'Signed in');
+      loginBtn.style.display  = u.isAnonymous ? 'inline-block' : 'none';
+      logoutBtn.style.display = u.isAnonymous ? 'none' : 'inline-block';
+    } else {
+      chip.textContent = 'Not signed in';
+      loginBtn.style.display  = 'inline-block';
+      logoutBtn.style.display = 'none';
+    }
   });
 
-  // Expose helpers for the game
+  // Expose helpers used by the game/leaderboard
   window.firebase = {
     auth, db,
     onUser(cb){ return onAuthStateChanged(auth, cb); },
@@ -167,7 +121,6 @@
         return { ok:true };
       }catch(e){ return { ok:false, error:e.message }; }
     },
-    // Single orderBy avoids needing a composite index
     async loadTop(n=20){
       const qy = query(collection(db,"scores"), orderBy("score","desc"), limit(n));
       const snap = await getDocs(qy);
@@ -175,296 +128,3 @@
     }
   };
 </script>
-
-<!-- ===== Game code (unchanged core, with power-ups + leaderboard hooks) ===== -->
-<script>
-(function () {
-  "use strict";
-
-  const canvas = document.getElementById("game");
-  const ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
-
-  let width=0, height=0, dpr=Math.max(1, window.devicePixelRatio||1);
-  function fit(){ width=Math.max(320,Math.floor(window.innerWidth||document.documentElement.clientWidth));
-    height=Math.max(480,Math.floor(window.innerHeight||document.documentElement.clientHeight));
-    dpr=Math.max(1, window.devicePixelRatio||1);
-    canvas.width=Math.floor(width*dpr); canvas.height=Math.floor(height*dpr);
-    canvas.style.width=width+"px"; canvas.style.height=height+"px"; ctx.setTransform(dpr,0,0,dpr,0,0); }
-  fit(); window.addEventListener("resize", fit);
-
-  // UI refs
-  const scoreEl = document.getElementById("score");
-  const bestEl  = document.getElementById("best");
-  const ammoEl  = document.getElementById("ammo");
-  const startBtn= document.getElementById("startBtn");
-  const pauseBtn= document.getElementById("pauseBtn");
-  const overlay = document.getElementById("overlay");
-  const leftPad = document.getElementById("leftPad");
-  const rightPad= document.getElementById("rightPad");
-  const firePad = document.getElementById("firePad");
-  const userChip= document.getElementById("userChip");
-  const nameBtn = document.getElementById("nameBtn");
-  const nameModal = document.getElementById("nameModal");
-  const nameClose = document.getElementById("nameClose");
-  const cancelName= document.getElementById("cancelName");
-  const saveName  = document.getElementById("saveName");
-  const nameInput = document.getElementById("displayName");
-  const lbBtn = document.getElementById("lbBtn");
-  const lbModal = document.getElementById("lbModal");
-  const lbClose = document.getElementById("lbClose");
-  const lbBody = document.querySelector("#lbTable tbody");
-
-  const prevent=(e)=>{ if (e.target.closest(".overlay") || e.target.closest(".modal")) return; e.preventDefault(); };
-  ["touchstart","touchmove","touchend","gesturestart"].forEach(ev=>document.addEventListener(ev, prevent, { passive:false }));
-
-  if (window.firebase && window.firebase.onUser) {
-    window.firebase.onUser(u => {
-      userChip.textContent = u ? (u.displayName ? `Signed in as ${u.displayName}` : `Signed in`) : "Not signed in";
-    });
-  }
-
-  // Name modal
-  nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); nameModal.style.display="flex"; });
-  [nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{ e.preventDefault(); nameModal.style.display="none"; }));
-  saveName.addEventListener("pointerdown", async e=>{
-    e.preventDefault();
-    const dn = await window.firebase?.setDisplayName?.(nameInput.value||"Player");
-    if (dn) userChip.textContent = `Signed in as ${dn}`;
-    nameModal.style.display="none";
-  });
-
-  // Leaderboard modal
-  lbBtn.addEventListener("pointerdown", async e=>{
-    e.preventDefault();
-    lbBody.innerHTML = "<tr><td colspan='4'>Loading…</td></tr>";
-    try{
-      const rows = await window.firebase.loadTop(20);
-      if (!rows.length) { lbBody.innerHTML = "<tr><td colspan='4'>No scores yet.</td></tr>"; }
-      else {
-        let i=1;
-        lbBody.innerHTML = rows.map(r=>{
-          let when = "-";
-          try { if (r.ts?.toDate) when = r.ts.toDate().toLocaleDateString(); } catch(_){}
-          return `<tr><td>${i++}</td><td>${escapeHtml(r.name||"Player")}</td><td style="text-align:right">${r.score|0}</td><td>${when}</td></tr>`;
-        }).join("");
-      }
-    }catch(err){
-      lbBody.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(err.message||String(err))}</td></tr>`;
-    }
-    lbModal.style.display="flex";
-  });
-  lbClose.addEventListener("pointerdown", e=>{ e.preventDefault(); lbModal.style.display="none"; });
-  function escapeHtml(x){ return (x||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
-
-  // Game state
-  const state = {
-    running:false, paused:false, over:false,
-    score:0, best:Number(localStorage.getItem("dodger_best")||0),
-    time:0, last:performance.now(),
-    player:{ x:0, y:0, w:48, h:48, speed:420, vx:0, scale:1 },
-    blocks:[], blockTimer:0, difficulty:1,
-    input:{ left:false, right:false, swipeVX:0 },
-    bullets:[],
-    ammo:0,
-    powerups:[], powTimer:2.5,
-    effects:{ shrinkUntil:0 }
-  };
-  bestEl.textContent = state.best; ammoEl.textContent = state.ammo;
-
-  function resetPlayer(){
-    const base = Math.max(36, Math.min(56, Math.floor(Math.min(width,height)*0.06)));
-    state.player.w = base; state.player.h = base;
-    state.player.x = (width - state.player.w)/2; state.player.y = height - state.player.h - 22; state.player.vx = 0; state.player.scale=1;
-  }
-  resetPlayer();
-
-  function bindPad(el,dir){ const down=(e)=>{ e.preventDefault(); if(dir<0) state.input.left=true; else state.input.right=true; };
-    const up=(e)=>{ if(dir<0) state.input.left=false; else state.input.right=false; };
-    el.addEventListener("pointerdown", down); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("pointerleave", up); }
-  bindPad(leftPad,-1); bindPad(rightPad,1);
-
-  let swipeActive=false, swipeStartX=0;
-  canvas.addEventListener("pointerdown", e=>{ swipeActive=true; swipeStartX=e.clientX; });
-  window.addEventListener("pointermove", e=>{ if(!swipeActive) return; const dx=e.clientX-swipeStartX; state.input.swipeVX=dx*3; });
-  window.addEventListener("pointerup", ()=>{ swipeActive=false; state.input.swipeVX=0; });
-
-  firePad.addEventListener("pointerdown", e=>{ e.preventDefault(); shoot(); });
-  window.addEventListener("keydown", e=>{
-    if(e.key==="ArrowLeft"||e.key==="a") state.input.left=true;
-    if(e.key==="ArrowRight"||e.key==="d") state.input.right=true;
-    if(e.key===" ") { e.preventDefault(); shoot(); }
-  });
-  window.addEventListener("keyup", e=>{
-    if(e.key==="ArrowLeft"||e.key==="a") state.input.left=false;
-    if(e.key==="ArrowRight"||e.key==="d") state.input.right=false;
-  });
-
-  startBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); startGame(); });
-  pauseBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); togglePause(); });
-
-  function startGame(){
-    state.blocks.length=0; state.bullets.length=0; state.powerups.length=0;
-    state.score=0; state.time=0; state.blockTimer=0; state.powTimer=2.5;
-    state.difficulty=1; state.over=false; state.paused=false; state.effects.shrinkUntil=0; state.ammo=0; ammoEl.textContent="0";
-    resetPlayer();
-    overlay.style.display="none"; state.running=true; state.last=performance.now();
-    requestAnimationFrame(loop);
-  }
-
-  async function gameOver(){
-    state.over=true; state.running=false; overlay.style.display="flex";
-    overlay.querySelector(".title").textContent = "Game Over";
-    const old = overlay.querySelector(".subtitle"); if (old) old.remove();
-    const p = document.createElement("div"); p.className="subtitle";
-    p.innerHTML = `You scored <strong>${Math.floor(state.score)}</strong>. ${(state.score>state.best)?`<span style="color:var(--danger)">New high score!</span>`:`Try again!`}`;
-    overlay.querySelector(".card").insertBefore(p, overlay.querySelector(".go"));
-    state.best=Math.max(state.best, Math.floor(state.score)); localStorage.setItem("dodger_best", String(state.best)); bestEl.textContent=state.best; startBtn.textContent="Play Again";
-    if (window.firebase?.saveScore) { try { await window.firebase.saveScore(state.score); } catch(_){} }
-  }
-
-  function togglePause(){
-    if(!state.running || state.over) return;
-    state.paused=!state.paused; pauseBtn.textContent = state.paused ? "Resume" : "Pause";
-    if(!state.paused){ state.last=performance.now(); requestAnimationFrame(loop); }
-    else { ctx.save(); ctx.fillStyle="rgba(0,0,0,0.25)"; ctx.fillRect(0,0,width,height); ctx.fillStyle="rgba(255,255,255,0.85)";
-      ctx.font="700 20px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif"; ctx.textAlign="center"; ctx.fillText("Paused", width/2, height*0.45); ctx.restore(); }
-  }
-
-  function rand(min,max){ return Math.random()*(max-min)+min; }
-  function roundRect(ctx,x,y,w,h,r,fill){ ctx.beginPath(); const rr=Math.min(r,w/2,h/2);
-    ctx.moveTo(x+rr,y); ctx.arcTo(x+w,y, x+w,y+h, rr); ctx.arcTo(x+w,y+h, x,y+h, rr);
-    ctx.arcTo(x,y+h, x,y, rr); ctx.arcTo(x,y, x+w,y, rr); ctx.closePath(); if(fill) ctx.fill(); }
-
-  function spawnBlock(){
-    const size = rand(Math.max(22,width*0.03), Math.max(38,width*0.07));
-    const x = rand(0, width - size);
-    const speed = rand(140, 190) * state.difficulty;
-    state.blocks.push({ x, y:-size, w:size, h:size, vy:speed });
-  }
-  function spawnPowerup(){
-    const type = Math.random() < 0.6 ? "blaster" : "shrink";
-    const size = Math.max(26, Math.floor(Math.min(width,height)*0.05));
-    const x = rand(0, width - size);
-    const vy = rand(90, 130);
-    state.powerups.push({ type, x, y:-size, w:size, h:size, vy });
-  }
-
-  function shoot(){
-    if (state.ammo <= 0 || state.over || !state.running) return;
-    state.ammo--; ammoEl.textContent = state.ammo;
-    const p = state.player, cx = p.x + (p.w*p.scale)/2 - 4;
-    state.bullets.push({ x: cx, y: p.y - 6, w: 8, h: 14, vy: -620 });
-  }
-
-  function update(dt){
-    state.time += dt; state.score += dt*10; state.difficulty = 1 + Math.min(2.2, state.time/24);
-    scoreEl.textContent = Math.floor(state.score);
-
-    state.player.scale = (state.effects.shrinkUntil > state.time) ? 0.6 : 1;
-
-    const p = state.player, base = p.speed * state.difficulty * 0.95;
-    let targetVX = 0;
-    if(state.input.left) targetVX -= base;
-    if(state.input.right) targetVX += base;
-    targetVX += state.input.swipeVX;
-    p.vx += (targetVX - p.vx) * Math.min(1, dt*10);
-    p.x += p.vx * dt;
-    const pw = p.w * p.scale, ph = p.h * p.scale;
-    if (p.x < 0) { p.x = 0; p.vx = Math.max(0, p.vx); }
-    if (p.x + pw > width) { p.x = width - pw; p.vx = Math.min(0, p.vx); }
-
-    state.blockTimer -= dt;
-    const interval = Math.max(0.22, 0.9 - state.time*0.03);
-    if (state.blockTimer <= 0) {
-      spawnBlock();
-      if (state.time > 12 && Math.random() < 0.35) spawnBlock();
-      state.blockTimer = interval;
-    }
-
-    state.powTimer -= dt;
-    if (state.powTimer <= 0) {
-      spawnPowerup();
-      state.powTimer = rand(9, 14);
-    }
-
-    for (let i=state.blocks.length-1; i>=0; i--) {
-      const b = state.blocks[i]; b.y += b.vy * dt;
-      if (b.y - b.h > height + 8) { state.blocks.splice(i,1); continue; }
-    }
-
-    for (let i=state.powerups.length-1; i>=0; i--) {
-      const u = state.powerups[i]; u.y += u.vy * dt;
-      if (u.y - u.h > height + 8) { state.powerups.splice(i,1); continue; }
-      if (u.x < p.x + pw && u.x + u.w > p.x && u.y < p.y + ph && u.y + u.h > p.y) {
-        if (u.type === "blaster") { state.ammo += 6; ammoEl.textContent = state.ammo; }
-        else if (u.type === "shrink") { state.effects.shrinkUntil = state.time + 6; }
-        state.powerups.splice(i,1);
-      }
-    }
-
-    for (let i=state.bullets.length-1; i>=0; i--) {
-      const bullet = state.bullets[i]; bullet.y += bullet.vy * dt;
-      if (bullet.y + bullet.h < -10) { state.bullets.splice(i,1); continue; }
-      for (let j=state.blocks.length-1; j>=0; j--) {
-        const b = state.blocks[j];
-        if (bullet.x < b.x + b.w && bullet.x + bullet.w > b.x && bullet.y < b.y + b.h && bullet.y + bullet.h > b.y) {
-          state.blocks.splice(j,1);
-          state.bullets.splice(i,1);
-          state.score += 5;
-          break;
-        }
-      }
-    }
-
-    for (let i=state.blocks.length-1; i>=0; i--) {
-      const b = state.blocks[i];
-      if (b.x < p.x + pw && b.x + b.w > p.x && b.y < p.y + ph && b.y + b.h > p.y) {
-        gameOver(); return;
-      }
-    }
-  }
-
-  function draw(){
-    const g = ctx.createLinearGradient(0,0,0,height); g.addColorStop(0,"#0b1220"); g.addColorStop(1,"#0c0f14");
-    ctx.fillStyle = g; ctx.fillRect(0,0,width,height);
-    ctx.globalAlpha = 0.08; ctx.strokeStyle = "#8ab4ff"; ctx.lineWidth = 1;
-    const grid = Math.max(20, Math.floor(Math.min(width, height)*0.04));
-    ctx.beginPath(); for(let x=(width%grid); x<width; x+=grid){ ctx.moveTo(x,0); ctx.lineTo(x,height); }
-    for(let y=(height%grid); y<height; y+=grid){ ctx.moveTo(0,y); ctx.lineTo(width,y); } ctx.stroke(); ctx.globalAlpha = 1;
-
-    const p = state.player, pw = p.w*p.scale, ph = p.h*p.scale;
-    ctx.fillStyle = "#58a6ff"; roundRect(ctx, p.x, p.y, pw, ph, Math.min(10, pw*0.25), true);
-    ctx.globalAlpha = 0.15; ctx.fillStyle = "#58a6ff"; roundRect(ctx, p.x+pw*0.2, p.y+ph*0.65, pw*0.6, ph*0.9, 8, true); ctx.globalAlpha = 1;
-
-    for (const b of state.blocks) {
-      ctx.fillStyle = "#ff6b6b";
-      roundRect(ctx, b.x, b.y, b.w, b.h, Math.min(10, b.w*0.25), true);
-      ctx.globalAlpha = 0.15; ctx.fillStyle = "#ffffff";
-      roundRect(ctx, b.x+b.w*0.1, b.y+b.h*0.08, b.w*0.8, b.h*0.18, 8, true); ctx.globalAlpha = 1;
-    }
-
-    for (const u of state.powerups) {
-      ctx.fillStyle = (u.type==="blaster") ? "#ffd166" : "#34d399";
-      roundRect(ctx, u.x, u.y, u.w, u.h, 10, true);
-      ctx.fillStyle = "rgba(0,0,0,0.25)";
-      ctx.font = "700 14px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial";
-      ctx.textAlign = "center"; ctx.fillText(u.type==="blaster"?"🔫":"✂", u.x+u.w/2, u.y+u.h/2+6);
-    }
-
-    ctx.fillStyle = "#f8fafc";
-    for (const b of state.bullets) roundRect(ctx, b.x, b.y, b.w, b.h, 4, true);
-  }
-
-  function loop(now){
-    if (!state.running || state.paused || state.over) return;
-    const dt = Math.min(0.033, (now - state.last)/1000);
-    state.last = now;
-    update(dt); draw();
-    requestAnimationFrame(loop);
-  }
-
-  draw(); // first paint
-})();
-</script>
-</body>
-</html>
