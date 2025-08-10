@@ -72,15 +72,15 @@
 <body>
 <canvas id="game" aria-label="Dodger game area"></canvas>
 
-<header>
-  <div style="display:flex; gap:8px; align-items:center;">
+<<header>
+  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
     <div class="hud"><strong>Score:</strong><span id="score">0</span></div>
     <div class="hud"><strong>Best:</strong><span id="best">0</span></div>
     <div class="hud"><strong>Ammo:</strong><span id="ammo" class="ammo">0</span></div>
-    <div id="userChip">Guest (not saved)</div>
+    <button class="btn" id="lbBtn" style="pointer-events:auto;">Leaderboard</button>
+    <div id="userChip">Connecting…</div>
   </div>
   <div style="display:flex; gap:8px;">
-    <button class="btn" id="lbBtn">Leaderboard</button>
     <button class="btn" id="nameBtn">Set name</button>
     <button class="btn" id="pauseBtn" aria-label="Pause or resume">Pause</button>
   </div>
