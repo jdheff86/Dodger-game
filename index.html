@@ -272,7 +272,7 @@
   bestEl.textContent = state.best; ammoEl.textContent = state.ammo;
 
   function resetPlayer(){
-    const base = Math.max(36, Math.min(56, Math.floor(Math.min(width,height)*0.06))));
+    const base = Math.max(36, Math.min(56, Math.floor(Math.min(width,height)*0.06)));
     state.player.w = base; state.player.h = base;
     state.player.x = (width - state.player.w)/2; state.player.y = height - state.player.h - 22; state.player.vx = 0; state.player.scale=1;
   }
