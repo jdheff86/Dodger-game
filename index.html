@@ -5,29 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<title>Dodger — Leaderboard + Accounts + Power-Ups</title>
+<title>Dodger — Leaderboard + Power-Ups</title>
 <style>
-  :root { --bg:#0c0f14; --fg:#e9efff; --accent:#58a6ff; --danger:#ff6b6b; --muted:#8a94a6; --good:#4ade80; --gold:#ffd166; }
+  :root { --bg:#0c0f14; --fg:#e9efff; --accent:#58a6ff; --danger:#ff6b6b; --muted:#8a94a6; --good:#4ade80; }
   * { box-sizing:border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
     font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent; }
   body { overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   canvas { display:block; width:100%; height:100%; }
 
-  .safe { padding-top: env(safe-area-inset-top); }
-
   header {
-    position:absolute; top:0; left:0; right:0; z-index:8; display:flex; flex-direction:column; gap:8px;
+    position:absolute; top:0; left:0; right:0; z-index:8; display:flex; gap:8px; align-items:center; justify-content:space-between;
     padding:8px 10px; pointer-events:none;
   }
-  .row { display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
-  .left { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .right { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .hud, .btn { pointer-events:auto; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:6px 10px; }
   .hud { display:flex; gap:8px; align-items:center; }
   .btn { font-weight:700; }
   .btn:active { transform: translateY(1px); }
-  #userChip { pointer-events:auto; background:rgba(88,166,255,0.18); border-color:rgba(88,166,255,0.4); border-radius:12px; padding:6px 10px; max-width:70vw; }
+  #userChip { pointer-events:auto; background:rgba(88,166,255,0.18); border-color:rgba(88,166,255,0.4); border-radius:12px; padding:6px 10px; white-space:nowrap; }
 
   .controls {
     position:absolute; left:0; right:0; bottom:0; z-index:6; display:flex; justify-content:space-between; gap:12px; padding:14px; pointer-events:none;
@@ -40,11 +35,6 @@
   .pad span { font-size:28px; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.35)); }
   .pad.fire { flex:0.9; }
   .ammo { color:var(--good); font-variant-numeric:tabular-nums; }
-
-  /* Ability bar (shrink activator) */
-  #abilities { position:absolute; left:0; right:0; bottom:110px; display:flex; justify-content:center; z-index:6; pointer-events:none; }
-  #shrinkBtn { pointer-events:auto; display:flex; align-items:center; gap:8px; }
-  #shrinkCount { min-width:1.6em; text-align:center; }
 
   .overlay {
     position:absolute; inset:0; z-index:7; display:flex; align-items:center; justify-content:center;
@@ -64,38 +54,26 @@
   .actions { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
   .btn2 { flex:1; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.06); color:var(--fg); font-weight:700; }
   .btn2.primary { background:var(--accent); color:#0b1220; border-color:transparent; }
-  .x { position:absolute; top:10px; right:12px; background:transparent; border:none; color:var(--muted); font-size:22px; }
+  .x { position:absolute; top:8px; right:8px; background:transparent; border:none; color:var(--muted); font-size:22px; cursor:pointer; }
 </style>
 </head>
-<body class="safe">
+<body>
 <canvas id="game" aria-label="Dodger game area"></canvas>
 
-<header class="safe">
-  <div class="row">
-    <div class="left">
-      <div class="hud"><strong>Score:</strong><span id="score">0</span></div>
-      <div class="hud"><strong>Best:</strong><span id="best">0</span></div>
-      <div class="hud"><strong>Ammo:</strong><span id="ammo" class="ammo">0</span></div>
-      <div class="hud"><strong>Lives:</strong><span id="lives" class="ammo">0</span></div>
-    </div>
-    <div class="right">
-      <button class="btn" id="lbBtn">Leaderboard</button>
-    </div>
+<header>
+  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <div class="hud"><strong>Score:</strong><span id="score">0</span></div>
+    <div class="hud"><strong>Best:</strong><span id="best">0</span></div>
+    <div class="hud"><strong>Ammo:</strong><span id="ammo" class="ammo">0</span></div>
+    <div id="userChip">Connecting…</div>
   </div>
-  <div class="row">
-    <div class="left"><div id="userChip">Connecting…</div></div>
-    <div class="right">
-      <button class="btn" id="nameBtn">Set name</button>
-      <button class="btn" id="authBtn">Account</button>
-      <button class="btn" id="pauseBtn" aria-label="Pause or resume">Pause</button>
-    </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <button class="btn" id="lbBtn">Leaderboard</button>
+    <button class="btn" id="nameBtn">Set name</button>
+    <button class="btn" id="accountBtn">Account</button>
+    <button class="btn" id="pauseBtn" aria-label="Pause or resume">Pause</button>
   </div>
 </header>
-
-<!-- Ability bar -->
-<div id="abilities">
-  <button id="shrinkBtn" class="btn">✂ Shrink <span id="shrinkCount" class="ammo">0</span></button>
-</div>
 
 <!-- Controls -->
 <div class="controls">
@@ -108,7 +86,7 @@
 <div class="overlay" id="overlay">
   <div class="card">
     <div class="title">DODGER</div>
-    <div class="subtitle">Avoid blocks. Power-ups: 🔫 Blaster, ✂ Shrink, 🛡 Shield, 🐌 Slow, 🧲 Magnet, ❤️ Life.</div>
+    <div class="subtitle">Avoid the falling blocks. Power-ups: 🔫 Blaster (tap FIRE), ✂ Shrink (tiny hitbox).</div>
     <button class="go" id="startBtn">Start</button>
     <div class="muted">Tip: Add to Home Screen on iPhone for full-screen play.</div>
   </div>
@@ -119,7 +97,9 @@
   <div class="panel">
     <button class="x" id="nameClose">×</button>
     <h2>Set display name</h2>
-    <div class="grid"><input id="displayName" type="text" maxlength="24" placeholder="e.g., JohnH"></div>
+    <div class="grid">
+      <input id="displayName" type="text" maxlength="24" placeholder="e.g., JohnH">
+    </div>
     <div class="actions">
       <button class="btn2" id="cancelName">Cancel</button>
       <button class="btn2 primary" id="saveName">Save</button>
@@ -148,12 +128,15 @@
     <h2>Account</h2>
     <div id="authMsg" class="muted" style="margin-bottom:8px;"></div>
     <div class="grid">
-      <input id="authEmail" type="email" placeholder="Email">
-      <input id="authPass" type="password" placeholder="Password (min 6)">
+      <input id="authEmail" type="email" placeholder="Email"
+             autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" />
+      <input id="authPass" type="password" placeholder="Password"
+             autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" />
     </div>
     <div class="actions">
       <button class="btn2" id="authSignin">Sign in</button>
       <button class="btn2 primary" id="authSignup">Create account</button>
+      <button class="btn2" id="authGuest">Continue as guest</button>
       <button class="btn2" id="authSignout">Sign out</button>
     </div>
   </div>
@@ -163,7 +146,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
   import {
-    getAuth, signInAnonymously, onAuthStateChanged,
+    getAuth, onAuthStateChanged, signInAnonymously,
     signInWithEmailAndPassword, createUserWithEmailAndPassword,
     updateProfile, signOut
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
@@ -171,6 +154,7 @@
     getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
+  // --- YOUR Firebase config ---
   const firebaseConfig = {
     apiKey: "AIzaSyD37Lc_tHwEkmXSHwDr6QUTNeWXGOKAftg",
     authDomain: "dodger-4aad1.firebaseapp.com",
@@ -185,10 +169,15 @@
   const auth = getAuth(app);
   const db   = getFirestore(app);
 
-  // guest so game works before sign in
-  signInAnonymously(auth).catch(()=>{});
+  // helper: optionally auto-guest
+  async function maybeSignInGuest() {
+    if (sessionStorage.getItem("suppressAnon") === "1") return; // user signed out recently
+    if (!auth.currentUser) { try { await signInAnonymously(auth); } catch(e){} }
+  }
+  // initial attempt (can be suppressed)
+  maybeSignInGuest();
 
-  // expose helpers
+  // Expose helpers for game code
   window.firebase = {
     auth, db,
     onUser(cb){ return onAuthStateChanged(auth, cb); },
@@ -203,7 +192,7 @@
       try{
         await addDoc(collection(db,"scores"),{
           uid:auth.currentUser.uid,
-          name:auth.currentUser.displayName || auth.currentUser.email || "Player",
+          name:auth.currentUser.displayName||"Player",
           score: Math.floor(Number(score)||0),
           ts: serverTimestamp()
         });
@@ -217,114 +206,83 @@
     }
   };
 
-  // auth UI wiring
+  // ===== UI wiring for Auth & Leaderboard =====
   const userChip = document.getElementById("userChip");
-  const authBtn = document.getElementById("authBtn");
+  const accountBtn = document.getElementById("accountBtn");
   const authModal = document.getElementById("authModal");
   const authClose = document.getElementById("authClose");
+  const authMsg   = document.getElementById("authMsg");
   const authEmail = document.getElementById("authEmail");
-  const authPass = document.getElementById("authPass");
-  const authMsg  = document.getElementById("authMsg");
-  const btnIn    = document.getElementById("authSignin");
-  const btnUp    = document.getElementById("authSignup");
-  const btnOut   = document.getElementById("authSignout");
+  const authPass  = document.getElementById("authPass");
+  const authSignin= document.getElementById("authSignin");
+  const authSignup= document.getElementById("authSignup");
+  const authSignout=document.getElementById("authSignout");
+  const authGuest = document.getElementById("authGuest");
+
+  // open/close account modal
+  accountBtn.onclick = () => { authModal.style.display = "flex"; authMsg.textContent=""; };
+  [authClose].forEach(b=>b.onclick = ()=>{ authModal.style.display="none"; });
+
+  // click outside panel closes any modal
+  document.addEventListener("pointerdown", (e)=>{
+    const m = e.target.classList.contains("modal") ? e.target : e.target.closest(".modal");
+    if (m && e.target === m) m.style.display="none";
+  });
 
   onAuthStateChanged(auth, (u)=>{
-    if (!u){ userChip.textContent = "Guest (not saved)"; return; }
-    userChip.textContent = u.displayName ? `Signed in: ${u.displayName}` :
-                           u.email ? `Signed in: ${u.email}` : "Signed in";
+    if (!u) {
+      userChip.textContent = "Guest (not saved)";
+      return;
+    }
+    const dn = u.displayName || "Player";
+    userChip.textContent = u.isAnonymous ? "Guest (not saved)" : `Signed in: ${dn}`;
   });
 
-  function openModal(m){ m.style.display="flex"; }
-  function closeModal(m){ m.style.display="none"; }
-
-  document.querySelectorAll(".modal").forEach(m=>{
-    m.addEventListener("pointerdown", (e)=>{ if(e.target === m) closeModal(m); }, {passive:true});
-  });
-  document.addEventListener("keydown", (e)=>{
-    if (e.key === "Escape") document.querySelectorAll(".modal").forEach(m=>{ if(m.style.display==="flex") closeModal(m); });
-  });
-
-  authBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); openModal(authModal); });
-  authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); closeModal(authModal); });
-
-  btnIn.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); authMsg.textContent = "";
-    try{ await signInWithEmailAndPassword(auth, authEmail.value, authPass.value); closeModal(authModal); }
-    catch(err){ authMsg.textContent = err.message; }
-  });
-  btnUp.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); authMsg.textContent = "";
+  authSignin.onclick = async () => {
+    const email = authEmail.value.trim();
+    const pass  = authPass.value;
+    authMsg.textContent = "";
     try{
-      const cred = await createUserWithEmailAndPassword(auth, authEmail.value, authPass.value);
-      const def = (authEmail.value||"").split("@")[0].slice(0,24) || "Player";
-      await updateProfile(cred.user, { displayName: def });
-      closeModal(authModal);
-    }catch(err){ authMsg.textContent = err.message; }
-  });
-  btnOut.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); await signOut(auth); closeModal(authModal);
-  });
-</script>
+      await signInWithEmailAndPassword(auth, email, pass);
+      sessionStorage.removeItem("suppressAnon");
+      authModal.style.display="none";
+    }catch(e){ authMsg.textContent = `Error (${e.code}).`; }
+  };
 
-<!-- ===== Game code (new power-ups) ===== -->
-<script>
-(function () {
-  "use strict";
+  authSignup.onclick = async () => {
+    const email = authEmail.value.trim();
+    const pass  = authPass.value;
+    authMsg.textContent = "";
+    try{
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      if (!cred.user.displayName) await updateProfile(cred.user,{displayName:"Player"});
+      sessionStorage.removeItem("suppressAnon");
+      authModal.style.display="none";
+    }catch(e){ authMsg.textContent = `Error (${e.code}).`; }
+  };
 
-  const canvas = document.getElementById("game");
-  const ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
+  authSignout.onclick = async () => {
+    authMsg.textContent = "";
+    try{
+      await signOut(auth);
+      sessionStorage.setItem("suppressAnon","1"); // don't auto-guest right away
+      userChip.textContent = "Guest (not saved)";
+    }catch(e){ authMsg.textContent = `Error (${e.code}).`; }
+  };
 
-  let width=0, height=0, dpr=Math.max(1, window.devicePixelRatio||1);
-  function fit(){
-    width=Math.max(320,Math.floor(window.innerWidth||document.documentElement.clientWidth));
-    height=Math.max(480,Math.floor(window.innerHeight||document.documentElement.clientHeight));
-    dpr=Math.max(1, window.devicePixelRatio||1);
-    canvas.width=Math.floor(width*dpr); canvas.height=Math.floor(height*dpr);
-    canvas.style.width=width+"px"; canvas.style.height=height+"px";
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
-  fit(); window.addEventListener("resize", fit);
+  authGuest.onclick = async () => {
+    try{
+      await signInAnonymously(auth);
+      sessionStorage.removeItem("suppressAnon");
+      authModal.style.display="none";
+    }catch(e){ authMsg.textContent = `Error (${e.code}).`; }
+  };
 
-  // UI refs
-  const scoreEl = document.getElementById("score");
-  const bestEl  = document.getElementById("best");
-  const ammoEl  = document.getElementById("ammo");
-  const livesEl = document.getElementById("lives");
-  const startBtn= document.getElementById("startBtn");
-  const pauseBtn= document.getElementById("pauseBtn");
-  const overlay = document.getElementById("overlay");
-  const leftPad = document.getElementById("leftPad");
-  const rightPad= document.getElementById("rightPad");
-  const firePad = document.getElementById("firePad");
-  const nameBtn = document.getElementById("nameBtn");
-  const nameModal = document.getElementById("nameModal");
-  const nameClose = document.getElementById("nameClose");
-  const cancelName= document.getElementById("cancelName");
-  const saveName  = document.getElementById("saveName");
-  const nameInput = document.getElementById("displayName");
-  const lbBtn = document.getElementById("lbBtn");
+  // ===== Leaderboard modal wiring =====
+  const lbBtn   = document.getElementById("lbBtn");
   const lbModal = document.getElementById("lbModal");
   const lbClose = document.getElementById("lbClose");
-  const lbBody = document.querySelector("#lbTable tbody");
-  const shrinkBtn = document.getElementById("shrinkBtn");
-  const shrinkCountEl = document.getElementById("shrinkCount");
-
-  // Prevent scroll/zoom globally, but let overlays work
-  const prevent=(e)=>{ if (e.target.closest(".overlay") || e.target.closest(".modal")) return; e.preventDefault(); };
-  ["touchstart","touchmove","touchend","gesturestart"].forEach(ev=>document.addEventListener(ev, prevent, { passive:false }));
-
-  // Name modal
-  nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); nameModal.style.display="flex"; });
-  [nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{ e.preventDefault(); nameModal.style.display="none"; }));
-  saveName.addEventListener("pointerdown", async e=>{
-    e.preventDefault();
-    const dn = await window.firebase?.setDisplayName?.(nameInput.value||"Player");
-    if (dn) { const uc=document.getElementById("userChip"); uc.textContent = `Signed in: ${dn}`; }
-    nameModal.style.display="none";
-  });
-
-  // Leaderboard modal
+  const lbBody  = document.querySelector("#lbTable tbody");
   lbBtn.addEventListener("pointerdown", async e=>{
     e.preventDefault();
     lbBody.innerHTML = "<tr><td colspan='4'>Loading…</td></tr>";
@@ -341,30 +299,56 @@
     lbModal.style.display="flex";
   });
   lbClose.addEventListener("pointerdown", e=>{ e.preventDefault(); lbModal.style.display="none"; });
-
   function escapeHtml(x){ return (x||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
+</script>
+
+<!-- ===== Game code (power-ups + leaderboard hooks) ===== -->
+<script>
+(function () {
+  "use strict";
+
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
+
+  let width=0, height=0, dpr=Math.max(1, window.devicePixelRatio||1);
+  function fit(){ width=Math.max(320,Math.floor(window.innerWidth||document.documentElement.clientWidth));
+    height=Math.max(480,Math.floor(window.innerHeight||document.documentElement.clientHeight));
+    dpr=Math.max(1, window.devicePixelRatio||1);
+    canvas.width=Math.floor(width*dpr); canvas.height=Math.floor(height*dpr);
+    canvas.style.width=width+"px"; canvas.style.height=height+"px"; ctx.setTransform(dpr,0,0,dpr,0,0); }
+  fit(); window.addEventListener("resize", fit);
+
+  // UI refs
+  const scoreEl = document.getElementById("score");
+  const bestEl  = document.getElementById("best");
+  const ammoEl  = document.getElementById("ammo");
+  const startBtn= document.getElementById("startBtn");
+  const pauseBtn= document.getElementById("pauseBtn");
+  const overlay = document.getElementById("overlay");
+  const leftPad = document.getElementById("leftPad");
+  const rightPad= document.getElementById("rightPad");
+  const firePad = document.getElementById("firePad");
+
+  // Prevent scroll/zoom globally, but let overlays work
+  const prevent=(e)=>{ if (e.target.closest(".overlay") || e.target.closest(".modal")) return; e.preventDefault(); };
+  ["touchstart","touchmove","touchend","gesturestart"].forEach(ev=>document.addEventListener(ev, prevent, { passive:false }));
+
+  // Name modal hookups are in Firebase script
 
   // Game state
   const state = {
     running:false, paused:false, over:false,
     score:0, best:Number(localStorage.getItem("dodger_best")||0),
     time:0, last:performance.now(),
-    player:{ x:0, y:0, w:48, h:48, speed:420, vx:0, scale:1, invUntil:0 },
+    player:{ x:0, y:0, w:48, h:48, speed:420, vx:0, scale:1 },
     blocks:[], blockTimer:0, difficulty:1,
     input:{ left:false, right:false, swipeVX:0 },
     bullets:[],
     ammo:0,
-    lives:0,
-    shrinkCharges:0,
     powerups:[], powTimer:2.5,
-    effects:{
-      shrinkUntil:0,     // reduces hitbox
-      shieldUntil:0,     // ignore one/multiple hits during duration
-      slowUntil:0,       // slows world
-      magnetUntil:0      // attracts power-ups
-    }
+    effects:{ shrinkUntil:0 }
   };
-  bestEl.textContent = state.best; ammoEl.textContent = state.ammo; livesEl.textContent = state.lives; shrinkCountEl.textContent = state.shrinkCharges;
+  bestEl.textContent = state.best; ammoEl.textContent = state.ammo;
 
   function resetPlayer(){
     const base = Math.max(36, Math.min(56, Math.floor(Math.min(width,height)*0.06)));
@@ -384,15 +368,12 @@
   window.addEventListener("pointermove", e=>{ if(!swipeActive) return; const dx=e.clientX-swipeStartX; state.input.swipeVX=dx*3; });
   window.addEventListener("pointerup", ()=>{ swipeActive=false; state.input.swipeVX=0; });
 
-  // FIRE & SHRINK
+  // Fire button + spacebar
   firePad.addEventListener("pointerdown", e=>{ e.preventDefault(); shoot(); });
-  shrinkBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); useShrink(); });
-
   window.addEventListener("keydown", e=>{
     if(e.key==="ArrowLeft"||e.key==="a") state.input.left=true;
     if(e.key==="ArrowRight"||e.key==="d") state.input.right=true;
     if(e.key===" ") { e.preventDefault(); shoot(); }
-    if(e.key==="Shift") { e.preventDefault(); useShrink(); }
   });
   window.addEventListener("keyup", e=>{
     if(e.key==="ArrowLeft"||e.key==="a") state.input.left=false;
@@ -405,11 +386,7 @@
   function startGame(){
     state.blocks.length=0; state.bullets.length=0; state.powerups.length=0;
     state.score=0; state.time=0; state.blockTimer=0; state.powTimer=2.5;
-    state.difficulty=1; state.over=false; state.paused=false;
-    state.effects = { shrinkUntil:0, shieldUntil:0, slowUntil:0, magnetUntil:0 };
-    state.player.invUntil = 0;
-    state.ammo=0; state.shrinkCharges=0; state.lives=0;
-    ammoEl.textContent="0"; livesEl.textContent="0"; shrinkCountEl.textContent="0";
+    state.difficulty=1; state.over=false; state.paused=false; state.effects.shrinkUntil=0; state.ammo=0; ammoEl.textContent="0";
     resetPlayer();
     overlay.style.display="none"; state.running=true; state.last=performance.now();
     requestAnimationFrame(loop);
@@ -422,7 +399,7 @@
     const p = document.createElement("div"); p.className="subtitle";
     p.innerHTML = `You scored <strong>${Math.floor(state.score)}</strong>. ${(state.score>state.best)?`<span style="color:var(--danger)">New high score!</span>`:`Try again!`}`;
     overlay.querySelector(".card").insertBefore(p, overlay.querySelector(".go"));
-    state.best=Math.max(state.best, Math.floor(state.score)); localStorage.setItem("dodger_best", String(state.best)); bestEl.textContent=state.best; startBtn.textContent="Play Again";
+    state.best=Math.max(state.best, Math.floor(state.score)); localStorage.setItem("dodger_best", String(state.best)); document.getElementById("best").textContent=state.best; startBtn.textContent="Play Again";
     if (window.firebase?.saveScore) { try { await window.firebase.saveScore(state.score); } catch(_){} }
   }
 
@@ -434,13 +411,11 @@
       ctx.font="700 20px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif"; ctx.textAlign="center"; ctx.fillText("Paused", width/2, height*0.45); ctx.restore(); }
   }
 
-  // Helpers
   function rand(min,max){ return Math.random()*(max-min)+min; }
   function roundRect(ctx,x,y,w,h,r,fill){ ctx.beginPath(); const rr=Math.min(r,w/2,h/2);
     ctx.moveTo(x+rr,y); ctx.arcTo(x+w,y, x+w,y+h, rr); ctx.arcTo(x+w,y+h, x,y+h, rr);
     ctx.arcTo(x,y+h, x,y, rr); ctx.arcTo(x,y, x+w,y, rr); ctx.closePath(); if(fill) ctx.fill(); }
 
-  // Spawners
   function spawnBlock(){
     const size = rand(Math.max(22,width*0.03), Math.max(38,width*0.07));
     const x = rand(0, width - size);
@@ -448,54 +423,25 @@
     state.blocks.push({ x, y:-size, w:size, h:size, vy:speed });
   }
   function spawnPowerup(){
-    // weights: blaster 30%, shrink 20%, shield 15%, slow 15%, magnet 10%, life 10%
-    const r = Math.random()*100;
-    let type = "blaster";
-    if (r<30) type="blaster";
-    else if (r<50) type="shrink";
-    else if (r<65) type="shield";
-    else if (r<80) type="slow";
-    else if (r<90) type="magnet";
-    else type="life";
-
+    const type = Math.random() < 0.6 ? "blaster" : "shrink";
     const size = Math.max(26, Math.floor(Math.min(width,height)*0.05));
     const x = rand(0, width - size);
     const vy = rand(90, 130);
     state.powerups.push({ type, x, y:-size, w:size, h:size, vy });
   }
 
-  // Actions
   function shoot(){
     if (state.ammo <= 0 || state.over || !state.running) return;
-    state.ammo--; ammoEl.textContent = state.ammo;
+    state.ammo--; document.getElementById("ammo").textContent = state.ammo;
     const p = state.player, cx = p.x + (p.w*p.scale)/2 - 4;
     state.bullets.push({ x: cx, y: p.y - 6, w: 8, h: 14, vy: -620 });
   }
-  function useShrink(){
-    if (state.shrinkCharges <= 0 || state.over || !state.running) return;
-    state.shrinkCharges--; shrinkCountEl.textContent = state.shrinkCharges;
-    // stack by extending duration
-    state.effects.shrinkUntil = Math.max(state.effects.shrinkUntil, state.time) + 6;
-  }
 
-  // Update & draw
   function update(dt){
-    state.time += dt;
-    // score grows by real time (not slowed)
-    state.score += dt*10;
-    scoreEl.textContent = Math.floor(state.score);
-
-    // difficulty ramps in real time
-    state.difficulty = 1 + Math.min(2.2, state.time/24);
-
-    // world slow factor (affects falling/spawn, not player)
-    const slowActive = state.effects.slowUntil > state.time;
-    const worldDT = dt * (slowActive ? 0.55 : 1);
-
-    // shrink active?
+    state.time += dt; state.score += dt*10; state.difficulty = 1 + Math.min(2.2, state.time/24);
+    document.getElementById("score").textContent = Math.floor(state.score);
     state.player.scale = (state.effects.shrinkUntil > state.time) ? 0.6 : 1;
 
-    // player move (not slowed)
     const p = state.player, base = p.speed * state.difficulty * 0.95;
     let targetVX = 0;
     if(state.input.left) targetVX -= base;
@@ -507,8 +453,7 @@
     if (p.x < 0) { p.x = 0; p.vx = Math.max(0, p.vx); }
     if (p.x + pw > width) { p.x = width - pw; p.vx = Math.min(0, p.vx); }
 
-    // spawn blocks
-    state.blockTimer -= worldDT;
+    state.blockTimer -= dt;
     const interval = Math.max(0.22, 0.9 - state.time*0.03);
     if (state.blockTimer <= 0) {
       spawnBlock();
@@ -516,50 +461,26 @@
       state.blockTimer = interval;
     }
 
-    // spawn powerups
-    state.powTimer -= worldDT;
-    if (state.powTimer <= 0) {
-      spawnPowerup();
-      state.powTimer = rand(8, 13);
-    }
+    state.powTimer -= dt;
+    if (state.powTimer <= 0) { spawnPowerup(); state.powTimer = rand(9, 14); }
 
-    // move blocks
     for (let i=state.blocks.length-1; i>=0; i--) {
-      const b = state.blocks[i]; b.y += b.vy * worldDT;
+      const b = state.blocks[i]; b.y += b.vy * dt;
       if (b.y - b.h > height + 8) { state.blocks.splice(i,1); continue; }
     }
 
-    // move powerups (+magnet)
-    const magnet = state.effects.magnetUntil > state.time;
     for (let i=state.powerups.length-1; i>=0; i--) {
-      const u = state.powerups[i];
-      if (magnet) {
-        const cx = (p.x + pw/2) - (u.x + u.w/2);
-        const cy = (p.y + ph/2) - (u.y + u.h/2);
-        const dist = Math.max(1, Math.hypot(cx, cy));
-        // gentle pull
-        u.x += (cx/dist) * 220 * worldDT;
-        u.y += (cy/dist) * 220 * worldDT;
-      } else {
-        u.y += u.vy * worldDT;
-      }
-
+      const u = state.powerups[i]; u.y += u.vy * dt;
       if (u.y - u.h > height + 8) { state.powerups.splice(i,1); continue; }
-      // collect
       if (u.x < p.x + pw && u.x + u.w > p.x && u.y < p.y + ph && u.y + u.h > p.y) {
-        if (u.type === "blaster") { state.ammo += 6; ammoEl.textContent = state.ammo; }
-        else if (u.type === "shrink") { state.shrinkCharges += 1; shrinkCountEl.textContent = state.shrinkCharges; }
-        else if (u.type === "shield") { state.effects.shieldUntil = Math.max(state.effects.shieldUntil, state.time) + 6; }
-        else if (u.type === "slow")   { state.effects.slowUntil   = Math.max(state.effects.slowUntil,   state.time) + 6; }
-        else if (u.type === "magnet") { state.effects.magnetUntil = Math.max(state.effects.magnetUntil, state.time) + 8; }
-        else if (u.type === "life")   { state.lives += 1; livesEl.textContent = state.lives; }
+        if (u.type === "blaster") { state.ammo += 6; document.getElementById("ammo").textContent = state.ammo; }
+        else if (u.type === "shrink") { state.effects.shrinkUntil = state.time + 6; }
         state.powerups.splice(i,1);
       }
     }
 
-    // move bullets + bullet vs block
     for (let i=state.bullets.length-1; i>=0; i--) {
-      const bullet = state.bullets[i]; bullet.y += bullet.vy * dt; // bullets unaffected by slow
+      const bullet = state.bullets[i]; bullet.y += bullet.vy * dt;
       if (bullet.y + bullet.h < -10) { state.bullets.splice(i,1); continue; }
       for (let j=state.blocks.length-1; j>=0; j--) {
         const b = state.blocks[j];
@@ -572,27 +493,9 @@
       }
     }
 
-    // block vs player (shield/lives/invuln)
     for (let i=state.blocks.length-1; i>=0; i--) {
       const b = state.blocks[i];
       if (b.x < p.x + pw && b.x + b.w > p.x && b.y < p.y + ph && b.y + b.h > p.y) {
-        // already invulnerable?
-        if (state.player.invUntil > state.time) { state.blocks.splice(i,1); continue; }
-
-        const shieldActive = state.effects.shieldUntil > state.time;
-        if (shieldActive) {
-          // consume some shield time + delete block
-          state.effects.shieldUntil = Math.max(state.time, state.effects.shieldUntil - 0.5);
-          state.player.invUntil = state.time + 0.5;
-          state.blocks.splice(i,1);
-          continue;
-        }
-        if (state.lives > 0) {
-          state.lives--; livesEl.textContent = state.lives;
-          state.player.invUntil = state.time + 1.2; // brief i-frames
-          state.blocks.splice(i,1);
-          continue;
-        }
         gameOver(); return;
       }
     }
@@ -607,24 +510,9 @@
     for(let y=(height%grid); y<height; y+=grid){ ctx.moveTo(0,y); ctx.lineTo(width,y); } ctx.stroke(); ctx.globalAlpha = 1;
 
     const p = state.player, pw = p.w*p.scale, ph = p.h*p.scale;
-
-    // shield aura
-    if (state.effects.shieldUntil > state.time) {
-      const t = (state.effects.shieldUntil - state.time);
-      ctx.save();
-      ctx.globalAlpha = 0.25 + 0.15*Math.sin(state.time*8);
-      ctx.fillStyle = "#4ade80";
-      roundRect(ctx, p.x-6, p.y-6, pw+12, ph+12, Math.min(16, pw*0.35), true);
-      ctx.restore();
-    }
-    // invincibility flash
-    if (state.player.invUntil > state.time) { ctx.globalAlpha = 0.6 + 0.4*Math.sin(state.time*30); }
-
-    // player
     ctx.fillStyle = "#58a6ff"; roundRect(ctx, p.x, p.y, pw, ph, Math.min(10, pw*0.25), true);
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = 0.15; ctx.fillStyle = "#58a6ff"; roundRect(ctx, p.x+pw*0.2, p.y+ph*0.65, pw*0.6, ph*0.9, 8, true); ctx.globalAlpha = 1;
 
-    // blocks
     for (const b of state.blocks) {
       ctx.fillStyle = "#ff6b6b";
       roundRect(ctx, b.x, b.y, b.w, b.h, Math.min(10, b.w*0.25), true);
@@ -632,21 +520,14 @@
       roundRect(ctx, b.x+b.w*0.1, b.y+b.h*0.08, b.w*0.8, b.h*0.18, 8, true); ctx.globalAlpha = 1;
     }
 
-    // power-ups
     for (const u of state.powerups) {
-      let color="#ffd166", glyph="🔫";
-      if (u.type==="shrink"){ color="#34d399"; glyph="✂"; }
-      else if (u.type==="shield"){ color="#4ade80"; glyph="🛡"; }
-      else if (u.type==="slow"){ color="#60a5fa"; glyph="🐌"; }
-      else if (u.type==="magnet"){ color="#f472b6"; glyph="🧲"; }
-      else if (u.type==="life"){ color="#f87171"; glyph="❤️"; }
-      ctx.fillStyle = color; roundRect(ctx, u.x, u.y, u.w, u.h, 10, true);
+      ctx.fillStyle = (u.type==="blaster") ? "#ffd166" : "#34d399";
+      roundRect(ctx, u.x, u.y, u.w, u.h, 10, true);
       ctx.fillStyle = "rgba(0,0,0,0.25)";
       ctx.font = "700 14px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial";
-      ctx.textAlign = "center"; ctx.fillText(glyph, u.x+u.w/2, u.y+u.h/2+6);
+      ctx.textAlign = "center"; ctx.fillText(u.type==="blaster"?"🔫":"✂", u.x+u.w/2, u.y+u.h/2+6);
     }
 
-    // bullets
     ctx.fillStyle = "#f8fafc";
     for (const b of state.bullets) roundRect(ctx, b.x, b.y, b.w, b.h, 4, true);
   }
@@ -659,9 +540,7 @@
     requestAnimationFrame(loop);
   }
 
-  // start screen paint
-  draw();
-
+  draw(); // first paint
 })();
 </script>
 </body>
