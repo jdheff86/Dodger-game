@@ -2,94 +2,99 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<title>Dodger — Leaderboard + Power-Ups</title>
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+/>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>Dodger — Leaderboard + Accounts</title>
 <style>
-  :root { --bg:#0c0f14; --fg:#e9efff; --accent:#58a6ff; --danger:#ff6b6b; --muted:#8a94a6; --good:#4ade80; }
-
-  * { box-sizing:border-box; }
-  html, body {
-    margin:0; height:100%; background:var(--bg); color:var(--fg);
-    font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
+  :root {
+    --bg:#0c0f14; --fg:#e9efff; --accent:#58a6ff; --danger:#ff6b6b;
+    --muted:#8a94a6; --good:#4ade80; --panel:#121826; --glass:rgba(255,255,255,0.06);
   }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent; }
   body { overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   canvas { display:block; width:100%; height:100%; }
 
-  /* Header pinned under the iOS status bar */
-  header{
-    position:absolute; top:0; left:0; right:0; z-index:8;
-    display:flex; gap:8px; align-items:center; justify-content:space-between;
-    padding:8px 10px; padding-top:calc(8px + env(safe-area-inset-top));
-    pointer-events:none;
+  /* ---- HUD ---- */
+  header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 8;
+    padding-top: max(8px, env(safe-area-inset-top));
+    pointer-events: none;
   }
-  .hud, .btn {
-    pointer-events:auto;
-    background:rgba(255,255,255,0.06);
-    border:1px solid rgba(255,255,255,0.12);
-    border-radius:12px; padding:6px 10px;
+  .cluster { display:flex; gap:8px; align-items:center; pointer-events:none; }
+  .left  { position: fixed; top: max(8px, env(safe-area-inset-top)); left: 10px; }
+  .right { position: fixed; top: max(8px, env(safe-area-inset-top)); right: 10px; flex-wrap:wrap; justify-content:flex-end; }
+  .hud, .btn, #userChip {
+    pointer-events:auto; background:rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:6px 10px;
   }
-  .hud { display:flex; gap:8px; align-items:center; }
+  .hud { display:flex; gap:8px; align-items:center; font-weight:600; }
   .btn { font-weight:700; }
   .btn:active { transform: translateY(1px); }
-  #userChip { pointer-events:auto; background:rgba(88,166,255,0.18); border-color:rgba(88,166,255,0.4); border-radius:12px; padding:6px 10px; }
+  #userChip { background:rgba(88,166,255,0.18); border-color:rgba(88,166,255,0.4); }
 
-  /* Controls */
-  .controls{
-    position:absolute; left:0; right:0; bottom:0; z-index:6;
-    display:flex; justify-content:space-between; gap:12px; padding:14px;
-    padding-bottom:calc(14px + env(safe-area-inset-bottom));
-    pointer-events:none;
+  .ammo { color:var(--good); font-variant-numeric:tabular-nums; }
+
+  /* ---- Bottom controls ---- */
+  .controls {
+    position:fixed; left:0; right:0; bottom: max(0px, env(safe-area-inset-bottom)); z-index:6;
+    display:flex; justify-content:space-between; gap:12px; padding:14px; pointer-events:none;
   }
-  .pad{
+  .pad {
     flex:1; min-height:92px; border-radius:16px; pointer-events:auto;
     background:linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
     border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center;
   }
-  .pad span{ font-size:28px; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.35)); }
-  .pad.fire{ flex:0.9; }
-  .ammo{ color:var(--good); font-variant-numeric:tabular-nums; }
+  .pad span { font-size:28px; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.35)); }
+  .pad.fire { flex:0.9; }
 
-  /* Start overlay (under header) */
-  .overlay{
-    position:absolute; inset:0; z-index:7; display:flex; align-items:center; justify-content:center;
+  /* ---- Start overlay ---- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 7; display:flex; align-items:center; justify-content:center;
     background: radial-gradient(1200px 800px at 50% 40%, rgba(88,166,255,0.12), rgba(12,15,20,0.92) 60%);
-    text-align:center; padding:24px; padding-top:calc(24px + env(safe-area-inset-top));
+    text-align:center; padding:24px;
   }
-  .card{ max-width:560px; width:92%; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14); border-radius:18px; padding:18px; backdrop-filter:blur(10px); }
-  .title{ font-size:26px; font-weight:800; margin:4px 0 10px; }
-  .subtitle{ color:var(--muted); margin-bottom:14px; }
-  .go{ margin-top:12px; width:100%; padding:12px 14px; font-weight:800; font-size:18px; border-radius:14px; border:none; color:#0b1220; background:var(--accent); }
-  .muted{ color:var(--muted); font-size:13px; margin-top:8px; }
+  .card { max-width:560px; width:92%; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14);
+    border-radius:18px; padding:18px; backdrop-filter:blur(10px); }
+  .title { font-size:26px; font-weight:800; margin:4px 0 10px; }
+  .subtitle { color:var(--muted); margin-bottom:14px; }
+  .go { margin-top:12px; width:100%; padding:12px 14px; font-weight:800; font-size:18px; border-radius:14px; border:none; color:#0b1220; background:var(--accent); }
+  .muted { color:var(--muted); font-size:13px; margin-top:8px; }
 
-  /* Modals (leaderboard + account + name) */
-  .modal{
-    position:absolute; inset:0; z-index:12; display:none; align-items:center; justify-content:center;
-    background:rgba(0,0,0,0.55); padding:18px; padding-top:calc(18px + env(safe-area-inset-top));
-  }
-  .panel{ width:min(520px,92%); background:#121826; border:1px solid rgba(255,255,255,0.12); border-radius:16px; padding:16px; position:relative; }
-  .panel h2{ margin:4px 0 12px; font-size:20px; }
-  .grid{ display:grid; gap:10px; }
-  .grid input{ width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:#0f141f; color:var(--fg); }
-  .actions{ display:flex; gap:10px; margin-top:8px; }
-  .btn2{ flex:1; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.06); color:var(--fg); font-weight:700; }
-  .btn2.primary{ background:var(--accent); color:#0b1220; border-color:transparent; }
-  .x{ position:absolute; right:10px; top:8px; background:transparent; border:none; color:var(--muted); font-size:22px; cursor:pointer; }
+  /* ---- Modals ---- */
+  .modal { position: fixed; inset: 0; z-index: 12; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.55); padding:18px; }
+  .panel { width:min(560px,92%); background:var(--panel); border:1px solid rgba(255,255,255,0.12); border-radius:16px; padding:16px; box-shadow:0 20px 60px rgba(0,0,0,0.35); }
+  .panel h2 { margin:4px 0 12px; font-size:22px; }
+  .x { float:right; background:transparent; border:none; color:var(--muted); font-size:22px; }
+
+  .grid { display:grid; gap:10px; }
+  .grid input { width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:#0f141f; color:var(--fg); }
+  .actions { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
+  .btn2 { flex:1 1 33%; min-width:140px; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.06); color:var(--fg); font-weight:700; text-align:center; }
+  .btn2.primary { background:var(--accent); color:#0b1220; border-color:transparent; }
+
+  /* Lock scroll when any modal is open */
+  body.modal-open { overflow:hidden; height:100%; }
 </style>
 </head>
 <body>
 <canvas id="game" aria-label="Dodger game area"></canvas>
 
-<header>
-  <div style="display:flex; gap:8px; align-items:center;">
+<header aria-label="Top HUD">
+  <div class="cluster left">
     <div class="hud"><strong>Score:</strong><span id="score">0</span></div>
     <div class="hud"><strong>Best:</strong><span id="best">0</span></div>
     <div class="hud"><strong>Ammo:</strong><span id="ammo" class="ammo">0</span></div>
     <div id="userChip">Connecting…</div>
   </div>
-  <div style="display:flex; gap:8px;">
+
+  <div class="cluster right">
     <button class="btn" id="lbBtn">Leaderboard</button>
     <button class="btn" id="nameBtn">Set name</button>
     <button class="btn" id="authBtn">Account</button>
@@ -97,8 +102,8 @@
   </div>
 </header>
 
-<!-- Controls -->
-<div class="controls">
+<!-- Bottom controls -->
+<div class="controls" aria-label="Touch controls">
   <div class="pad" id="leftPad"><span>⟵</span></div>
   <div class="pad fire" id="firePad"><span>🔫 FIRE</span></div>
   <div class="pad" id="rightPad"><span>⟶</span></div>
@@ -114,29 +119,20 @@
   </div>
 </div>
 
-<!-- Name modal -->
-<div class="modal" id="nameModal">
-  <div class="panel">
-    <button class="x" id="nameClose">×</button>
-    <h2>Set display name</h2>
-    <div class="grid">
-      <input id="displayName" type="text" maxlength="24" placeholder="e.g., JohnH">
-    </div>
-    <div class="actions">
-      <button class="btn2" id="cancelName">Cancel</button>
-      <button class="btn2 primary" id="saveName">Save</button>
-    </div>
-    <div class="muted">Used on the global leaderboard.</div>
-  </div>
-</div>
-
 <!-- Leaderboard modal -->
-<div class="modal" id="lbModal">
+<div class="modal" id="lbModal" aria-hidden="true" role="dialog" aria-label="Leaderboard">
   <div class="panel">
-    <button class="x" id="lbClose">×</button>
+    <button class="x" id="lbClose" aria-label="Close leaderboard">×</button>
     <h2>Global Leaderboard (Top 20)</h2>
     <table id="lbTable" style="width:100%; border-collapse:collapse;">
-      <thead><tr><th style="text-align:left;">#</th><th style="text-align:left;">Name</th><th>Score</th><th>When</th></tr></thead>
+      <thead>
+        <tr>
+          <th style="text-align:left;">#</th>
+          <th style="text-align:left;">Name</th>
+          <th>Score</th>
+          <th>When</th>
+        </tr>
+      </thead>
       <tbody></tbody>
     </table>
     <div class="muted">Finish a run to submit your score.</div>
@@ -144,14 +140,14 @@
 </div>
 
 <!-- Account modal -->
-<div class="modal" id="authModal">
+<div class="modal" id="authModal" aria-hidden="true" role="dialog" aria-label="Account">
   <div class="panel">
-    <button class="x" id="authClose">×</button>
+    <button class="x" id="authClose" aria-label="Close account">×</button>
     <h2>Account</h2>
-    <div id="authMsg" class="muted" style="margin-bottom:8px;">&nbsp;</div>
+    <div id="authMsg" class="muted" style="margin-bottom:8px;"></div>
     <div class="grid">
-      <input id="authEmail" type="email" placeholder="Email">
-      <input id="authPass" type="password" placeholder="Password (6+ chars)">
+      <input id="authEmail" type="email" placeholder="Email" autocomplete="email" />
+      <input id="authPass" type="password" placeholder="Password (min 6 chars)" autocomplete="current-password" />
     </div>
     <div class="actions">
       <button class="btn2" id="authSignin">Sign in</button>
@@ -161,19 +157,35 @@
   </div>
 </div>
 
+<!-- Name modal -->
+<div class="modal" id="nameModal" aria-hidden="true" role="dialog" aria-label="Display name">
+  <div class="panel">
+    <button class="x" id="nameClose" aria-label="Close name">×</button>
+    <h2>Set display name</h2>
+    <div class="grid">
+      <input id="displayName" type="text" maxlength="24" placeholder="e.g., JohnH" />
+    </div>
+    <div class="actions">
+      <button class="btn2" id="cancelName">Cancel</button>
+      <button class="btn2 primary" id="saveName">Save</button>
+    </div>
+    <div class="muted">Used on the global leaderboard.</div>
+  </div>
+</div>
+
 <!-- ===== Firebase (Auth + Firestore) ===== -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
   import {
-    getAuth, signInAnonymously, onAuthStateChanged, updateProfile,
-    signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
-    setPersistence, browserLocalPersistence
+    getAuth, signInAnonymously, onAuthStateChanged,
+    signInWithEmailAndPassword, createUserWithEmailAndPassword,
+    updateProfile, signOut
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
   import {
     getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-  // Your config (from Firebase console)
+  // --- Your Firebase config (matches your screenshots) ---
   const firebaseConfig = {
     apiKey: "AIzaSyD37Lc_tHwEkmXSHwDr6QUTNeWXGOKAftg",
     authDomain: "dodger-4aad1.firebaseapp.com",
@@ -188,144 +200,63 @@
   const auth = getAuth(app);
   const db   = getFirestore(app);
 
-  // Persist auth across reloads and prevent flaky re-logins
-  await setPersistence(auth, browserLocalPersistence).catch(()=>{});
+  // Try anonymous immediately so the game works before sign in
+  signInAnonymously(auth).catch(()=>{});
 
-  // Auto sign-in (anonymous) if no user
-  let triedAnon = false;
-  onAuthStateChanged(auth, (u) => {
-    userChip.textContent = u
-      ? (u.displayName ? `Signed in: ${u.displayName}` : (u.isAnonymous ? "Guest (not saved)" : "Signed in"))
-      : "Not signed in";
-    // If nothing yet, sign in as guest so the game can start
-    if (!u && !triedAnon){ triedAnon = true; signInAnonymously(auth).catch(()=>{}); }
-  });
-
-  // Expose helpers for game code & UI
+  // Expose helpers for game + UI code
   window.firebase = {
     auth, db,
+    onUser(cb){ return onAuthStateChanged(auth, cb); },
+
     async setDisplayName(name){
       if (!auth.currentUser) return;
       const clean = String(name||"Player").trim().slice(0,24);
       await updateProfile(auth.currentUser, { displayName: clean });
       return clean;
     },
+
     async saveScore(score){
-      if (!auth.currentUser) return { ok:false, error:"Not signed in" };
+      // Only save if the user is NOT anonymous
+      const u = auth.currentUser;
+      if (!u || u.isAnonymous) return { ok:false, error:"Not signed in" };
       try{
-        await addDoc(collection(db,"scores"),{
-          uid:auth.currentUser.uid,
-          name:auth.currentUser.displayName||"Player",
+        await addDoc(collection(db, "scores"), {
+          uid: u.uid,
+          name: u.displayName || "Player",
           score: Math.floor(Number(score)||0),
           ts: serverTimestamp()
         });
         return { ok:true };
       }catch(e){ return { ok:false, error:e.message }; }
     },
+
     async loadTop(n=20){
-      // Requires a composite index: orderBy(score desc) + orderBy(ts asc)
-      const qy = query(collection(db,"scores"), orderBy("score","desc"), orderBy("ts","asc"), limit(n));
+      // Requires composite index: score desc + ts asc
+      const qy = query(collection(db, "scores"),
+        orderBy("score","desc"),
+        orderBy("ts","asc"),
+        limit(n)
+      );
       const snap = await getDocs(qy);
       return snap.docs.map(d => ({ id:d.id, ...d.data() }));
     },
-    async emailSignIn(email, pass){
-      return signInWithEmailAndPassword(auth, String(email||"").trim(), pass);
+
+    // Auth helpers for Account modal
+    async signUp(email, pass){
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      return cred.user;
     },
-    async emailCreate(email, pass){
-      const cred = await createUserWithEmailAndPassword(auth, String(email||"").trim(), pass);
-      return cred;
+    async signIn(email, pass){
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      return cred.user;
     },
-    async doSignOut(){ return signOut(auth); }
+    async signOut(){
+      await signOut(auth);
+    }
   };
-
-  // ======== UI wiring (modals, buttons, dismiss on backdrop) ========
-  const nameBtn=document.getElementById("nameBtn"), nameModal=document.getElementById("nameModal");
-  const nameClose=document.getElementById("nameClose"), cancelName=document.getElementById("cancelName");
-  const saveName=document.getElementById("saveName"), nameInput=document.getElementById("displayName");
-
-  const lbBtn=document.getElementById("lbBtn"), lbModal=document.getElementById("lbModal");
-  const lbClose=document.getElementById("lbClose"), lbBody=document.querySelector("#lbTable tbody");
-
-  const authBtn=document.getElementById("authBtn"), authModal=document.getElementById("authModal");
-  const authClose=document.getElementById("authClose"), authMsg=document.getElementById("authMsg");
-  const authEmail=document.getElementById("authEmail"), authPass=document.getElementById("authPass");
-  const authSignin=document.getElementById("authSignin"), authSignup=document.getElementById("authSignup"), authSignout=document.getElementById("authSignout");
-
-  // generic modal helpers (+ click backdrop to close)
-  function showModal(mod){ mod.style.display="flex"; }
-  function hideModal(mod){ mod.style.display="none"; }
-  [nameModal, lbModal, authModal].forEach(mod=>{
-    mod.addEventListener("pointerdown", (e)=>{ if(e.target===mod) hideModal(mod); });
-  });
-
-  // Name modal
-  nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); showModal(nameModal); });
-  [nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{ e.preventDefault(); hideModal(nameModal); }));
-  saveName.addEventListener("pointerdown", async e=>{
-    e.preventDefault();
-    const dn = await window.firebase?.setDisplayName?.(nameInput.value||"Player");
-    if (dn) userChip.textContent = `Signed in: ${dn}`;
-    hideModal(nameModal);
-  });
-
-  // Leaderboard modal
-  lbBtn.addEventListener("pointerdown", async e=>{
-    e.preventDefault();
-    lbBody.innerHTML = "<tr><td colspan='4'>Loading…</td></tr>";
-    try{
-      const rows = await window.firebase.loadTop(20);
-      if (!rows.length) { lbBody.innerHTML = "<tr><td colspan='4'>No scores yet.</td></tr>"; }
-      else {
-        let i=1; lbBody.innerHTML = rows.map(r=>{
-          const when = r.ts?.toDate ? r.ts.toDate() : new Date();
-          return `<tr><td>${i++}</td><td>${escapeHtml(r.name||"Player")}</td><td style="text-align:right">${r.score|0}</td><td>${when.toLocaleDateString()}</td></tr>`;
-        }).join("");
-      }
-    }catch(err){
-      lbBody.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(err.message||String(err))}</td></tr>`;
-    }
-    showModal(lbModal);
-  });
-  lbClose.addEventListener("pointerdown", e=>{ e.preventDefault(); hideModal(lbModal); });
-
-  // Account modal
-  authBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); authMsg.textContent="\u00A0"; showModal(authModal); });
-  authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); hideModal(authModal); });
-
-  function setAuthMsg(t){ authMsg.textContent = t || "\u00A0"; }
-
-  authSignin.addEventListener("pointerdown", async e=>{
-    e.preventDefault();
-    try{
-      setAuthMsg("Signing in…");
-      await window.firebase.emailSignIn(authEmail.value, authPass.value);
-      setAuthMsg("Signed in.");
-      hideModal(authModal);
-    }catch(err){
-      setAuthMsg(`Firebase: ${err.message||"Error"}`);
-    }
-  });
-  authSignup.addEventListener("pointerdown", async e=>{
-    e.preventDefault();
-    try{
-      setAuthMsg("Creating account…");
-      await window.firebase.emailCreate(authEmail.value, authPass.value);
-      setAuthMsg("Account created and signed in.");
-      hideModal(authModal);
-    }catch(err){
-      setAuthMsg(`Firebase: ${err.message||"Error"}`);
-    }
-  });
-  authSignout.addEventListener("pointerdown", async e=>{
-    e.preventDefault();
-    try{ await window.firebase.doSignOut(); setAuthMsg("Signed out."); }
-    catch(err){ setAuthMsg(`Firebase: ${err.message||"Error"}`); }
-  });
-
-  function escapeHtml(x){ return (x||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
 </script>
 
-<!-- ===== Game code (unchanged core) ===== -->
+<!-- ===== Game + UI code ===== -->
 <script>
 (function () {
   "use strict";
@@ -334,11 +265,14 @@
   const ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
 
   let width=0, height=0, dpr=Math.max(1, window.devicePixelRatio||1);
-  function fit(){ width=Math.max(320,Math.floor(window.innerWidth||document.documentElement.clientWidth));
-    height=Math.max(480,Math.floor(window.innerHeight||document.documentElement.clientHeight));
-    dpr=Math.max(1, window.devicePixelRatio||1);
-    canvas.width=Math.floor(width*dpr); canvas.height=Math.floor(height*dpr);
-    canvas.style.width=width+"px"; canvas.style.height=height+"px"; ctx.setTransform(dpr,0,0,dpr,0,0); }
+  function fit(){
+    width = Math.max(320, Math.floor(window.innerWidth||document.documentElement.clientWidth));
+    height = Math.max(480, Math.floor(window.innerHeight||document.documentElement.clientHeight));
+    dpr = Math.max(1, window.devicePixelRatio||1);
+    canvas.width = Math.floor(width*dpr); canvas.height = Math.floor(height*dpr);
+    canvas.style.width = width + "px"; canvas.style.height = height + "px";
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
   fit(); window.addEventListener("resize", fit);
 
   // UI refs
@@ -351,15 +285,138 @@
   const leftPad = document.getElementById("leftPad");
   const rightPad= document.getElementById("rightPad");
   const firePad = document.getElementById("firePad");
+
   const userChip= document.getElementById("userChip");
+  const nameBtn = document.getElementById("nameBtn");
+  const nameModal = document.getElementById("nameModal");
+  const nameClose = document.getElementById("nameClose");
+  const cancelName= document.getElementById("cancelName");
+  const saveName  = document.getElementById("saveName");
+  const nameInput = document.getElementById("displayName");
+
   const lbBtn = document.getElementById("lbBtn");
   const lbModal = document.getElementById("lbModal");
+  const lbClose = document.getElementById("lbClose");
+  const lbBody = document.querySelector("#lbTable tbody");
 
-  // Prevent scroll/zoom globally, but let overlays/modals work
+  const authBtn   = document.getElementById("authBtn");
+  const authModal = document.getElementById("authModal");
+  const authClose = document.getElementById("authClose");
+  const authMsg   = document.getElementById("authMsg");
+  const authEmail = document.getElementById("authEmail");
+  const authPass  = document.getElementById("authPass");
+  const authSignin= document.getElementById("authSignin");
+  const authSignup= document.getElementById("authSignup");
+  const authSignout=document.getElementById("authSignout");
+
+  // Prevent scroll/zoom globally, but let overlays work
   const prevent=(e)=>{ if (e.target.closest(".overlay") || e.target.closest(".modal")) return; e.preventDefault(); };
   ["touchstart","touchmove","touchend","gesturestart"].forEach(ev=>document.addEventListener(ev, prevent, { passive:false }));
 
-  // Game state
+  // ---- Centralized modal helpers (also closes on backdrop tap) ----
+  function openModal(m){
+    if (!m) return;
+    m.style.display = "flex";
+    document.body.classList.add("modal-open");
+  }
+  function closeModal(m){
+    if (!m) return;
+    m.style.display = "none";
+    const anyOpen = Array.from(document.querySelectorAll('.modal')).some(el => el.style.display === 'flex');
+    if (!anyOpen) document.body.classList.remove("modal-open");
+  }
+  [lbModal, authModal, nameModal].forEach(m=>{
+    if (!m) return;
+    m.addEventListener("pointerdown", (e)=>{ if (e.target === m) closeModal(m); });
+  });
+
+  // ---- Auth status in header ----
+  if (window.firebase && window.firebase.onUser) {
+    window.firebase.onUser(u => {
+      if (!u) { userChip.textContent = "Guest (not saved)"; return; }
+      userChip.textContent = u.isAnonymous ? "Guest (not saved)" :
+        (u.displayName ? `Signed in: ${u.displayName}` : "Signed in");
+    });
+  }
+
+  // ---- Name modal ----
+  nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); openModal(nameModal); });
+  [nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{ e.preventDefault(); closeModal(nameModal); }));
+  saveName.addEventListener("pointerdown", async e=>{
+    e.preventDefault();
+    const dn = await window.firebase?.setDisplayName?.(nameInput.value||"Player");
+    if (dn) userChip.textContent = `Signed in: ${dn}`;
+    closeModal(nameModal);
+  });
+
+  // ---- Leaderboard modal ----
+  lbBtn.addEventListener("pointerdown", async e=>{
+    e.preventDefault();
+    lbBody.innerHTML = "<tr><td colspan='4'>Loading…</td></tr>";
+    try{
+      const rows = await window.firebase.loadTop(20);
+      if (!rows.length) {
+        lbBody.innerHTML = "<tr><td colspan='4'>No scores yet.</td></tr>";
+      } else {
+        let i=1;
+        lbBody.innerHTML = rows.map(r=>{
+          const when = r.ts?.toDate ? r.ts.toDate() : new Date();
+          const safeName = escapeHtml(r.name||"Player");
+          return `<tr><td>${i++}</td><td>${safeName}</td><td style="text-align:right">${r.score|0}</td><td>${when.toLocaleDateString()}</td></tr>`;
+        }).join("");
+      }
+    }catch(err){
+      lbBody.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(err.message||String(err))}</td></tr>`;
+    }
+    openModal(lbModal);
+  });
+  lbClose.addEventListener("pointerdown", e=>{ e.preventDefault(); closeModal(lbModal); });
+  function escapeHtml(x){
+    return (x||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m]));
+  }
+
+  // ---- Account modal ----
+  authBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); authMsg.textContent=""; openModal(authModal); });
+  authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); closeModal(authModal); });
+
+  authSignin.addEventListener("pointerdown", async e=>{
+    e.preventDefault();
+    authMsg.textContent = "";
+    try {
+      const u = await window.firebase.signIn(authEmail.value.trim(), authPass.value);
+      userChip.textContent = u.displayName ? `Signed in: ${u.displayName}` : "Signed in";
+      authMsg.textContent = "Signed in!";
+      setTimeout(()=>closeModal(authModal), 400);
+    } catch(err) {
+      authMsg.textContent = "Firebase: " + (err?.message || "Error (auth/invalid-credential).");
+    }
+  });
+
+  authSignup.addEventListener("pointerdown", async e=>{
+    e.preventDefault();
+    authMsg.textContent = "";
+    try {
+      const u = await window.firebase.signUp(authEmail.value.trim(), authPass.value);
+      userChip.textContent = "Signed in";
+      authMsg.textContent = "Account created. You're signed in.";
+      setTimeout(()=>closeModal(authModal), 400);
+    } catch(err) {
+      authMsg.textContent = "Firebase: " + (err?.message || "Error (auth/error).");
+    }
+  });
+
+  authSignout.addEventListener("pointerdown", async e=>{
+    e.preventDefault();
+    try {
+      await window.firebase.signOut();
+      userChip.textContent = "Guest (not saved)";
+      authMsg.textContent = "Signed out.";
+    } catch(err) {
+      authMsg.textContent = "Firebase: " + (err?.message || "Error");
+    }
+  });
+
+  // ---- Game state ----
   const state = {
     running:false, paused:false, over:false,
     score:0, best:Number(localStorage.getItem("dodger_best")||0),
@@ -423,14 +480,14 @@
     const p = document.createElement("div"); p.className="subtitle";
     p.innerHTML = `You scored <strong>${Math.floor(state.score)}</strong>. ${(state.score>state.best)?`<span style="color:var(--danger)">New high score!</span>`:`Try again!`}`;
     overlay.querySelector(".card").insertBefore(p, overlay.querySelector(".go"));
-    state.best=Math.max(state.best, Math.floor(state.score)); localStorage.setItem("dodger_best", String(state.best)); document.getElementById("best").textContent=state.best; document.getElementById("startBtn").textContent="Play Again";
-    // Save to leaderboard
+    state.best=Math.max(state.best, Math.floor(state.score)); localStorage.setItem("dodger_best", String(state.best)); bestEl.textContent=state.best; startBtn.textContent="Play Again";
+    // Save to leaderboard only if signed in (non-anon)
     if (window.firebase?.saveScore) { try { await window.firebase.saveScore(state.score); } catch(_){} }
   }
 
   function togglePause(){
     if(!state.running || state.over) return;
-    state.paused=!state.paused; document.getElementById("pauseBtn").textContent = state.paused ? "Resume" : "Pause";
+    state.paused=!state.paused; pauseBtn.textContent = state.paused ? "Resume" : "Pause";
     if(!state.paused){ state.last=performance.now(); requestAnimationFrame(loop); }
     else { ctx.save(); ctx.fillStyle="rgba(0,0,0,0.25)"; ctx.fillRect(0,0,width,height); ctx.fillStyle="rgba(255,255,255,0.85)";
       ctx.font="700 20px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif"; ctx.textAlign="center"; ctx.fillText("Paused", width/2, height*0.45); ctx.restore(); }
@@ -460,7 +517,7 @@
   // Shooting
   function shoot(){
     if (state.ammo <= 0 || state.over || !state.running) return;
-    state.ammo--; document.getElementById("ammo").textContent = state.ammo;
+    state.ammo--; ammoEl.textContent = state.ammo;
     const p = state.player, cx = p.x + (p.w*p.scale)/2 - 4;
     state.bullets.push({ x: cx, y: p.y - 6, w: 8, h: 14, vy: -620 });
   }
@@ -468,7 +525,7 @@
   // Update & draw
   function update(dt){
     state.time += dt; state.score += dt*10; state.difficulty = 1 + Math.min(2.2, state.time/24);
-    document.getElementById("score").textContent = Math.floor(state.score);
+    scoreEl.textContent = Math.floor(state.score);
 
     // shrink active?
     state.player.scale = (state.effects.shrinkUntil > state.time) ? 0.6 : 1;
@@ -512,7 +569,7 @@
       const u = state.powerups[i]; u.y += u.vy * dt;
       if (u.y - u.h > height + 8) { state.powerups.splice(i,1); continue; }
       if (u.x < p.x + pw && u.x + u.w > p.x && u.y < p.y + ph && u.y + u.h > p.y) {
-        if (u.type === "blaster") { state.ammo += 6; document.getElementById("ammo").textContent = state.ammo; }
+        if (u.type === "blaster") { state.ammo += 6; ammoEl.textContent = state.ammo; }
         else if (u.type === "shrink") { state.effects.shrinkUntil = state.time + 6; }
         state.powerups.splice(i,1);
       }
