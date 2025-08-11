@@ -5,85 +5,70 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<title>Dodger — Leaderboard + Accounts</title>
+<title>Dodger — Leaderboard + Power-Ups</title>
 <style>
-  :root{
-    --bg:#0c0f14; --fg:#e9efff; --accent:#58a6ff; --danger:#ff6b6b; --muted:#8a94a6; --good:#4ade80;
-    --sat: env(safe-area-inset-top, 0px);
-    --sab: env(safe-area-inset-bottom, 0px);
-  }
-  *{ box-sizing:border-box; }
-  html,body{ margin:0; height:100%; background:var(--bg); color:var(--fg);
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
-  }
-  body{ overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
-  canvas{ display:block; width:100%; height:100%; }
+  :root { --bg:#0c0f14; --fg:#e9efff; --accent:#58a6ff; --danger:#ff6b6b; --muted:#8a94a6; --good:#4ade80; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent; }
+  body { overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  canvas { display:block; width:100%; height:100%; }
 
-  header{
-  position:absolute; top:0; left:0; right:0; z-index:8;
-  display:flex; gap:8px; align-items:center; justify-content:space-between;
-  /* prevent notch cut-off */
-  padding: calc(8px + env(safe-area-inset-top)) 10px 8px;
-  pointer-events:none;
-  flex-wrap: wrap;           /* lets items move to next line on small screens */
-}
-  .hud,.btn{ pointer-events:auto; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:6px 10px; }
-  .hud{ display:flex; gap:8px; align-items:center; }
-  .btn{ font-weight:700; }
-  .btn:active{ transform:translateY(1px); }
-  #userChip{ pointer-events:auto; background:rgba(88,166,255,0.18); border-color:rgba(88,166,255,0.4); border-radius:12px; padding:6px 10px; cursor:pointer; }
-
-  .controls{
-    position:absolute; left:0; right:0; bottom:0; z-index:6; display:flex; justify-content:space-between; gap:12px;
-    padding:14px; padding-bottom:calc(14px + var(--sab)); pointer-events:none;
+  header {
+    position:absolute; top:0; left:0; right:0; z-index:8; display:flex; gap:8px; align-items:center; justify-content:space-between;
+    padding:8px 10px; pointer-events:none;
   }
-  .pad{
+  .hud, .btn { pointer-events:auto; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:6px 10px; }
+  .hud { display:flex; gap:8px; align-items:center; }
+  .btn { font-weight:700; }
+  .btn:active { transform: translateY(1px); }
+  #userChip { pointer-events:auto; background:rgba(88,166,255,0.18); border-color:rgba(88,166,255,0.4); border-radius:12px; padding:6px 10px; }
+
+  .controls {
+    position:absolute; left:0; right:0; bottom:0; z-index:6; display:flex; justify-content:space-between; gap:12px; padding:14px; pointer-events:none;
+  }
+  .pad {
     flex:1; min-height:92px; border-radius:16px; pointer-events:auto;
     background:linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
     border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center;
   }
-  .pad span{ font-size:28px; filter:drop-shadow(0 2px 0 rgba(0,0,0,0.35)); }
-  .pad.fire{ flex:0.9; }
-  .ammo{ color:var(--good); font-variant-numeric:tabular-nums; }
+  .pad span { font-size:28px; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.35)); }
+  .pad.fire { flex:0.9; }
+  .ammo { color:var(--good); font-variant-numeric:tabular-nums; }
 
-  .overlay{
+  .overlay {
     position:absolute; inset:0; z-index:7; display:flex; align-items:center; justify-content:center;
-    background:radial-gradient(1200px 800px at 50% 40%, rgba(88,166,255,0.12), rgba(12,15,20,0.92) 60%);
-    text-align:center; padding:24px; padding-top:calc(24px + var(--sat)); padding-bottom:calc(24px + var(--sab));
+    background: radial-gradient(1200px 800px at 50% 40%, rgba(88,166,255,0.12), rgba(12,15,20,0.92) 60%); text-align:center; padding:24px;
   }
-  .card{ max-width:560px; width:92%; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14); border-radius:18px; padding:18px; backdrop-filter:blur(10px); pointer-events:auto; }
-  .title{ font-size:26px; font-weight:800; margin:4px 0 10px; }
-  .subtitle{ color:var(--muted); margin-bottom:14px; }
-  .go{ margin-top:12px; width:100%; padding:12px 14px; font-weight:800; font-size:18px; border-radius:14px; border:none; color:#0b1220; background:var(--accent); }
-  .muted{ color:var(--muted); font-size:13px; margin-top:8px; }
+  .card { max-width:560px; width:92%; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14); border-radius:18px; padding:18px; backdrop-filter:blur(10px); }
+  .title { font-size:26px; font-weight:800; margin:4px 0 10px; }
+  .subtitle { color:var(--muted); margin-bottom:14px; }
+  .go { margin-top:12px; width:100%; padding:12px 14px; font-weight:800; font-size:18px; border-radius:14px; border:none; color:#0b1220; background:var(--accent); }
+  .muted { color:var(--muted); font-size:13px; margin-top:8px; }
 
-  .modal{ position:absolute; inset:0; z-index:12; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.55); padding:18px; }
-  .panel{ width:min(520px,92%); background:#121826; border:1px solid rgba(255,255,255,0.12); border-radius:16px; padding:16px; }
-  .panel h2{ margin:4px 0 12px; font-size:20px; }
-  .grid{ display:grid; gap:10px; }
-  .grid input{ width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:#0f141f; color:var(--fg); }
-  .actions{ display:flex; gap:10px; margin-top:8px; }
-  .btn2{ flex:1; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.06); color:var(--fg); font-weight:700; }
-  .btn2.primary{ background:var(--accent); color:#0b1220; border-color:transparent; }
-  .x{ float:right; background:transparent; border:none; color:var(--muted); font-size:22px; }
-  table{ width:100%; border-collapse:collapse; }
-  th,td{ padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.06); }
-  th{ color:#b9c2d3; font-weight:600; }
+  .modal { position:absolute; inset:0; z-index:12; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.55); padding:18px; }
+  .panel { width:min(520px,92%); background:#121826; border:1px solid rgba(255,255,255,0.12); border-radius:16px; padding:16px; }
+  .panel h2 { margin:4px 0 12px; font-size:20px; }
+  .grid { display:grid; gap:10px; }
+  .grid input { width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:#0f141f; color:var(--fg); }
+  .actions { display:flex; gap:10px; margin-top:8px; }
+  .btn2 { flex:1; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.06); color:var(--fg); font-weight:700; }
+  .btn2.primary { background:var(--accent); color:#0b1220; border-color:transparent; }
+  .x { float:right; background:transparent; border:none; color:var(--muted); font-size:22px; }
 </style>
 </head>
 <body>
 <canvas id="game" aria-label="Dodger game area"></canvas>
 
-<<header>
-  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+<header>
+  <div style="display:flex; gap:8px; align-items:center;">
     <div class="hud"><strong>Score:</strong><span id="score">0</span></div>
     <div class="hud"><strong>Best:</strong><span id="best">0</span></div>
     <div class="hud"><strong>Ammo:</strong><span id="ammo" class="ammo">0</span></div>
-    <button class="btn" id="lbBtn" style="pointer-events:auto;">Leaderboard</button>
     <div id="userChip">Connecting…</div>
   </div>
   <div style="display:flex; gap:8px;">
+    <button class="btn" id="lbBtn">Leaderboard</button>
     <button class="btn" id="nameBtn">Set name</button>
     <button class="btn" id="pauseBtn" aria-label="Pause or resume">Pause</button>
   </div>
@@ -111,7 +96,9 @@
   <div class="panel">
     <button class="x" id="nameClose">×</button>
     <h2>Set display name</h2>
-    <div class="grid"><input id="displayName" type="text" maxlength="24" placeholder="e.g., JohnH"></div>
+    <div class="grid">
+      <input id="displayName" type="text" maxlength="24" placeholder="e.g., JohnH">
+    </div>
     <div class="actions">
       <button class="btn2" id="cancelName">Cancel</button>
       <button class="btn2 primary" id="saveName">Save</button>
@@ -125,7 +112,7 @@
   <div class="panel">
     <button class="x" id="lbClose">×</button>
     <h2>Global Leaderboard (Top 20)</h2>
-    <table id="lbTable">
+    <table id="lbTable" style="width:100%; border-collapse:collapse;">
       <thead><tr><th style="text-align:left;">#</th><th style="text-align:left;">Name</th><th>Score</th><th>When</th></tr></thead>
       <tbody></tbody>
     </table>
@@ -133,36 +120,11 @@
   </div>
 </div>
 
-<!-- Account modal -->
-<div class="modal" id="authModal">
-  <div class="panel">
-    <button class="x" id="authClose">×</button>
-    <h2>Account</h2>
-    <div class="grid">
-      <input id="authEmail" type="email" placeholder="Email">
-      <input id="authPass" type="password" placeholder="Password">
-    </div>
-    <div class="actions">
-      <button class="btn2" id="authSignin">Sign in</button>
-      <button class="btn2 primary" id="authSignup">Create account</button>
-    </div>
-    <div class="actions" style="margin-top:6px;">
-      <button class="btn2" id="authSignout">Sign out</button>
-    </div>
-    <div class="muted" id="authMsg"></div>
-  </div>
-</div>
-
 <!-- ===== Firebase (Auth + Firestore) ===== -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-  import {
-    getAuth, signInAnonymously, onAuthStateChanged, updateProfile,
-    signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
-  } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-  import {
-    getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+  import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
   // YOUR Firebase config
   const firebaseConfig = {
@@ -179,10 +141,10 @@
   const auth = getAuth(app);
   const db   = getFirestore(app);
 
-  // try anonymous (so the game works before sign in)
-  signInAnonymously(auth).catch(()=>{});
+  // Auto sign-in (Anonymous)
+  signInAnonymously(auth).catch(console.warn);
 
-  // Expose helpers
+  // Expose helpers for game code
   window.firebase = {
     auth, db,
     onUser(cb){ return onAuthStateChanged(auth, cb); },
@@ -205,53 +167,15 @@
       }catch(e){ return { ok:false, error:e.message }; }
     },
     async loadTop(n=20){
+      // NOTE: requires a composite index on (score desc, ts asc)
       const qy = query(collection(db,"scores"), orderBy("score","desc"), orderBy("ts","asc"), limit(n));
       const snap = await getDocs(qy);
       return snap.docs.map(d => ({ id:d.id, ...d.data() }));
     }
   };
-
-  // ---- Auth UI wiring ----
-  const userChip  = document.getElementById("userChip");
-  const authModal = document.getElementById("authModal");
-  const authClose = document.getElementById("authClose");
-  const authEmail = document.getElementById("authEmail");
-  const authPass  = document.getElementById("authPass");
-  const authSignin= document.getElementById("authSignin");
-  const authSignup= document.getElementById("authSignup");
-  const authSignout=document.getElementById("authSignout");
-  const authMsg   = document.getElementById("authMsg");
-
-  function say(m){ authMsg.textContent = m || ""; }
-  userChip.addEventListener("pointerdown", e=>{ e.preventDefault(); say(""); authModal.style.display="flex"; });
-  authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); authModal.style.display="none"; });
-
-  authSignin.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); say("");
-    try{ await signInWithEmailAndPassword(auth, authEmail.value.trim(), authPass.value); authModal.style.display="none"; }
-    catch(err){ say(err.message); }
-  });
-  authSignup.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); say("");
-    try{
-      const cred = await createUserWithEmailAndPassword(auth, authEmail.value.trim(), authPass.value);
-      const nick = (authEmail.value.split("@")[0] || "Player").slice(0,24);
-      await updateProfile(cred.user, { displayName:nick });
-      authModal.style.display="none";
-    }catch(err){ say(err.message); }
-  });
-  authSignout.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); say("");
-    try{ await signOut(auth); authModal.style.display="none"; }
-    catch(err){ say(err.message); }
-  });
-
-  onAuthStateChanged(auth, (u)=>{
-    userChip.textContent = u ? (u.displayName ? `Signed in: ${u.displayName}` : "Signed in") : "Guest (not saved)";
-  });
 </script>
 
-<!-- ===== Game code ===== -->
+<!-- ===== Game code (power-ups + leaderboard hooks) ===== -->
 <script>
 (function () {
   "use strict";
@@ -260,39 +184,45 @@
   const ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
 
   let width=0, height=0, dpr=Math.max(1, window.devicePixelRatio||1);
-  function fit(){
-    width=Math.max(320,Math.floor(window.innerWidth||document.documentElement.clientWidth));
+  function fit(){ width=Math.max(320,Math.floor(window.innerWidth||document.documentElement.clientWidth));
     height=Math.max(480,Math.floor(window.innerHeight||document.documentElement.clientHeight));
     dpr=Math.max(1, window.devicePixelRatio||1);
     canvas.width=Math.floor(width*dpr); canvas.height=Math.floor(height*dpr);
-    canvas.style.width=width+"px"; canvas.style.height=height+"px"; ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
+    canvas.style.width=width+"px"; canvas.style.height=height+"px"; ctx.setTransform(dpr,0,0,dpr,0,0); }
   fit(); window.addEventListener("resize", fit);
 
   // UI refs
-  const scoreEl=document.getElementById("score");
-  const bestEl=document.getElementById("best");
-  const ammoEl=document.getElementById("ammo");
-  const startBtn=document.getElementById("startBtn");
-  const pauseBtn=document.getElementById("pauseBtn");
-  const overlay=document.getElementById("overlay");
-  const leftPad=document.getElementById("leftPad");
-  const rightPad=document.getElementById("rightPad");
-  const firePad=document.getElementById("firePad");
-  const nameBtn=document.getElementById("nameBtn");
-  const nameModal=document.getElementById("nameModal");
-  const nameClose=document.getElementById("nameClose");
-  const cancelName=document.getElementById("cancelName");
-  const saveName=document.getElementById("saveName");
-  const nameInput=document.getElementById("displayName");
-  const lbBtn=document.getElementById("lbBtn");
-  const lbModal=document.getElementById("lbModal");
-  const lbClose=document.getElementById("lbClose");
-  const lbBody=document.querySelector("#lbTable tbody");
+  const scoreEl = document.getElementById("score");
+  const bestEl  = document.getElementById("best");
+  const ammoEl  = document.getElementById("ammo");
+  const startBtn= document.getElementById("startBtn");
+  const pauseBtn= document.getElementById("pauseBtn");
+  const overlay = document.getElementById("overlay");
+  const leftPad = document.getElementById("leftPad");
+  const rightPad= document.getElementById("rightPad");
+  const firePad = document.getElementById("firePad");
+  const userChip= document.getElementById("userChip");
+  const nameBtn = document.getElementById("nameBtn");
+  const nameModal = document.getElementById("nameModal");
+  const nameClose = document.getElementById("nameClose");
+  const cancelName= document.getElementById("cancelName");
+  const saveName  = document.getElementById("saveName");
+  const nameInput = document.getElementById("displayName");
+  const lbBtn = document.getElementById("lbBtn");
+  const lbModal = document.getElementById("lbModal");
+  const lbClose = document.getElementById("lbClose");
+  const lbBody = document.querySelector("#lbTable tbody");
 
-  // prevent scroll/zoom
+  // Prevent scroll/zoom globally, but let overlays work
   const prevent=(e)=>{ if (e.target.closest(".overlay") || e.target.closest(".modal")) return; e.preventDefault(); };
   ["touchstart","touchmove","touchend","gesturestart"].forEach(ev=>document.addEventListener(ev, prevent, { passive:false }));
+
+  // Firebase user status in header
+  if (window.firebase && window.firebase.onUser) {
+    window.firebase.onUser(u => {
+      userChip.textContent = u ? (u.displayName ? `Signed in as ${u.displayName}` : `Signed in`) : "Not signed in";
+    });
+  }
 
   // Name modal
   nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); nameModal.style.display="flex"; });
@@ -300,11 +230,11 @@
   saveName.addEventListener("pointerdown", async e=>{
     e.preventDefault();
     const dn = await window.firebase?.setDisplayName?.(nameInput.value||"Player");
-    if (dn) document.getElementById("userChip").textContent = `Signed in: ${dn}`;
+    if (dn) userChip.textContent = `Signed in as ${dn}`;
     nameModal.style.display="none";
   });
 
-  // Leaderboard modal
+  // Leaderboard modal OPEN
   lbBtn.addEventListener("pointerdown", async e=>{
     e.preventDefault();
     lbBody.innerHTML = "<tr><td colspan='4'>Loading…</td></tr>";
@@ -320,7 +250,14 @@
     }catch(err){ lbBody.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(err.message||String(err))}</td></tr>`; }
     lbModal.style.display="flex";
   });
+
+  // Leaderboard modal CLOSE (button)
   lbClose.addEventListener("pointerdown", e=>{ e.preventDefault(); lbModal.style.display="none"; });
+  // Close by tapping the backdrop
+  lbModal.addEventListener("pointerdown", (e)=>{ if (e.target === lbModal) lbModal.style.display = "none"; });
+  // Close by Esc
+  document.addEventListener("keydown", (e)=>{ if (e.key === "Escape" && lbModal.style.display === "flex") lbModal.style.display = "none"; });
+
   function escapeHtml(x){ return (x||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
 
   // Game state
@@ -346,11 +283,9 @@
   resetPlayer();
 
   // Input (pads + swipe)
-  function bindPad(el,dir){
-    const down=(e)=>{ e.preventDefault(); if(dir<0) state.input.left=true; else state.input.right=true; };
+  function bindPad(el,dir){ const down=(e)=>{ e.preventDefault(); if(dir<0) state.input.left=true; else state.input.right=true; };
     const up=(e)=>{ if(dir<0) state.input.left=false; else state.input.right=false; };
-    el.addEventListener("pointerdown", down); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("pointerleave", up);
-  }
+    el.addEventListener("pointerdown", down); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("pointerleave", up); }
   bindPad(leftPad,-1); bindPad(rightPad,1);
 
   let swipeActive=false, swipeStartX=0;
@@ -358,8 +293,8 @@
   window.addEventListener("pointermove", e=>{ if(!swipeActive) return; const dx=e.clientX-swipeStartX; state.input.swipeVX=dx*3; });
   window.addEventListener("pointerup", ()=>{ swipeActive=false; state.input.swipeVX=0; });
 
-  // Fire button + keyboard
-  document.getElementById("firePad").addEventListener("pointerdown", e=>{ e.preventDefault(); shoot(); });
+  // Fire button + spacebar
+  firePad.addEventListener("pointerdown", e=>{ e.preventDefault(); shoot(); });
   window.addEventListener("keydown", e=>{
     if(e.key==="ArrowLeft"||e.key==="a") state.input.left=true;
     if(e.key==="ArrowRight"||e.key==="d") state.input.right=true;
@@ -370,8 +305,8 @@
     if(e.key==="ArrowRight"||e.key==="d") state.input.right=false;
   });
 
-  document.getElementById("startBtn").addEventListener("pointerdown", e=>{ e.preventDefault(); startGame(); });
-  document.getElementById("pauseBtn").addEventListener("pointerdown", e=>{ e.preventDefault(); togglePause(); });
+  startBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); startGame(); });
+  pauseBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); togglePause(); });
 
   function startGame(){
     state.blocks.length=0; state.bullets.length=0; state.powerups.length=0;
@@ -389,29 +324,24 @@
     const p = document.createElement("div"); p.className="subtitle";
     p.innerHTML = `You scored <strong>${Math.floor(state.score)}</strong>. ${(state.score>state.best)?`<span style="color:var(--danger)">New high score!</span>`:`Try again!`}`;
     overlay.querySelector(".card").insertBefore(p, overlay.querySelector(".go"));
-    state.best=Math.max(state.best, Math.floor(state.score)); localStorage.setItem("dodger_best", String(state.best)); bestEl.textContent=state.best; document.getElementById("startBtn").textContent="Play Again";
+    state.best=Math.max(state.best, Math.floor(state.score)); localStorage.setItem("dodger_best", String(state.best)); bestEl.textContent=state.best; startBtn.textContent="Play Again";
+    // Save to leaderboard
     if (window.firebase?.saveScore) { try { await window.firebase.saveScore(state.score); } catch(_){} }
   }
 
   function togglePause(){
     if(!state.running || state.over) return;
-    state.paused=!state.paused; document.getElementById("pauseBtn").textContent = state.paused ? "Resume" : "Pause";
+    state.paused=!state.paused; pauseBtn.textContent = state.paused ? "Resume" : "Pause";
     if(!state.paused){ state.last=performance.now(); requestAnimationFrame(loop); }
-    else {
-      ctx.save(); ctx.fillStyle="rgba(0,0,0,0.25)"; ctx.fillRect(0,0,width,height);
-      ctx.fillStyle="rgba(255,255,255,0.85)";
-      ctx.font="700 20px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif";
-      ctx.textAlign="center"; ctx.fillText("Paused", width/2, height*0.45); ctx.restore();
-    }
+    else { ctx.save(); ctx.fillStyle="rgba(0,0,0,0.25)"; ctx.fillRect(0,0,width,height); ctx.fillStyle="rgba(255,255,255,0.85)";
+      ctx.font="700 20px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif"; ctx.textAlign="center"; ctx.fillText("Paused", width/2, height*0.45); ctx.restore(); }
   }
 
   // Helpers
   function rand(min,max){ return Math.random()*(max-min)+min; }
-  function roundRect(ctx,x,y,w,h,r,fill){
-    ctx.beginPath(); const rr=Math.min(r,w/2,h/2);
+  function roundRect(ctx,x,y,w,h,r,fill){ ctx.beginPath(); const rr=Math.min(r,w/2,h/2);
     ctx.moveTo(x+rr,y); ctx.arcTo(x+w,y, x+w,y+h, rr); ctx.arcTo(x+w,y+h, x,y+h, rr);
-    ctx.arcTo(x,y+h, x,y, rr); ctx.arcTo(x,y, x+w,y, rr); ctx.closePath(); if(fill) ctx.fill();
-  }
+    ctx.arcTo(x,y+h, x,y, rr); ctx.arcTo(x,y, x+w,y, rr); ctx.closePath(); if(fill) ctx.fill(); }
 
   // Spawners
   function spawnBlock(){
@@ -421,7 +351,7 @@
     state.blocks.push({ x, y:-size, w:size, h:size, vy:speed });
   }
   function spawnPowerup(){
-    const type = Math.random() < 0.6 ? "blaster" : "shrink";
+    const type = Math.random() < 0.6 ? "blaster" : "shrink"; // 60/40
     const size = Math.max(26, Math.floor(Math.min(width,height)*0.05));
     const x = rand(0, width - size);
     const vy = rand(90, 130);
@@ -441,8 +371,10 @@
     state.time += dt; state.score += dt*10; state.difficulty = 1 + Math.min(2.2, state.time/24);
     scoreEl.textContent = Math.floor(state.score);
 
+    // shrink active?
     state.player.scale = (state.effects.shrinkUntil > state.time) ? 0.6 : 1;
 
+    // player move
     const p = state.player, base = p.speed * state.difficulty * 0.95;
     let targetVX = 0;
     if(state.input.left) targetVX -= base;
@@ -454,6 +386,7 @@
     if (p.x < 0) { p.x = 0; p.vx = Math.max(0, p.vx); }
     if (p.x + pw > width) { p.x = width - pw; p.vx = Math.min(0, p.vx); }
 
+    // spawn blocks
     state.blockTimer -= dt;
     const interval = Math.max(0.22, 0.9 - state.time*0.03);
     if (state.blockTimer <= 0) {
@@ -462,14 +395,20 @@
       state.blockTimer = interval;
     }
 
+    // spawn powerups
     state.powTimer -= dt;
-    if (state.powTimer <= 0) { spawnPowerup(); state.powTimer = rand(9, 14); }
+    if (state.powTimer <= 0) {
+      spawnPowerup();
+      state.powTimer = rand(9, 14);
+    }
 
+    // move blocks
     for (let i=state.blocks.length-1; i>=0; i--) {
       const b = state.blocks[i]; b.y += b.vy * dt;
       if (b.y - b.h > height + 8) { state.blocks.splice(i,1); continue; }
     }
 
+    // move powerups & collect
     for (let i=state.powerups.length-1; i>=0; i--) {
       const u = state.powerups[i]; u.y += u.vy * dt;
       if (u.y - u.h > height + 8) { state.powerups.splice(i,1); continue; }
@@ -480,6 +419,7 @@
       }
     }
 
+    // move bullets + bullet vs block
     for (let i=state.bullets.length-1; i>=0; i--) {
       const bullet = state.bullets[i]; bullet.y += bullet.vy * dt;
       if (bullet.y + bullet.h < -10) { state.bullets.splice(i,1); continue; }
@@ -494,9 +434,12 @@
       }
     }
 
+    // block vs player
     for (let i=state.blocks.length-1; i>=0; i--) {
       const b = state.blocks[i];
-      if (b.x < p.x + pw && b.x + b.w > p.x && b.y < p.y + ph && b.y + b.h > p.y) { gameOver(); return; }
+      if (b.x < p.x + pw && b.x + b.w > p.x && b.y < p.y + ph && b.y + b.h > p.y) {
+        gameOver(); return;
+      }
     }
   }
 
@@ -539,8 +482,10 @@
     requestAnimationFrame(loop);
   }
 
-  draw(); // first paint
-})();
+  // first paint for start screen
+  draw();
 
+})();
+</script>
 </body>
 </html>
