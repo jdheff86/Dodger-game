@@ -302,6 +302,42 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   background:rgba(255,255,255,.04); color:var(--fg); font-weight:700;
 }
 #menuPopup .menuItem + .menuItem{ margin-top:8px; }
+/* ── Minimal text-only overlay (waiting + paused + game over) ─────────── */
+.overlay{
+  position:absolute;
+  inset:0;
+  z-index:9999;
+  display:flex;                 /* JS toggles display on/off */
+  align-items:center;
+  justify-content:center;
+  pointer-events:auto;
+  background:none;              /* show the game behind it */
+  text-align:center;
+  padding:24px;
+}
+.overlay .card{
+  background:transparent;
+  border:none;
+  border-radius:0;
+  padding:0;
+  backdrop-filter:none;
+  pointer-events:auto;
+}
+.overlay .go{ display:none; }   /* we start by tapping anywhere now */
+
+.overlay .title{
+  font-size:32px;
+  font-weight:800;
+  color:#fff;
+  letter-spacing:.2px;
+  text-shadow:0 1px 0 rgba(0,0,0,.35);
+  margin:0 0 8px;
+}
+.overlay .subtitle{
+  color:rgba(233,239,255,.88);
+  font-size:15px;
+  margin:0;
+}
 </style>
 </head>
 <body class="safe">
@@ -847,6 +883,57 @@ const storeBtn   = document.getElementById("storeBtn");
 const storeModal = document.getElementById("storeModal");
 const storeClose = document.getElementById("storeClose");
 const storeMsg   = document.getElementById("storeMsg");
+// ── Start/Pause overlay helpers ──────────────────────────────────────────
+const overlayCard  = document.querySelector("#overlay .card");
+const overlayTitle = document.querySelector("#overlay .title");
+let showingPaused  = false;
+
+function ensureSubtitle(){
+  let sub = document.querySelector("#overlay .subtitle");
+  if (!sub) {
+    sub = document.createElement("div");
+    sub.className = "subtitle";
+    overlayCard.appendChild(sub);
+  }
+  return sub;
+}
+
+function showWaitingOverlay(){
+  showingPaused = false;
+  overlay.style.display = "flex";
+  overlayTitle.textContent = "DODGER";
+  ensureSubtitle().textContent = "Two-finger tap to pause. Tap to start.";
+}
+
+function showPausedOverlay(){
+  showingPaused = true;
+  overlay.style.display = "flex";
+  overlayTitle.textContent = "Paused";
+  ensureSubtitle().textContent = "Tap to resume";
+}
+
+// Start with the waiting screen visible
+showWaitingOverlay();
+
+// Tap anywhere on the overlay: start or resume
+function tryStartOrResume(e){
+  e.preventDefault();
+  // If we were paused, resume
+  if (showingPaused && !state.over) {
+    overlay.style.display = "none";
+    showingPaused = false;
+    if (state.paused) togglePause();    // will unpause + restart loop
+    return;
+  }
+  // Otherwise start a fresh run (auth-gated)
+  if (!window.firebase.auth.currentUser){
+    document.getElementById("authModal").style.display = "flex";
+    return;
+  }
+  startGame();
+}
+overlay.addEventListener("pointerdown", tryStartOrResume);
+overlay.addEventListener("click", tryStartOrResume);
 const buyAmmo    = document.getElementById("buyAmmo");
 const buyShrink  = document.getElementById("buyShrink");
 const buyLife    = document.getElementById("buyLife");
