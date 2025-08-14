@@ -22,6 +22,11 @@
   #hud { --s:0.82; }
   .topbar,.toolbar{ display:flex; align-items:center; justify-content:space-between; gap:calc(8px*var(--s)); height:calc(44px*var(--s)); flex-wrap:nowrap; }
   .left,.right{ display:flex; gap:calc(8px*var(--s)); align-items:center; min-width:0; }
+  /* Put Store under the coin chip on the left side of the toolbar */
+header .toolbar .left{
+  flex-direction:column;
+  align-items:flex-start;
+}
   .hud,.btn,#userChip,#coinChip{ pointer-events:auto; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
     border-radius:calc(12px*var(--s)); padding:calc(6px*var(--s)) calc(10px*var(--s)); white-space:nowrap; font-size:calc(14px*var(--s)); line-height:1; }
   .hud{ display:flex; gap:calc(8px*var(--s)); align-items:center; }
@@ -128,24 +133,46 @@
 
   <div class="toolbar">
     <div class="left">
-      <div id="coinChip" title="Coins">
-        <svg viewBox="0 0 64 64" aria-hidden="true">
-          <defs><radialGradient id="cg" cx="40%" cy="35%" r="65%">
-            <stop offset="0%" stop-color="#ffe38a"/><stop offset="55%" stop-color="#f5c240"/><stop offset="100%" stop-color="#c68a12"/>
-          </radialGradient></defs>
-          <circle cx="32" cy="32" r="22" fill="url(#cg)"/>
-          <circle cx="32" cy="32" r="22" fill="none" stroke="#000" stroke-opacity=".25" stroke-width="2"/>
-          <g fill="#000" fill-opacity=".28">
-            <circle cx="32" cy="10" r="2"/><circle cx="45" cy="14" r="2"/><circle cx="52" cy="26" r="2"/>
-            <circle cx="52" cy="38" r="2"/><circle cx="45" cy="50" r="2"/><circle cx="32" cy="54" r="2"/>
-            <circle cx="19" cy="50" r="2"/><circle cx="12" cy="38" r="2"/><circle cx="12" cy="26" r="2"/><circle cx="19" cy="14" r="2"/>
-          </g>
-          <circle cx="32" cy="32" r="13" fill="#000" fill-opacity=".15"/>
-          <text x="32" y="38" text-anchor="middle" font-size="18" font-weight="800" fill="#2b1900">D</text>
-        </svg>
-        <span id="coinCount">0</span>
-      </div>
-    </div>
+  <div id="coinChip" title="Coins">
+    <svg viewBox="0 0
+64 64" aria-
+hidden="true" >
+‹defs><radialGradient id="cg" cx="40%"
+cy="35%" r="65%">
+<stop offset=" 0%"
+stop-
+color="#ffe38a"/><stop offset="55%" color="#f5c240"/><stop
+offset="100%"
+stop-stop-
+color="#c68a12" />
+</radialGradient></defs>
+<circle cx="32" cy="32"r="22"
+fill="url (#cg)"/>
+‹circle cx="32" cy="32" r="22"
+fill="none" stroke="#000" stroke-opacity=" .25" stroke-width="2" />
+<g
+• fill="#000" fill-opacity=".28">
+‹circle cx="32" cy="10" r="2"/><circle
+cx="45" cy="14" r="2"/><circle cx="52" cy="26"
+r=" 2" />
+‹circle cx="52" cy="38" r="2"/><circle
+cx="45" cy="50" r="2"/><circle cx="32" cy="54"
+r=" 2" />
+‹circle cx="19" cy="50" r="2"/›<circle
+CX="12" cy="38" r="2"/><circle cx="12" cy="26"
+F="2"/><circle cx="19" cy="14" r="2"/>
+</g>
+<circle cx="32"cy="32" r="13"
+fill="#000" fill-opacity=".15"/>
+<text x="32" y="38" text-anchor="middle"
+font-size="18" font-weight="800" fill="#2b1900">D</text>
+</ svg >
+    <span id="coinCount">0</span>
+  </div>
+
+  <!-- Store chip -->
+  <button id="storeBtn" class="btn" title="Open store">Store</button>
+</div>
     <div class="right">
       <button class="btn" id="lbBtn">Leaderboard</button>
       <button class="btn" id="nameBtn">Set name</button>
@@ -230,6 +257,26 @@
     </div>
     <div style="margin-top:6px; display:flex; justify-content:flex-end;">
       <button class="small" id="authForgot">Forgot password?</button>
+    </div>
+  </div>
+</div>
+
+<!-- Store modal -->
+<div class="modal" id="storeModal">
+  <div class="panel">
+    <button class="x" id="storeClose">×</button>
+    <h2>Store</h2>
+
+    <div id="storeMsg" class="muted" style="margin-bottom:8px;"></div>
+
+    <div class="grid">
+      <button class="btn2" id="buyAmmo">Buy Blaster Ammo (+6) — 5 coins</button>
+      <button class="btn2" id="buyShrink">Buy Shrink Charge (+1) — 8 coins</button>
+      <button class="btn2" id="buyLife">Buy Life (+1) — 10 coins</button>
+    </div>
+
+    <div class="muted" style="margin-top:10px;">
+      Purchases apply to the current run. (Persistent lives coming soon.)
     </div>
   </div>
 </div>
@@ -499,6 +546,84 @@
   const lbBody = document.querySelector("#lbTable tbody");
   const shrinkBtn = document.getElementById("shrinkBtn");
   const shrinkCountEl = document.getElementById("shrinkCount");
+  // Store UI
+const storeBtn   = document.getElementById("storeBtn");
+const storeModal = document.getElementById("storeModal");
+const storeClose = document.getElementById("storeClose");
+const storeMsg   = document.getElementById("storeMsg");
+const buyAmmo    = document.getElementById("buyAmmo");
+const buyShrink  = document.getElementById("buyShrink");
+const buyLife    = document.getElementById("buyLife");
+// Open the store (require sign-in)
+storeBtn.addEventListener("pointerdown", (e)=>{
+  e.preventDefault();
+  if (!window.firebase.auth.currentUser){
+    // Force sign-in first
+    document.getElementById("authModal").style.display = "flex";
+    return;
+  }
+  storeMsg.textContent = ""; // clear old message
+  storeMsg.style.color = "var(--muted)";
+  storeModal.style.display = "flex";
+});
+
+// Close the store
+storeClose.addEventListener("pointerdown", (e)=>{
+  e.preventDefault();
+  storeModal.style.display = "none";
+});
+function getCoins(){
+  // coinCountEl is kept live by wallet listener in the Firebase script
+  return (Number(coinCountEl.textContent || "0") | 0);
+}
+
+async function spendCoins(cost){
+  if (!window.firebase.auth.currentUser) throw new Error("Sign in to buy.");
+  const have = getCoins();
+  if (have < cost) throw new Error(`You need ${cost} coins (you have ${have}).`);
+  // Deduct via Firestore (server-side authoritative)
+  await window.firebase.addCoins(-cost);
+}
+
+function flashStoreMsg(text, ok=true){
+  storeMsg.textContent = text;
+  storeMsg.style.color = ok ? "var(--fg)" : "var(--danger)";
+}
+buyAmmo.addEventListener("pointerdown", async (e)=>{
+  e.preventDefault();
+  try{
+    await spendCoins(5);
+    state.ammo += 6;
+    ammoEl.textContent = state.ammo;
+    flashStoreMsg("Purchased +6 ammo.");
+  }catch(err){
+    flashStoreMsg(err.message || String(err), false);
+  }
+});
+
+buyShrink.addEventListener("pointerdown", async (e)=>{
+  e.preventDefault();
+  try{
+    await spendCoins(8);
+    state.shrinkCharges += 1;
+    shrinkCountEl.textContent = state.shrinkCharges;
+    flashStoreMsg("Purchased +1 shrink charge.");
+  }catch(err){
+    flashStoreMsg(err.message || String(err), false);
+  }
+});
+
+buyLife.addEventListener("pointerdown", async (e)=>{
+  e.preventDefault();
+  try{
+    await spendCoins(10);
+    state.lives = Math.min(5, state.lives + 1);
+    renderHearts();
+    flashStoreMsg("Purchased +1 life.");
+  }catch(err){
+    flashStoreMsg(err.message || String(err), false);
+  }
+});
 const lifeBar = document.getElementById("lifeBar");
 function renderHearts(){
   if (!lifeBar) return;
