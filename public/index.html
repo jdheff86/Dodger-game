@@ -1230,24 +1230,36 @@ renderHearts();
     requestAnimationFrame(loop);
   }
 
-  async function gameOver(){
-    state.over=true; state.running=false; overlay.style.display="flex";
-    overlay.querySelector(".title").textContent = "Game Over";
-    const old = overlay.querySelector(".subtitle"); if (old) old.remove();
-    const p = document.createElement("div"); p.className="subtitle";
-    p.innerHTML = `You scored <strong>${Math.floor(state.score)}</strong>. ${(state.score>state.best)?`<span style="color:var(--danger)">New high score!</span>`:`Try again!`}`;
-    overlay.querySelector(".card").insertBefore(p, overlay.querySelector(".go"));
-    state.best=Math.max(state.best, Math.floor(state.score)); localStorage.setItem("dodger_best", String(state.best)); bestEl.textContent=state.best; startBtn.textContent="Play Again";
-    if (window.firebase?.saveScore) { try { await window.firebase.saveScore(state.score); } catch(_){} }
-  }
+async function gameOver(){
+  state.over = true;
+  state.running = false;
 
-  function togglePause(){
-    if(!state.running || state.over) return;
-    state.paused=!state.paused; pauseBtn.textContent = state.paused ? "Resume" : "Pause";
-    if(!state.paused){ state.last=performance.now(); requestAnimationFrame(loop); }
-    else { ctx.save(); ctx.fillStyle="rgba(0,0,0,0.25)"; ctx.fillRect(0,0,width,height); ctx.fillStyle="rgba(255,255,255,0.85)";
-      ctx.font="700 20px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif"; ctx.textAlign="center"; ctx.fillText("Paused", width/2, height*0.45); ctx.restore(); }
+  overlay.style.display = "flex";
+  overlayTitle.textContent = "Game Over";
+  const sub = ensureSubtitle();
+  sub.innerHTML = `You scored <strong>${Math.floor(state.score)}</strong>. Tap to start.`;
+
+  state.best = Math.max(state.best, Math.floor(state.score));
+  localStorage.setItem("dodger_best", String(state.best));
+  bestEl.textContent = state.best;
+
+  try { await window.firebase.saveScore(state.score); } catch(_){}
+}
+
+function togglePause(){
+  if(!state.running || state.over) return;
+  state.paused = !state.paused;
+  pauseBtn.textContent = state.paused ? "Resume" : "Pause";
+
+  if (state.paused){
+    showPausedOverlay(); // white "Paused — Tap to resume"
+  } else {
+    overlay.style.display = "none";
+    showingPaused = false;
+    state.last = performance.now();
+    requestAnimationFrame(loop);
   }
+}
 
   function rand(min,max){ return Math.random()*(max-min)+min; }
   function roundRect(ctx,x,y,w,h,r,fill){ ctx.beginPath(); const rr=Math.min(r,w/2,h/2);
@@ -1319,6 +1331,32 @@ renderHearts();
     p.y = Math.max(0, floorY);
 
     state.blockTimer -= worldDT;
+    
+    // ── Two-finger tap to pause ──────────────────────────────────────────────
+const activeTouches = new Set();
+
+canvas.addEventListener("pointerdown", (e)=>{
+  if (e.pointerType === "touch") {
+    activeTouches.add(e.pointerId);
+    // if second finger lands during gameplay -> pause
+    if (activeTouches.size >= 2 && state.running && !state.paused && !state.over) {
+      togglePause();
+    }
+  }
+});
+
+["pointerup","pointercancel","pointerleave","pointerout"].forEach(ev=>{
+  window.addEventListener(ev, (e)=>{
+    if (e.pointerType === "touch") activeTouches.delete(e.pointerId);
+  }, { passive:true });
+});
+
+// Keep your swipe handler, but only start swipe for single-finger drags
+let swipeActive=false, swipeStartX=0;
+canvas.addEventListener("pointerdown", e=>{
+  if (e.pointerType === "touch" && activeTouches.size > 1) return; // ignore multi-touch
+  swipeActive=true; swipeStartX=e.clientX;
+});
 // base interval grows ~8–10% to reduce spawn frequency slightly
 const baseInterval = Math.max(0.24, 0.9 - state.time * 0.03);
 const interval = baseInterval * 1.08; // bump to 1.10 for ~10% fewer spawns
