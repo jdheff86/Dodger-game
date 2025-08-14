@@ -20,6 +20,49 @@
   /* HUD -*/
   header { position:absolute; top:0; left:0; right:0; z-index:8; display:flex; flex-direction:column; padding:8px 10px; gap:6px; pointer-events:none; }
   #hud { --s:0.82; }
+  
+  /* ── HUD scaling across devices ─────────────────────────────────────────── */
+#hud { --s:0.82; }                 /* default */
+@media (max-width:380px){ #hud{ --s:0.72; } }               /* very small */
+@media (min-width:381px) and (max-width:430px){ #hud{ --s:0.80; } } /* common */
+@media (min-width:431px){ #hud{ --s:0.90; } }               /* large phones */
+
+/* keep right chip row on one line; swipe to scroll if cramped */
+header .toolbar .right{
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+header .toolbar .right::-webkit-scrollbar{ display:none; }
+
+/* small gap between the two toolbar rows */
+header .toolbar{ row-gap:calc(6px*var(--s)); }
+
+/* minimum tap size for chips */
+.btn,#coinChip,.hud{
+  min-height:calc(28px*var(--s));
+  padding:calc(6px*var(--s)) calc(10px*var(--s));
+}
+
+/* ── Menu (gear) dropdown ──────────────────────────────────────────────── */
+#menuBtn svg{ vertical-align:-2px; }
+#menuPopup{
+  position:absolute; z-index:12010; display:none;
+  background:rgba(18,24,38,.98);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:12px; padding:8px; min-width:170px;
+  box-shadow:0 10px 24px rgba(0,0,0,.35);
+}
+#menuPopup .menuItem{
+  width:100%; text-align:left; margin:0; padding:10px 12px;
+  border-radius:10px; border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.04); color:var(--fg); font-weight:700;
+}
+#menuPopup .menuItem + .menuItem{ margin-top:8px; }
+
+/* hide the original toolbar chips we’re moving into the menu */
+.hideOnToolbar{ display:none; }
   .topbar,.toolbar{ display:flex; align-items:center; justify-content:space-between; gap:calc(8px*var(--s)); height:calc(44px*var(--s)); flex-wrap:nowrap; }
   .left,.right{ display:flex; gap:calc(8px*var(--s)); align-items:center; min-width:0; }
   /* Put Store under the coin chip on the left side of the toolbar */
@@ -161,6 +204,32 @@ header .toolbar .right > .btn{
 /* How-to modal tweaks */
 .howtoList { margin:8px 0 0; padding-left:18px; }
 .howtoList li { margin:6px 0; }
+/* Right cluster can scroll a bit if tight */
+header .toolbar .right{
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+header .toolbar .right::-webkit-scrollbar{ display:none; }
+
+/* Hide on toolbar, but still available in dropdown */
+.hideOnToolbar{ display:none; }
+
+/* Menu popup */
+#menuPopup{
+  position:absolute; z-index:12010; display:none;
+  background:rgba(18,24,38,.98);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:12px; padding:8px; min-width:170px;
+  box-shadow:0 10px 24px rgba(0,0,0,.35);
+}
+#menuPopup .menuItem{
+  width:100%; text-align:left; margin:0; padding:10px 12px;
+  border-radius:10px; border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.04); color:var(--fg); font-weight:700;
+}
+#menuPopup .menuItem + .menuItem{ margin-top:8px; }
 </style>
 </head>
 <body class="safe">
@@ -238,12 +307,30 @@ header .toolbar .right > .btn{
   <button id="storeBtn" class="btn" title="Open store">Store</button>
 </div>
     <div class="right">
-      <button class="btn" id="lbBtn">Leaderboard</button>
-      <button class="btn" id="howtoBtn">How to play</button>
-      <button class="btn" id="nameBtn">Set name</button>
-      <button class="btn" id="authBtn">Account</button>
-      <button class="btn" id="pauseBtn" aria-label="Pause or resume">Pause</button>
-    </div>
+  <button class="btn" id="lbBtn">Leaderboard</button>
+  <button class="btn" id="howtoBtn">How to play</button>
+
+  <!-- ▼ New gear Menu button -->
+  <button class="btn" id="menuBtn" title="Menu">
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24">
+      <path fill="currentColor"
+        d="M12 8.75a3.25 3.25 0 1 0 0 6.5a3.25 3.25 0 0 0 0-6.5Zm9 3.25l-1.86.78c-.13.41-.3.8-.5 1.17l.99 1.74-1.41 1.41-1.74-.99c-.37.2-.76.37-1.17.5L14.5 21h-2.99l-.78-1.86a7.1 7.1 0 0 1-1.17-.5l-1.74.99-1.41-1.41.99-1.74a7.1 7.1 0 0 1-.5-1.17L3 12V9.01l1.86-.78c.13-.41.3-.8.5-1.17L4.37 5.32 5.78 3.9l1.74.99c.37-.2.76-.37 1.17-.5L11.51 2h2.99l.78 1.86c.41.13.8.3 1.17.5l1.74-.99 1.41 1.41-.99 1.74c.2.37.37.76.5 1.17L21 9.01V12Z"/>
+    </svg>
+    Menu
+  </button>
+  <!-- ▲ New gear Menu button -->
+
+  <!-- Keep these in DOM but hide them on the toolbar (CSS will hide .hideOnToolbar) -->
+  <button class="btn hideOnToolbar" id="nameBtn">Set name</button>
+  <button class="btn hideOnToolbar" id="authBtn">Account</button>
+
+  <button class="btn" id="pauseBtn" aria-label="Pause or resume">Pause</button>
+</div>
+<!-- Dropdown that opens under the Menu button -->
+<div id="menuPopup" role="menu" aria-label="Menu">
+  <button class="menuItem" id="menuNameBtn">Set name</button>
+  <button class="menuItem" id="menuAccountBtn">Account</button>
+</div>
   </div>
 </header>
 
@@ -678,6 +765,11 @@ header .toolbar .right > .btn{
   const lbBody = document.querySelector("#lbTable tbody");
   const shrinkBtn = document.getElementById("shrinkBtn");
   const shrinkCountEl = document.getElementById("shrinkCount");
+  // MENU (gear)
+const menuBtn        = document.getElementById("menuBtn");
+const menuPopup      = document.getElementById("menuPopup");
+const menuNameBtn    = document.getElementById("menuNameBtn");
+const menuAccountBtn = document.getElementById("menuAccountBtn");
   // Store UI
 const storeBtn   = document.getElementById("storeBtn");
 const storeModal = document.getElementById("storeModal");
@@ -823,6 +915,48 @@ function renderHearts(){
   });
   lbClose.addEventListener("pointerdown", e=>{ e.preventDefault(); lbModal.style.display="none"; });
   function escapeHtml(x){ return (x||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
+  
+  // ── Menu dropdown logic
+function positionMenuPopup(){
+  const r = menuBtn.getBoundingClientRect();
+  menuPopup.style.left = Math.round(r.left) + "px";
+  menuPopup.style.top  = Math.round(r.bottom + 6) + "px";
+}
+function openMenu(){ positionMenuPopup(); menuPopup.style.display = "block"; }
+function closeMenu(){ menuPopup.style.display = "none"; }
+
+menuBtn.addEventListener("pointerdown", (e)=>{
+  e.preventDefault();
+  const open = menuPopup.style.display === "block";
+  if (open) closeMenu(); else openMenu();
+});
+
+// click outside to close
+document.addEventListener("pointerdown", (e)=>{
+  if (!menuPopup.contains(e.target) && e.target !== menuBtn){
+    closeMenu();
+  }
+}, {passive:true});
+
+// Esc closes
+document.addEventListener("keydown", (e)=>{
+  if (e.key === "Escape") closeMenu();
+});
+
+// Keep popup anchored on rotate/resize
+window.addEventListener("resize", ()=>{
+  if (menuPopup.style.display === "block") positionMenuPopup();
+});
+
+// Menu items forward to your existing modals
+menuNameBtn.addEventListener("pointerdown", (e)=>{
+  e.preventDefault(); closeMenu();
+  document.getElementById("nameModal").style.display = "flex";
+});
+menuAccountBtn.addEventListener("pointerdown", (e)=>{
+  e.preventDefault(); closeMenu();
+  document.getElementById("authModal").style.display = "flex";
+});
 
   // Game state
   const state = {
