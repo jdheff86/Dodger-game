@@ -180,6 +180,32 @@ header .toolbar .right > .btn{
   .modal{ position:absolute; inset:0; z-index:12000; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); padding:18px; pointer-events:auto;}
   .panel{ width:min(520px,92%); background:#121826; border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:16px; position:relative; }
   
+  /* Always show a vertical scrollbar inside these modals */
+#howtoModal .panel,
+#lbModal .panel,
+#storeModal .panel{
+  overflow-y: scroll;      /* always shows the bar */
+  overflow-x: hidden;
+  max-height: min(82vh, 520px);  /* keeps panel usable on short screens */
+  scrollbar-gutter: stable;      /* reserves space so layout doesn't jump */
+}
+
+/* Optional: tidy WebKit scrollbars (Chrome/Safari) */
+#howtoModal .panel::-webkit-scrollbar,
+#lbModal .panel::-webkit-scrollbar,
+#storeModal .panel::-webkit-scrollbar{ width: 10px; }
+
+#howtoModal .panel::-webkit-scrollbar-track,
+#lbModal .panel::-webkit-scrollbar-track,
+#storeModal .panel::-webkit-scrollbar-track{ background: rgba(255,255,255,.06); border-radius: 8px; }
+
+#howtoModal .panel::-webkit-scrollbar-thumb,
+#lbModal .panel::-webkit-scrollbar-thumb,
+#storeModal .panel::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,.22);
+  border-radius: 8px;
+  border: 2px solid rgba(0,0,0,0); /* gives a bit of padding/rounding */
+}
   
   .panel h2{ margin:4px 0 12px; font-size:20px; }
   .grid{ display:grid; gap:10px; }
