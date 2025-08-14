@@ -206,6 +206,14 @@ header .toolbar .right > .btn{
 .itemBtn .label{ flex:1; display:flex; align-items:center; gap:8px; }
 .itemBtn .cost{ display:flex; align-items:center; gap:6px; font-weight:800; }
 .itemBtn .coinMini{ width:16px; height:16px; flex:0 0 auto; }
+/* Small inline coins everywhere (how-to, lists, text) */
+.coinMini{
+  width:18px;            /* pick 14–20px to taste */
+  height:18px;
+  vertical-align:-2px;   /* lines up nicely with text */
+  display:inline-block;  /* prevents odd line breaks in some browsers */
+  flex:0 0 auto;
+}
 /* How-to modal tweaks */
 .howtoList { margin:8px 0 0; padding-left:18px; }
 .howtoList li { margin:6px 0; }
