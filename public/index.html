@@ -117,6 +117,28 @@ header .toolbar .left{
 </style>
 </head>
 <body class="safe">
+  <!-- Hidden SVG sprite: tiny D coin we can <use> anywhere -->
+<svg aria-hidden="true" width="0" height="0" style="position:absolute;left:-9999px;visibility:hidden">
+  <defs>
+    <radialGradient id="cgStore" cx="40%" cy="35%" r="65%">
+      <stop offset="0%"   stop-color="#ffe38a"/>
+      <stop offset="55%"  stop-color="#f5c240"/>
+      <stop offset="100%" stop-color="#c68a12"/>
+    </radialGradient>
+
+    <symbol id="dcoin" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="22" fill="url(#cgStore)"/>
+      <circle cx="32" cy="32" r="22" fill="none" stroke="#000" stroke-opacity=".25" stroke-width="2"/>
+      <g fill="#000" fill-opacity=".28">
+        <circle cx="32" cy="10" r="2"/><circle cx="45" cy="14" r="2"/><circle cx="52" cy="26" r="2"/>
+        <circle cx="52" cy="38" r="2"/><circle cx="45" cy="50" r="2"/><circle cx="32" cy="54" r="2"/>
+        <circle cx="19" cy="50" r="2"/><circle cx="12" cy="38" r="2"/><circle cx="12" cy="26" r="2"/><circle cx="19" cy="14" r="2"/>
+      </g>
+      <circle cx="32" cy="32" r="13" fill="#000" fill-opacity=".15"/>
+      <text x="32" y="38" text-anchor="middle" font-size="18" font-weight="800" fill="#2b1900">D</text>
+    </symbol>
+  </defs>
+</svg>
 <canvas id="game" aria-label="Dodger game area"></canvas>
 
 <header class="safe" id="hud">
@@ -264,11 +286,25 @@ header .toolbar .left{
 
     <div id="storeMsg" class="muted" style="margin-bottom:8px;"></div>
 
-    <div class="grid">
-      <button class="btn2" id="buyAmmo">Buy Blaster Ammo (+6) — 5 coins</button>
-      <button class="btn2" id="buyShrink">Buy Shrink Charge (+1) — 8 coins</button>
-      <button class="btn2" id="buyLife">Buy Life (+1) — 10 coins</button>
-    </div>
+  <div class="grid">
+  <button class="btn2 itemBtn" id="buyAmmo" title="Buy blaster ammo">
+    <span class="emoji">🔫</span>
+    <span class="label"><strong>Buy Blaster</strong> ammo (+6)</span>
+    <span class="cost"><span class="num">5</span><svg class="coinMini"><use href="#dcoin"></use></svg></span>
+  </button>
+
+  <button class="btn2 itemBtn" id="buyShrink" title="Buy a shrink charge">
+    <span class="emoji">✂️</span>
+    <span class="label"><strong>Buy Shrink</strong> charge (+1)</span>
+    <span class="cost"><span class="num">8</span><svg class="coinMini"><use href="#dcoin"></use></svg></span>
+  </button>
+
+  <button class="btn2 itemBtn" id="buyLife" title="Buy one life">
+    <span class="emoji">❤️</span>
+    <span class="label"><strong>Buy Life</strong> (+1)</span>
+    <span class="cost"><span class="num">10</span><svg class="coinMini"><use href="#dcoin"></use></svg></span>
+  </button>
+</div>
 
     <div class="muted" style="margin-top:10px;">
       Purchases apply to the current run. (Persistent lives coming soon.)
