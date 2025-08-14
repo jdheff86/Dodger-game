@@ -126,6 +126,9 @@ header .toolbar .left{
 .itemBtn .label{ flex:1; display:flex; align-items:center; gap:8px; }
 .itemBtn .cost{ display:flex; align-items:center; gap:6px; font-weight:800; }
 .itemBtn .coinMini{ width:16px; height:16px; flex:0 0 auto; }
+/* How-to modal tweaks */
+.howtoList { margin:8px 0 0; padding-left:18px; }
+.howtoList li { margin:6px 0; }
 </style>
 </head>
 <body class="safe">
@@ -204,6 +207,7 @@ header .toolbar .left{
 </div>
     <div class="right">
       <button class="btn" id="lbBtn">Leaderboard</button>
+      <button class="btn" id="howtoBtn">How to play</button>
       <button class="btn" id="nameBtn">Set name</button>
       <button class="btn" id="authBtn">Account</button>
       <button class="btn" id="pauseBtn" aria-label="Pause or resume">Pause</button>
@@ -263,6 +267,59 @@ header .toolbar .left{
       <tbody></tbody>
     </table>
     <div class="muted">Finish a run to submit your score.</div>
+  </div>
+</div>
+
+<!-- How to play modal -->
+<div class="modal" id="howtoModal">
+  <div class="panel">
+    <button class="x" id="howtoClose">×</button>
+    <h2>How to play</h2>
+
+    <div class="grid" style="gap:14px;">
+      <div>
+        <strong>Move left/right</strong>
+        <ul class="howtoList">
+          <li><strong>Tap</strong> the left ⟵ or right ⟶ pads.</li>
+          <li><strong>Swipe/slide</strong> on the game area to drift your square.</li>
+        </ul>
+      </div>
+
+      <div>
+        <strong>Fire blaster</strong>
+        <ul class="howtoList">
+          <li>Press <strong>FIRE</strong> (or spacebar) when you have ammo 🔫.</li>
+          <li>Bullets destroy red blocks and add points.</li>
+        </ul>
+      </div>
+
+      <div>
+        <strong>Power-ups</strong>
+        <ul class="howtoList">
+          <li>🔫 <em>Blaster</em>: +6 ammo.</li>
+          <li>✂️ <em>Shrink</em>: temporarily smaller and harder to hit. Tap <strong>✂ Shrink</strong> to use.</li>
+          <li>🛡 <em>Shield</em>: one hit protection for a short time.</li>
+          <li>🐌 <em>Slow</em>: slows falling blocks briefly.</li>
+          <li>🧲 <em>Magnet</em>: pulls power-ups toward you.</li>
+          <li>❤️ <em>Life</em>: +1 extra life (max 5).</li>
+        </ul>
+      </div>
+
+      <div>
+        <strong>Coins & Store</strong>
+        <ul class="howtoList">
+          <li>Collect <svg class="coinMini" style="vertical-align:-2px;"><use href="#dcoin"></use></svg> coins while you play.</li>
+          <li>Open <strong>Store</strong> to buy:
+            <ul class="howtoList">
+              <li>🔫 Ammo (+6) — <span class="num">5</span> <svg class="coinMini"><use href="#dcoin"></use></svg></li>
+              <li>✂️ Shrink charge (+1) — <span class="num">8</span> <svg class="coinMini"><use href="#dcoin"></use></svg></li>
+              <li>❤️ Life (+1) — <span class="num">10</span> <svg class="coinMini"><use href="#dcoin"></use></svg></li>
+            </ul>
+          </li>
+          <li>Purchases apply to the current run.</li>
+        </ul>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -597,6 +654,19 @@ const storeMsg   = document.getElementById("storeMsg");
 const buyAmmo    = document.getElementById("buyAmmo");
 const buyShrink  = document.getElementById("buyShrink");
 const buyLife    = document.getElementById("buyLife");
+const howtoBtn   = document.getElementById("howtoBtn");
+const howtoModal = document.getElementById("howtoModal");
+const howtoClose = document.getElementById("howtoClose");
+
+howtoBtn.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  howtoModal.style.display = "flex";
+});
+
+howtoClose.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  howtoModal.style.display = "none";
+});
 // Open the store (require sign-in)
 storeBtn.addEventListener("pointerdown", (e)=>{
   e.preventDefault();
