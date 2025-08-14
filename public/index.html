@@ -922,8 +922,15 @@ function positionMenuPopup(){
   menuPopup.style.left = Math.round(r.left) + "px";
   menuPopup.style.top  = Math.round(r.bottom + 6) + "px";
 }
-function openMenu(){ positionMenuPopup(); menuPopup.style.display = "block"; }
-function closeMenu(){ menuPopup.style.display = "none"; }
+function openMenu(){
+  positionMenuPopup();
+  menuPopup.style.display = "block";
+  menuBtn.setAttribute("aria-expanded", "true");
+}
+function closeMenu(){
+  menuPopup.style.display = "none";
+  menuBtn.setAttribute("aria-expanded", "false");
+}
 
 menuBtn.addEventListener("pointerdown", (e)=>{
   e.preventDefault();
@@ -949,13 +956,20 @@ window.addEventListener("resize", ()=>{
 });
 
 // Menu items forward to your existing modals
-menuNameBtn.addEventListener("pointerdown", (e)=>{
-  e.preventDefault(); closeMenu();
-  document.getElementById("nameModal").style.display = "flex";
-});
-menuAccountBtn.addEventListener("pointerdown", (e)=>{
-  e.preventDefault(); closeMenu();
-  document.getElementById("authModal").style.display = "flex";
+// One delegated handler for all items in the popup
+menuPopup.addEventListener("pointerdown", (e)=>{
+  const item = e.target.closest(".menuItem");
+  if (!item) return;
+
+  e.preventDefault();
+  e.stopPropagation();           // don't let the outside-click listener fire
+  closeMenu();
+
+  if (item.id === "menuNameBtn") {
+    document.getElementById("nameModal").style.display = "flex";
+  } else if (item.id === "menuAccountBtn") {
+    document.getElementById("authModal").style.display = "flex";
+  }
 });
 
   // Game state
