@@ -19,6 +19,11 @@
 
   /* HUD -*/
   header { position:absolute; top:0; left:0; right:0; z-index:8; display:flex; flex-direction:column; padding:8px 10px; gap:6px; pointer-events:none; }
+  /* allow clicking inside the menu popup */
+#menuPopup,
+#menuPopup .menuItem {
+  pointer-events: auto;
+}
   #hud { --s:0.82; }
   
   /* ── HUD scaling across devices ─────────────────────────────────────────── */
@@ -872,8 +877,18 @@ function renderHearts(){
   }
   lifeBar.innerHTML = out.join("");
 }
-  const prevent=(e)=>{ if (e.target.closest(".overlay") || e.target.closest(".modal")) return; e.preventDefault(); };
-  ["touchstart","touchmove","touchend","gesturestart"].forEach(ev=>document.addEventListener(ev, prevent, { passive:false }));
+  
+  const prevent = (e) => { 
+  if (
+    e.target.closest(".overlay") ||
+    e.target.closest(".modal")   ||
+    e.target.closest("#menuPopup") // ✅ allow touches inside menu popup
+  ) return;
+  e.preventDefault();
+};
+["touchstart","touchmove","touchend","gesturestart"].forEach(ev => 
+  document.addEventListener(ev, prevent, { passive:false })
+);
 
   // Name modal
   nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); nameModal.style.display="flex"; });
