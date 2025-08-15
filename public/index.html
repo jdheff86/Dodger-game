@@ -18,7 +18,7 @@
   .safe { padding-top: env(safe-area-inset-top); }
 
   /* HUD -*/
-  header { position:absolute; top:0; left:0; right:0; z-index:8; display:flex; flex-direction:column; padding:8px 10px; gap:6px; pointer-events:none; }
+  header { position:absolute; top:0; left:0; right:0; z-index:12050; display:flex; flex-direction:column; padding:8px 10px; gap:6px; pointer-events:none; }
   /* allow clicking inside the menu popup */
 #menuPopup,
 #menuPopup .menuItem {
@@ -743,19 +743,33 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   const startBtn = document.getElementById("startBtn");
   const startSub = document.getElementById("startSub");
 
-  onAuthStateChanged(auth, async (u)=>{
-    if (!u){
-      userChip.textContent = "Not signed in";
-      coinCountEl.textContent = "0";
-      await window.firebase.watchWallet(null, null);
-      startBtn.textContent = "Sign in";
-      return;
-    }
-    userChip.textContent = u.displayName ? `Signed in: ${u.displayName}` :
-                           u.email ? `Signed in: ${u.email}` : "Signed in";
-    await window.firebase.watchWallet(u.uid, (coins)=>{ coinCountEl.textContent = String(coins); });
-    startBtn.textContent = "Start";
+onAuthStateChanged(auth, async (u)=>{
+  if (!u){
+    userChip.textContent = "Not signed in";
+    coinCountEl.textContent = "0";
+    await window.firebase.watchWallet(null, null);
+
+    // Only change the button label; overlay subtitle is controlled by the game code
+    startBtn.textContent = "Sign in";
+
+    // Ask the game script to refresh the waiting overlay text (if visible)
+    window.refreshStartOverlay?.();
+    return;
+  }
+
+  userChip.textContent = u.displayName ? `Signed in: ${u.displayName}` :
+                         u.email ? `Signed in: ${u.email}` : "Signed in";
+
+  await window.firebase.watchWallet(u.uid, (coins)=>{
+    coinCountEl.textContent = String(coins);
   });
+
+  // Only change the button label; overlay subtitle is controlled by the game code
+  startBtn.textContent = "Start";
+
+  // Ask the game script to refresh the waiting overlay text (if visible)
+  window.refreshStartOverlay?.();
+});
 
   function openModal(m){ m.style.display="flex"; }
   function closeModal(m){ m.style.display="none"; }
@@ -900,6 +914,23 @@ function showWaitingOverlay(){
   showingPaused = false;
   overlay.style.display = "flex";
   overlayTitle.textContent = "DODGER";
+  
+  // Allow the auth script to refresh the start screen subtitle safely
+window.refreshStartOverlay = function(){
+  try{
+    const onWaitingScreen =
+      overlay.style.display !== "none" && !state.running && !state.paused && !state.over;
+    if (onWaitingScreen) showWaitingOverlay();
+  }catch(_){ /* game not initialized yet */ }
+};
+  
+  // Let other scripts (Firebase auth) ask the start screen to refresh
+window.refreshStartOverlay = function(){
+  try {
+    const onWaiting = overlay.style.display !== "none" && !state.running && !state.paused && !state.over;
+    if (onWaiting) showWaitingOverlay();
+  } catch (_) { /* game not ready yet */ }
+};
 
   const tip = shouldShowPauseTip() ? " Two-finger tap to pause." : "";
   ensureSubtitle().textContent = `Tap to start.${tip}`;
@@ -1086,9 +1117,17 @@ function renderHearts(){
   ) return;
   e.preventDefault();
 };
-["touchstart","touchmove","touchend","gesturestart"].forEach(ev => 
-  document.addEventListener(ev, prevent, { passive:false })
-);
+["touchstart","touchmove","touchend","gesturestart"].forEach(ev => {
+  canvas.addEventListener(ev, (e)=> {
+    // Allow touches on modals/menu even if they’re above the canvas
+    if (
+      e.target.closest(".overlay") ||
+      e.target.closest(".modal")   ||
+      e.target.closest("#menuPopup")
+    ) return;
+    e.preventDefault(); // only block gestures meant for the game area
+  }, { passive:false });
+});
 
   // Name modal
   nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); nameModal.style.display="flex"; });
