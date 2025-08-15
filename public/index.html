@@ -748,14 +748,12 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
       userChip.textContent = "Not signed in";
       coinCountEl.textContent = "0";
       await window.firebase.watchWallet(null, null);
-      startSub.textContent = "Sign in to play and save coins.";
       startBtn.textContent = "Sign in";
       return;
     }
     userChip.textContent = u.displayName ? `Signed in: ${u.displayName}` :
                            u.email ? `Signed in: ${u.email}` : "Signed in";
     await window.firebase.watchWallet(u.uid, (coins)=>{ coinCountEl.textContent = String(coins); });
-    startSub.textContent = "Avoid blocks. Power-ups: 🔫 Blaster, ✂ Shrink, 🛡 Shield, 🐌 Slow, 🧲 Magnet, ❤️ Life.";
     startBtn.textContent = "Start";
   });
 
