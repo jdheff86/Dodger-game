@@ -338,6 +338,12 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   font-size:15px;
   margin:0;
 }
+#gameOverText small {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.8em;
+  color: #ccc;
+}
 </style>
 </head>
 <body class="safe">
@@ -1231,19 +1237,21 @@ renderHearts();
   }
 
 async function gameOver(){
-  state.over = true;
-  state.running = false;
+    state.over = true;
+    state.running = false;
 
-  overlay.style.display = "flex";
-  overlayTitle.textContent = "Game Over";
-  const sub = ensureSubtitle();
-  sub.innerHTML = `You scored <strong>${Math.floor(state.score)}</strong>. Tap to start.`;
+    overlay.style.display = "flex";
+    overlayTitle.textContent = "Game Over";
+    const sub = ensureSubtitle();
+    sub.innerHTML = `You scored <strong>${Math.floor(state.score)}</strong>. Tap to start.<br><small>Two finger tap to pause</small>`;
 
-  state.best = Math.max(state.best, Math.floor(state.score));
-  localStorage.setItem("dodger_best", String(state.best));
-  bestEl.textContent = state.best;
+    state.best = Math.max(state.best, Math.floor(state.score));
+    localStorage.setItem("dodger_best", String(state.best));
+    bestEl.textContent = state.best;
 
-  try { await window.firebase.saveScore(state.score); } catch(_){}
+    try { 
+        await window.firebase.saveScore(state.score); 
+    } catch(_){}
 }
 
 function togglePause(){
