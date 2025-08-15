@@ -902,7 +902,9 @@ function showWaitingOverlay(){
   showingPaused = false;
   overlay.style.display = "flex";
   overlayTitle.textContent = "DODGER";
-  ensureSubtitle().textContent = "Two-finger tap to pause. Tap to start.";
+
+  const tip = shouldShowPauseTip() ? " Two-finger tap to pause." : "";
+  ensureSubtitle().textContent = `Tap to start.${tip}`;
 }
 
 function showPausedOverlay(){
@@ -910,6 +912,52 @@ function showPausedOverlay(){
   overlay.style.display = "flex";
   overlayTitle.textContent = "Paused";
   ensureSubtitle().textContent = "Tap to resume";
+}
+// ── Pause-tip per-login-session logic ─────────────────────────────────────
+const TIP_RUNS_PER_SESSION = 5;
+let currentUserId = null;           // filled by onAuthStateChanged
+let sessionTipRuns = 0;             // increments on each completed run (Game Over)
+
+function storageKey(uid){ return `pauseTipRuns:${uid||"anon"}`; }
+
+function resetTipRunsForUser(uid){
+  currentUserId = uid || "anon";
+  sessionTipRuns = 0;
+  sessionStorage.setItem(storageKey(currentUserId), "0");
+}
+
+function loadTipRuns(uid){
+  const k = storageKey(uid);
+  const val = sessionStorage.getItem(k);
+  sessionTipRuns = Math.max(0, parseInt(val || "0", 10) || 0);
+}
+
+function incTipRuns(){
+  // call this at Game Over (completed run)
+  sessionTipRuns = Math.min(TIP_RUNS_PER_SESSION, sessionTipRuns + 1);
+  sessionStorage.setItem(storageKey(currentUserId), sessionTipRuns.toString());
+} // ← end of incTipRuns()
+
+// Hook pause-tip session logic to Firebase auth changes
+window.firebase.onUser((u) => {
+  const uid = u?.uid || null;
+  resetTipRunsForUser(uid);
+  loadTipRuns(uid);
+
+  // If we're on the waiting screen right now, refresh its text
+  const overlayVisible = overlay.style.display !== "none";
+  const onWaitingScreen = !state.running && !state.paused && !state.over;
+  if (overlayVisible && onWaitingScreen) {
+    showWaitingOverlay(); // will include/remove the tip based on shouldShowPauseTip()
+  }
+});
+
+// Initialize for "anon" before auth fires the first time
+resetTipRunsForUser(null);
+loadTipRuns(null);
+
+function shouldShowPauseTip(){
+  return sessionTipRuns < TIP_RUNS_PER_SESSION;
 }
 
 // Start with the waiting screen visible
@@ -1180,10 +1228,44 @@ renderHearts();
     el.addEventListener("pointerdown", down); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("pointerleave", up); }
   bindPad(leftPad,-1); bindPad(rightPad,1);
 
-  let swipeActive=false, swipeStartX=0;
-  canvas.addEventListener("pointerdown", e=>{ swipeActive=true; swipeStartX=e.clientX; });
-  window.addEventListener("pointermove", e=>{ if(!swipeActive) return; const dx=e.clientX-swipeStartX; state.input.swipeVX=dx*3; });
-  window.addEventListener("pointerup", ()=>{ swipeActive=false; state.input.swipeVX=0; });
+// Two-finger pause + single-finger swipe start (attach once)
+const activeTouches = new Set();
+let swipeActive = false, swipeStartX = 0;
+
+canvas.addEventListener("pointerdown", (e) => {
+  if (e.pointerType === "touch") {
+    activeTouches.add(e.pointerId);
+
+    // If a second finger lands during gameplay → pause
+    if (activeTouches.size >= 2 && state.running && !state.paused && !state.over) {
+      togglePause();
+      return; // don’t start a swipe from the second finger
+    }
+  }
+
+  // Start swipe only for single-finger touches
+  if (e.pointerType === "touch" && activeTouches.size > 1) return;
+  swipeActive = true;
+  swipeStartX = e.clientX;
+});
+
+window.addEventListener("pointermove", (e) => {
+  if (!swipeActive) return;
+  const dx = e.clientX - swipeStartX;
+  state.input.swipeVX = dx * 3;
+});
+
+window.addEventListener("pointerup", () => {
+  swipeActive = false;
+  state.input.swipeVX = 0;
+});
+
+// Keep activeTouches accurate
+["pointerup","pointercancel","pointerleave","pointerout"].forEach(ev=>{
+  window.addEventListener(ev, (e)=>{
+    if (e.pointerType === "touch") activeTouches.delete(e.pointerId);
+  }, { passive:true });
+});
 
   firePad.addEventListener("pointerdown", e=>{ e.preventDefault(); shoot(); });
   shrinkBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); useShrink(); });
@@ -1236,15 +1318,19 @@ async function gameOver(){
 
   overlay.style.display = "flex";
   overlayTitle.textContent = "Game Over";
-  const sub = ensureSubtitle();
-  sub.innerHTML = `You scored <strong>${Math.floor(state.score)}</strong>. Tap to start.`;
+
+  const tipHtml = shouldShowPauseTip() ? ` <span style="color:var(--muted)">Two-finger tap to pause.</span>` : "";
+  ensureSubtitle().innerHTML = `You scored <strong>${Math.floor(state.score)}</strong>. Tap to start.${tipHtml}`;
 
   state.best = Math.max(state.best, Math.floor(state.score));
   localStorage.setItem("dodger_best", String(state.best));
   bestEl.textContent = state.best;
 
   try { await window.firebase.saveScore(state.score); } catch(_){}
+  // Count this completed run toward hiding the tip next time:
+  incTipRuns();
 }
+
 
 function togglePause(){
   if(!state.running || state.over) return;
@@ -1332,31 +1418,7 @@ function togglePause(){
 
     state.blockTimer -= worldDT;
     
-    // ── Two-finger tap to pause ──────────────────────────────────────────────
-const activeTouches = new Set();
 
-canvas.addEventListener("pointerdown", (e)=>{
-  if (e.pointerType === "touch") {
-    activeTouches.add(e.pointerId);
-    // if second finger lands during gameplay -> pause
-    if (activeTouches.size >= 2 && state.running && !state.paused && !state.over) {
-      togglePause();
-    }
-  }
-});
-
-["pointerup","pointercancel","pointerleave","pointerout"].forEach(ev=>{
-  window.addEventListener(ev, (e)=>{
-    if (e.pointerType === "touch") activeTouches.delete(e.pointerId);
-  }, { passive:true });
-});
-
-// Keep your swipe handler, but only start swipe for single-finger drags
-let swipeActive=false, swipeStartX=0;
-canvas.addEventListener("pointerdown", e=>{
-  if (e.pointerType === "touch" && activeTouches.size > 1) return; // ignore multi-touch
-  swipeActive=true; swipeStartX=e.clientX;
-});
 // base interval grows ~8–10% to reduce spawn frequency slightly
 const baseInterval = Math.max(0.24, 0.9 - state.time * 0.03);
 const interval = baseInterval * 1.08; // bump to 1.10 for ~10% fewer spawns
