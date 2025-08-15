@@ -809,20 +809,24 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   const startSub = document.getElementById("startSub");
 
   onAuthStateChanged(auth, async (u)=>{
-    if (!u){
-      userChip.textContent = "Not signed in";
-      coinCountEl.textContent = "0";
-      await window.firebase.watchWallet(null, null);
-      startSub.textContent = "Sign in to play and save coins.";
-      startBtn.textContent = "Sign in";
-      return;
-    }
-    userChip.textContent = u.displayName ? `Signed in: ${u.displayName}` :
-                           u.email ? `Signed in: ${u.email}` : "Signed in";
-    await window.firebase.watchWallet(u.uid, (coins)=>{ coinCountEl.textContent = String(coins); });
-    startSub.textContent = "Avoid blocks. Power-ups: 🔫 Blaster, ✂ Shrink, 🛡 Shield, 🐌 Slow, 🧲 Magnet, ❤️ Life.";
-    startBtn.textContent = "Start";
-  });
+  if (!u){
+    userChip.textContent = "Not signed in";
+    coinCountEl.textContent = "0";
+    await window.firebase.watchWallet(null, null);
+    // Keep the simple, non-emoji message
+    startSub.textContent = "Two-finger tap to pause. Tap to start.";
+    startBtn.textContent = "Sign in";
+    return;
+  }
+
+  userChip.textContent = u.displayName ? `Signed in: ${u.displayName}` :
+                         u.email ? `Signed in: ${u.email}` : "Signed in";
+  await window.firebase.watchWallet(u.uid, (coins)=>{ coinCountEl.textContent = String(coins); });
+
+  // Keep the same non-emoji message even when signed in
+  startSub.textContent = "Two-finger tap to pause. Tap to start.";
+  startBtn.textContent = "Start";
+});
 
   function openModal(m){ m.style.display="flex"; }
   function closeModal(m){ m.style.display="none"; }
