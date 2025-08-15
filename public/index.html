@@ -322,6 +322,11 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
 /* When paused, let the HUD sit above the overlay so chips are tappable */
 .paused-ui header{ z-index:12060; }
 .paused-ui #menuPopup{ z-index:12060; } /* keep popup above everything */
+
+/* Keep HUD & menu above ANY overlay (waiting / paused / game over) */
+.overlay-ui header{ z-index:12060; }
+.overlay-ui #menuPopup{ z-index:12070; } /* popup above the header */
+
 /* Game wrapper: contains the canvas + controls + overlay */
 #stage{
   position: relative;
@@ -972,6 +977,7 @@ function showWaitingOverlay(){
   overlay.style.display = "flex";
   overlayTitle.textContent = "DODGER";
   ensureSubtitle().textContent = "Two-finger tap to pause. Tap to start.";
+  document.body.classList.add ('overlay-ui');
 }
 
 function showPausedOverlay(){
@@ -979,6 +985,7 @@ function showPausedOverlay(){
   overlay.style.display = "flex";
   overlayTitle.textContent = "Paused";
   ensureSubtitle().textContent = "Tap to resume";
+  document.body.classList.add ('overlay-ui');
 }
 
 // Start with the waiting screen visible
@@ -1295,7 +1302,10 @@ ammoEl.textContent = "0";
 shrinkCountEl.textContent = "0";
 renderHearts();
     resetPlayer();
-    overlay.style.display="none"; state.running=true; state.last=performance.now();
+    overlay.style.display="none";
+    document.body.classList.remove('overlay-ui','paused-ui');
+    state.running=true; state.last=performance.now();
+    
     requestAnimationFrame(loop);
   }
 
@@ -1304,6 +1314,8 @@ async function gameOver(){
     state.running = false;
 
     overlay.style.display = "flex";
+    document.body.classList.add('overlay-ui');
+document.body.classList.remove('paused-ui');   // ensure we’re not in paused mode
     overlayTitle.textContent = "Game Over";
     const sub = ensureSubtitle();
     sub.innerHTML = `You scored <strong>${Math.floor(state.score)}</strong>. Tap to start.<br><small>Two finger tap to pause</small>`;
@@ -1328,6 +1340,7 @@ function togglePause(){
   } else {
     document.body.classList.remove('paused-ui'); // << restore normal stacking
     overlay.style.display = "none";
+    document.body.classList.remove('overlay-ui');  // overlay no longer visible
     showingPaused = false;
     state.last = performance.now();
     requestAnimationFrame(loop);
