@@ -344,6 +344,9 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   font-size: 0.8em;
   color: #ccc;
 }
+/* When paused, let the HUD sit above the overlay so chips are tappable */
+.paused-ui header{ z-index:12050; }
+.paused-ui #menuPopup{ z-index:12060; } /* keep popup above everything */
 </style>
 </head>
 <body class="safe">
@@ -1260,8 +1263,10 @@ function togglePause(){
   pauseBtn.textContent = state.paused ? "Resume" : "Pause";
 
   if (state.paused){
-    showPausedOverlay(); // white -"Paused — Tap to resume"
+    document.body.classList.add('paused-ui');   // << float HUD above overlay
+    showPausedOverlay();                         // "Paused — Tap to resume"
   } else {
+    document.body.classList.remove('paused-ui'); // << restore normal stacking
     overlay.style.display = "none";
     showingPaused = false;
     state.last = performance.now();
