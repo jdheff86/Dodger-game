@@ -157,7 +157,7 @@ header .toolbar .right > .btn{
   .overlay{
   position:absolute;
   inset:0;
-  z-index:9999;
+  z-index:9998;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -355,7 +355,7 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   color: #ccc;
 }
 /* When paused, let the HUD sit above the overlay so chips are tappable */
-.paused-ui header{ z-index:12050; }
+.paused-ui header{ z-index:9999; }
 .paused-ui #menuPopup{ z-index:12060; } /* keep popup above everything */
 /* Game wrapper: contains the canvas + controls + overlay */
 #stage{
