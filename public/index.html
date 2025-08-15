@@ -312,42 +312,7 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   background:rgba(255,255,255,.04); color:var(--fg); font-weight:700;
 }
 #menuPopup .menuItem + .menuItem{ margin-top:8px; }
-/* ── Minimal text-only overlay (waiting + paused + game over) ─────────── */
-.overlay{
-  position:absolute;
-  inset:0;
-  z-index:9999;
-  display:flex;                 /* JS toggles display on/off */
-  align-items:center;
-  justify-content:center;
-  pointer-events:auto;
-  background:none;              /* show the game behind it */
-  text-align:center;
-  padding:24px;
-}
-.overlay .card{
-  background:transparent;
-  border:none;
-  border-radius:0;
-  padding:0;
-  backdrop-filter:none;
-  pointer-events:auto;
-}
-.overlay .go{ display:none; }   /* we start by tapping anywhere now */
 
-.overlay .title{
-  font-size:32px;
-  font-weight:800;
-  color:#fff;
-  letter-spacing:.2px;
-  text-shadow:0 1px 0 rgba(0,0,0,.35);
-  margin:0 0 8px;
-}
-.overlay .subtitle{
-  color:rgba(233,239,255,.88);
-  font-size:15px;
-  margin:0;
-}
 #gameOverText small {
   display: block;
   margin-top: 5px;
@@ -388,6 +353,52 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
 #stage .overlay .card{
   pointer-events: auto;
 }
+/* Game wrapper: contains the canvas + controls + overlay */
+#stage{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* keep overlay/canvas neatly clipped */
+}
+
+/* All overlays INSIDE the stage blur only the game */
+#stage .overlay{
+  position: absolute;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+
+  /* dim + blur so colors still show through */
+  background: rgba(0,0,0,.35);
+  -webkit-backdrop-filter: blur(8px) saturate(1.05);
+  backdrop-filter: blur(8px) saturate(1.05);
+
+  text-align: center;
+  padding: 24px;
+}
+
+/* Keep the card itself crisp & clickable */
+#stage .overlay .card{
+  pointer-events: auto;
+}
+
+/* Overlay typography */
+.overlay .title{
+  font-size:32px;
+  font-weight:800;
+  color:#fff;
+  letter-spacing:.2px;
+  text-shadow:0 1px 0 rgba(0,0,0,.35);
+  margin:0 0 8px;
+}
+.overlay .subtitle{
+  color:rgba(233,239,255,.88);
+  font-size:15px;
+  margin:0;
+}
 </style>
 </head>
 <body class="safe">
@@ -415,6 +426,37 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
 </svg>
 <div id="stage">
 <canvas id="game" aria-label="Dodger game area"></canvas>
+
+
+
+<!-- Ability bar -->
+<div id="abilities">
+  <button id="shrinkBtn" class="btn">✂ Shrink <span id="shrinkCount" class="ammo">0</span></button>
+  <div id="lifeBar" aria-label="Lives"></div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <div class="pad" id="leftPad"><span>⟵</span></div>
+  <div class="pad fire" id="firePad" aria-label="Fire">
+    <div class="fireInner">
+      <span class="fireLabel">FIRE</span>
+      <span id="ammo" class="ammoBadge">0</span>
+    </div>
+  </div>
+  <div class="pad" id="rightPad"><span>⟶</span></div>
+</div>
+
+<!-- Start overlay -->
+<div class="overlay" id="overlay">
+  <div class="card">
+    <div class="title">DODGER</div>
+    <div class="subtitle" id="startSub">Avoid blocks. Power-ups: 🔫 Blaster, ✂ Shrink, 🛡 Shield, 🐌 Slow, 🧲 Magnet, ❤️ Life.</div>
+    <button class="go" id="startBtn">Start</button>
+    <div class="muted">Tip: Add to Home Screen on iPhone for full-screen play.</div>
+  </div>
+</div>
+</div>
 
 <header class="safe" id="hud">
   <div class="topbar">
@@ -492,35 +534,6 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
 </div>
   </div>
 </header>
-
-<!-- Ability bar -->
-<div id="abilities">
-  <button id="shrinkBtn" class="btn">✂ Shrink <span id="shrinkCount" class="ammo">0</span></button>
-  <div id="lifeBar" aria-label="Lives"></div>
-</div>
-
-<!-- Controls -->
-<div class="controls">
-  <div class="pad" id="leftPad"><span>⟵</span></div>
-  <div class="pad fire" id="firePad" aria-label="Fire">
-    <div class="fireInner">
-      <span class="fireLabel">FIRE</span>
-      <span id="ammo" class="ammoBadge">0</span>
-    </div>
-  </div>
-  <div class="pad" id="rightPad"><span>⟶</span></div>
-</div>
-
-<!-- Start overlay -->
-<div class="overlay" id="overlay">
-  <div class="card">
-    <div class="title">DODGER</div>
-    <div class="subtitle" id="startSub">Avoid blocks. Power-ups: 🔫 Blaster, ✂ Shrink, 🛡 Shield, 🐌 Slow, 🧲 Magnet, ❤️ Life.</div>
-    <button class="go" id="startBtn">Start</button>
-    <div class="muted">Tip: Add to Home Screen on iPhone for full-screen play.</div>
-  </div>
-</div>
-</div>
 
 <!-- Name modal -->
 <div class="modal" id="nameModal">
