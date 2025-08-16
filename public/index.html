@@ -833,15 +833,16 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   startBtn.textContent = "Start";
 });
 
-  function openModal(m){
+// Make these available to other scripts (non-module)
+window.openModal = function(m){
   m.style.display = "flex";
   document.body.classList.add("ui-lock");
-}
-function closeModal(m){
+};
+window.closeModal = function(m){
   m.style.display = "none";
   document.body.classList.remove("ui-lock");
-  window.blockResume?.();              // brief shield so the close tap can't resume
-}
+  window.blockResume?.(); // brief shield so the close tap can't resume
+};
 
   document.querySelectorAll(".modal").forEach(m=>{
     m.addEventListener("pointerdown", (e)=>{ if(e.target === m) closeModal(m); }, {passive:true});
@@ -1025,9 +1026,9 @@ function tryStartOrResume(e){
 
   // 4) Otherwise start a fresh run (auth-gated)
   if (!window.firebase.auth.currentUser){
-    openModal(document.getElementById("authModal"));
-    return;
-  }
+  window.openModal(document.getElementById("authModal"));
+  return;
+}
   startGame();
 }
 overlay.addEventListener("pointerdown", tryStartOrResume);
@@ -1041,7 +1042,11 @@ const howtoClose = document.getElementById("howtoClose");
 
 howtoBtn.addEventListener("pointerdown", e => {
   e.preventDefault();
-  howtoModal.style.display = "flex";
+  window.openModal(howtoModal);
+});
+howtoClose.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  window.closeModal(howtoModal);
 });
 
 howtoClose.addEventListener("pointerdown", e => {
@@ -1052,11 +1057,14 @@ howtoClose.addEventListener("pointerdown", e => {
 // Open the store (require sign-in)
 storeBtn.addEventListener("pointerdown", (e)=>{
   e.preventDefault();
-  if (!window.firebase.auth.currentUser){
-    // Force sign-in first
-    document.getElementById("authModal").style.display = "flex";
-    return;
-  }
+if (!window.firebase.auth.currentUser){
+  
+  window.openModal(document.getElementById("authModal"));
+  
+  return;
+}
+...
+window.openModal(storeModal);
   storeMsg.textContent = ""; // clear old message
   storeMsg.style.color = "var(--muted)";
   storeModal.style.display = "flex";
@@ -1066,8 +1074,9 @@ storeBtn.addEventListener("pointerdown", (e)=>{
 
 storeClose.addEventListener("pointerdown", (e)=>{
   e.preventDefault();
-  closeModal(storeModal);
+  window.closeModal(storeModal);
 });
+
 function getCoins(){
   // coinCountEl is kept live by wallet listener in the Firebase script
   return (Number(coinCountEl.textContent || "0") | 0);
@@ -1145,7 +1154,13 @@ function renderHearts(){
 );
 
   // Name modal
-  nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); nameModal.style.display="flex"; });
+nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); window.openModal(nameModal); });
+[nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{
+  e.preventDefault();
+  window.closeModal(nameModal);
+}));
+...
+window.closeModal(nameModal);
 
 [nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{
   e.preventDefault();
@@ -1184,11 +1199,11 @@ function renderHearts(){
     }catch(err){
       lbBody.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(err.message||String(err))}</td></tr>`;
     }
-    lbModal.style.display="flex";
+    window.openModal(lbModal);
   });
   lbClose.addEventListener("pointerdown", e=>{
   e.preventDefault();
-  closeModal(lbModal);
+  window.closeModal(lbModal);
 });
   function escapeHtml(x){ return (x||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
   
@@ -1291,6 +1306,27 @@ renderHearts();
   let swipeActive=false, swipeStartX=0;
   canvas.addEventListener("pointerdown", e=>{ swipeActive=true; swipeStartX=e.clientX; });
   window.addEventListener("pointermove", e=>{ if(!swipeActive) return; const dx=e.clientX-swipeStartX; state.input.swipeVX=dx*3; });
+  // --- Two-finger tap to pause (add once)
+const activeTouches = new Set();
+canvas.addEventListener("pointerdown", (e)=>{
+  if (e.pointerType !== "touch") return;
+  activeTouches.add(e.pointerId);
+  if (activeTouches.size >= 2 && state.running && !state.paused && !state.over) {
+    togglePause();
+  }
+});
+["pointerup","pointercancel","pointerleave","pointerout"].forEach(ev=>{
+  window.addEventListener(ev, (e)=>{
+    if (e.pointerType === "touch") activeTouches.delete(e.pointerId);
+  }, { passive:true });
+});
+
+// Keep swipe active only for single-finger drags
+canvas.addEventListener("pointerdown", e=>{
+  if (e.pointerType === "touch" && activeTouches.size > 1) return; // ignore multi-touch
+  swipeActive = true;
+  swipeStartX = e.clientX;
+});
   window.addEventListener("pointerup", ()=>{ swipeActive=false; state.input.swipeVX=0; });
 
   firePad.addEventListener("pointerdown", e=>{ e.preventDefault(); shoot(); });
@@ -1450,31 +1486,7 @@ function togglePause(){
 
     state.blockTimer -= worldDT;
     
-    // ── Two-finger tap to pause ──────────────────────────────────────────────
-const activeTouches = new Set();
 
-canvas.addEventListener("pointerdown", (e)=>{
-  if (e.pointerType === "touch") {
-    activeTouches.add(e.pointerId);
-    // if second finger lands during gameplay -> pause
-    if (activeTouches.size >= 2 && state.running && !state.paused && !state.over) {
-      togglePause();
-    }
-  }
-});
-
-["pointerup","pointercancel","pointerleave","pointerout"].forEach(ev=>{
-  window.addEventListener(ev, (e)=>{
-    if (e.pointerType === "touch") activeTouches.delete(e.pointerId);
-  }, { passive:true });
-});
-
-// Keep your swipe handler, but only start swipe for single-finger drags
-let swipeActive=false, swipeStartX=0;
-canvas.addEventListener("pointerdown", e=>{
-  if (e.pointerType === "touch" && activeTouches.size > 1) return; // ignore multi-touch
-  swipeActive=true; swipeStartX=e.clientX;
-});
 // base interval grows ~8–10% to reduce spawn frequency slightly
 const baseInterval = Math.max(0.24, 0.9 - state.time * 0.03);
 const interval = baseInterval * 1.08; // bump to 1.10 for ~10% fewer spawns
