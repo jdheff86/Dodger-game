@@ -18,7 +18,7 @@
   .safe { padding-top: env(safe-area-inset-top); }
 
   /* HUD -*/
-  header { position:absolute; top:0; left:0; right:0; z-index:8; display:flex; flex-direction:column; padding:8px 10px; gap:6px; pointer-events:auto; }
+  header { position:absolute; top:0; left:0; right:0; z-index:8; display:flex; flex-direction:column; padding:8px 10px; gap:6px; pointer-events:none; }
   /* allow clicking inside the menu popup */
 #menuPopup,
 #menuPopup .menuItem {
@@ -404,9 +404,6 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   font-size:15px;
   margin:0;
 }
-/* Let header/UI behave like normal taps (don’t suppress pointer events) */
-header, header * { touch-action: manipulation; }
-#menuPopup, .modal, .controls .pad, #abilities, .btn { touch-action: manipulation; }
 </style>
 </head>
 <body class="safe">
@@ -845,19 +842,16 @@ function closeModal(m){
   document.body.classList.remove("ui-lock");
   window.blockResume?.();              // brief shield so the close tap can't resume
 }
-// Make modal helpers available to the non-module game script
-window.openModal  = openModal;
-window.closeModal = closeModal;
 
   document.querySelectorAll(".modal").forEach(m=>{
-    m.addEventListener("pointerdown", (e)=>{ if(e.target === m) window.closeModal(m); }, {passive:true});
+    m.addEventListener("pointerdown", (e)=>{ if(e.target === m) closeModal(m); }, {passive:true});
   });
   document.addEventListener("keydown", (e)=>{
-    if (e.key === "Escape") document.querySelectorAll(".modal").forEach(m=>{ if(m.style.display==="flex") window.closeModal(m); });
+    if (e.key === "Escape") document.querySelectorAll(".modal").forEach(m=>{ if(m.style.display==="flex") closeModal(m); });
   });
 
-  authBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); window.openModal(authModal); });
-  authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); window.closeModal(authModal); });
+  authBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); openModal(authModal); });
+  authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); closeModal(authModal); });
 
   // Sign in / Sign up
   btnIn.addEventListener("pointerdown", async e=>{
@@ -866,7 +860,7 @@ window.closeModal = closeModal;
       const email = (authEmail.value || "").trim();
       const pass  = authPass.value || "";
       await signInWithEmailAndPassword(auth, email, pass);
-      window.closeModal(authModal);
+      closeModal(authModal);
     }catch(err){ authMsg.textContent = prettyAuthError(err); }
   });
   btnUp.addEventListener("pointerdown", async e=>{
@@ -877,11 +871,11 @@ window.closeModal = closeModal;
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       const def = email.split("@")[0].slice(0,24) || "Player";
       await updateProfile(cred.user, { displayName: def });
-      window.closeModal(authModal);
+      closeModal(authModal);
     }catch(err){ authMsg.textContent = prettyAuthError(err); }
   });
   btnOut.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); await signOut(auth); window.closeModal(authModal);
+    e.preventDefault(); await signOut(auth); closeModal(authModal);
   });
 
   // Password reset
@@ -975,34 +969,6 @@ const storeBtn   = document.getElementById("storeBtn");
 const storeModal = document.getElementById("storeModal");
 const storeClose = document.getElementById("storeClose");
 const storeMsg   = document.getElementById("storeMsg");
-// One shared handler that opens the Store
-function openStore(e){
-  if (e) e.preventDefault();
-
-  // Require sign-in
-  if (!window.firebase.auth.currentUser){
-    // If you see "openModal is not defined", export it from the module script:
-    //   window.openModal = openModal;
-    window.openModal(document.getElementById("authModal"));
-    return;
-  }
-
-  // If a run is active, pause it so purchases apply to that run
-  if (state.running && !state.paused && !state.over) togglePause();
-
-  // Enable/disable buy buttons depending on run state
-  const canBuy = state.running && !state.over;   // paused counts as “in run”
-  [buyAmmo, buyShrink, buyLife].forEach(btn => btn.disabled = !canBuy);
-
-  storeMsg.style.color = "var(--muted)";
-  storeMsg.textContent = canBuy
-    ? ""
-    : "Start a run to buy items. Purchases apply to the current run.";
-
-  openModal(storeModal);  // opens + sets body ui-lock
-}
-storeBtn.addEventListener("pointerdown", openStore);
-storeBtn.addEventListener("click", openStore);
 // ── Start/Pause overlay helpers ──────────────────────────────────────────
 const overlayCard  = document.querySelector("#overlay .card");
 const overlayTitle = document.querySelector("#overlay .title");
@@ -1029,8 +995,6 @@ function showWaitingOverlay(){
   overlayTitle.textContent = "DODGER";
   ensureSubtitle().textContent = "Two-finger tap to pause. Tap to start.";
   document.body.classList.add ('overlay-ui');
-  startBtn.textContent = "Start";
-
 }
 
 function showPausedOverlay(){
@@ -1038,7 +1002,6 @@ function showPausedOverlay(){
   overlay.style.display = "flex";
   overlayTitle.textContent = "Paused";
   ensureSubtitle().textContent = "Tap to resume";
-  startBtn.textContent = "Resume" ;
   document.body.classList.add ('overlay-ui');
 }
 
@@ -1053,7 +1016,6 @@ function tryStartOrResume(e){
   // 1) Don’t resume if any UI is open or we’re inside the HUD/menu
   if (document.body.classList.contains("ui-lock")) return;
   if (e.target.closest("header, #menuPopup")) return;
-  if (e.target.closest('#startBtn')) return;
 
   // 2) Don’t resume immediately after a UI closes (shield)
   if (performance.now() < _resumeBlockUntil) return;
@@ -1068,12 +1030,13 @@ function tryStartOrResume(e){
 
   // 4) Otherwise start a fresh run (auth-gated)
   if (!window.firebase.auth.currentUser){
-    window.openModal(document.getElementById("authModal"));
+    openModal(document.getElementById("authModal"));
     return;
   }
   startGame();
 }
 overlay.addEventListener("pointerdown", tryStartOrResume);
+overlay.addEventListener("click", tryStartOrResume);
 const buyAmmo    = document.getElementById("buyAmmo");
 const buyShrink  = document.getElementById("buyShrink");
 const buyLife    = document.getElementById("buyLife");
@@ -1088,31 +1051,27 @@ howtoBtn.addEventListener("pointerdown", e => {
 
 howtoClose.addEventListener("pointerdown", e => {
   e.preventDefault();
-  window.closeModal(howtoModal);
+  closeModal(howtoModal);
 });
 
-  if (state.running && !state.paused && !state.over) togglePause();
-
-  // Enable/disable buy buttons depending on run state
-  const canBuy = state.running && !state.over; // paused counts as "in run"
-  [buyAmmo, buyShrink, buyLife].forEach(btn => btn.disabled = !canBuy);
-
+// Open the store (require sign-in)
+storeBtn.addEventListener("pointerdown", (e)=>{
+  e.preventDefault();
+  if (!window.firebase.auth.currentUser){
+    // Force sign-in first
+    document.getElementById("authModal").style.display = "flex";
+    return;
+  }
+  storeMsg.textContent = ""; // clear old message
   storeMsg.style.color = "var(--muted)";
-  storeMsg.textContent = canBuy
-    ? ""
-    : "Start a run to buy items. Purchases apply to the current run.";
-
-  openModal(storeModal);  // opens + sets body ui-lock
+  storeModal.style.display = "flex";
 });
-
-  // Pause the game if a run is active (purchases apply to the current run)
-
 
 // Close the store
 
 storeClose.addEventListener("pointerdown", (e)=>{
   e.preventDefault();
-  window.closeModal(storeModal);
+  closeModal(storeModal);
 });
 function getCoins(){
   // coinCountEl is kept live by wallet listener in the Firebase script
@@ -1121,15 +1080,8 @@ function getCoins(){
 
 async function spendCoins(cost){
   if (!window.firebase.auth.currentUser) throw new Error("Sign in to buy.");
-
-  // Purchases are per-run: only allow while a run is active
-  if (!state.running || state.over) {
-    throw new Error("Start a run first. Purchases apply only to the current run.");
-  }
-
   const have = getCoins();
   if (have < cost) throw new Error(`You need ${cost} coins (you have ${have}).`);
-
   // Deduct via Firestore (server-side authoritative)
   await window.firebase.addCoins(-cost);
 }
@@ -1185,12 +1137,16 @@ function renderHearts(){
   lifeBar.innerHTML = out.join("");
 }
   
-// Allow touches on overlay, modals, menu popup, and the HUD/header (toolbar)
-// Only block touch gestures inside the game area (#stage), never on the HUD/header
-const stage = document.getElementById("stage");
-const blockTouch = (e) => { e.preventDefault(); };
-["touchstart","touchmove","touchend","gesturestart"].forEach(ev =>
-  stage.addEventListener(ev, blockTouch, { passive:false })
+  const prevent = (e) => { 
+  if (
+    e.target.closest(".overlay") ||
+    e.target.closest(".modal")   ||
+    e.target.closest("#menuPopup") // ✅ allow touches inside menu popup
+  ) return;
+  e.preventDefault();
+};
+["touchstart","touchmove","touchend","gesturestart"].forEach(ev => 
+  document.addEventListener(ev, prevent, { passive:false })
 );
 
   // Name modal
@@ -1198,7 +1154,7 @@ const blockTouch = (e) => { e.preventDefault(); };
 
 [nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{
   e.preventDefault();
-  window.closeModal(nameModal);
+  closeModal(nameModal);
 }));
   saveName.addEventListener("pointerdown", async e=>{
     e.preventDefault();
@@ -1237,7 +1193,7 @@ const blockTouch = (e) => { e.preventDefault(); };
   });
   lbClose.addEventListener("pointerdown", e=>{
   e.preventDefault();
-  window.closeModal(lbModal);
+  closeModal(lbModal);
 });
   function escapeHtml(x){ return (x||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
   
@@ -1360,26 +1316,15 @@ renderHearts();
 
   // Start button — support both click and pointerdown, and force sign-in when needed
   function handleStart(e){
-  e.preventDefault();
-
-  // If we're on the pause overlay, make the button RESUME
-  if (showingPaused && state.paused && !state.over) {
-    overlay.style.display = "none";
-    showingPaused = false;
-    togglePause();                 // unpause + continue current run
-    return;
+    e.preventDefault();
+    if (!window.firebase.auth.currentUser){
+      document.getElementById("authModal").style.display = "flex";
+      return;
+    }
+    startGame();
   }
-
-  // Auth gate for brand-new starts
-  if (!window.firebase.auth.currentUser){
-    window.openModal(authModal);
-    return;
-  }
-
-  // Fresh run only when NOT paused
-  startGame();
-}
   startBtn.addEventListener("pointerdown", handleStart);
+  startBtn.addEventListener("click", handleStart);
 
   pauseBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); togglePause(); });
 
@@ -1438,7 +1383,6 @@ function togglePause(){
     showingPaused = false;
     state.last = performance.now();
     requestAnimationFrame(loop);
-    startBtn.textContent = "Resume";
   }
 }
 
