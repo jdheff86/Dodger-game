@@ -18,7 +18,7 @@
   .safe { padding-top: env(safe-area-inset-top); }
 
   /* HUD -*/
-  header { position:absolute; top:0; left:0; right:0; z-index:8; display:flex; flex-direction:column; padding:8px 10px; gap:6px; pointer-events:none; }
+  header { position:absolute; top:0; left:0; right:0; z-index:8; display:flex; flex-direction:column; padding:8px 10px; gap:6px; pointer-events:auto; }
   /* allow clicking inside the menu popup */
 #menuPopup,
 #menuPopup .menuItem {
@@ -404,6 +404,9 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   font-size:15px;
   margin:0;
 }
+/* Let header/UI behave like normal taps (don’t suppress pointer events) */
+header, header * { touch-action: manipulation; }
+#menuPopup, .modal, .controls .pad, #abilities, .btn { touch-action: manipulation; }
 </style>
 </head>
 <body class="safe">
@@ -995,6 +998,8 @@ function showWaitingOverlay(){
   overlayTitle.textContent = "DODGER";
   ensureSubtitle().textContent = "Two-finger tap to pause. Tap to start.";
   document.body.classList.add ('overlay-ui');
+  startBtn.textContent = "Start";
+
 }
 
 function showPausedOverlay(){
@@ -1002,6 +1007,7 @@ function showPausedOverlay(){
   overlay.style.display = "flex";
   overlayTitle.textContent = "Paused";
   ensureSubtitle().textContent = "Tap to resume";
+  startBtn.textContent = "Resume" ;
   document.body.classList.add ('overlay-ui');
 }
 
@@ -1016,6 +1022,7 @@ function tryStartOrResume(e){
   // 1) Don’t resume if any UI is open or we’re inside the HUD/menu
   if (document.body.classList.contains("ui-lock")) return;
   if (e.target.closest("header, #menuPopup")) return;
+  if (e.target.closest('#startBtn')) return;
 
   // 2) Don’t resume immediately after a UI closes (shield)
   if (performance.now() < _resumeBlockUntil) return;
@@ -1036,7 +1043,6 @@ function tryStartOrResume(e){
   startGame();
 }
 overlay.addEventListener("pointerdown", tryStartOrResume);
-overlay.addEventListener("click", tryStartOrResume);
 const buyAmmo    = document.getElementById("buyAmmo");
 const buyShrink  = document.getElementById("buyShrink");
 const buyLife    = document.getElementById("buyLife");
@@ -1055,16 +1061,43 @@ howtoClose.addEventListener("pointerdown", e => {
 });
 
 // Open the store (require sign-in)
-storeBtn.addEventListener("pointerdown", (e)=>{
+// Open the store (require sign-in)
+storeBtn.addEventListener("click", (e)=>{
   e.preventDefault();
+
   if (!window.firebase.auth.currentUser){
-    // Force sign-in first
-    document.getElementById("authModal").style.display = "flex";
+    openModal(document.getElementById("authModal"));   // use your modal helper
     return;
   }
-  storeMsg.textContent = ""; // clear old message
+
+  // Pause the game if a run is active (purchases apply to the current run)
+  if (state.running && !state.paused && !state.over) togglePause();
+
+  // Enable/disable buy buttons depending on run state
+  const canBuy = state.running && !state.over; // paused counts as "in run"
+  [buyAmmo, buyShrink, buyLife].forEach(btn => btn.disabled = !canBuy);
+
   storeMsg.style.color = "var(--muted)";
-  storeModal.style.display = "flex";
+  storeMsg.textContent = canBuy
+    ? ""
+    : "Start a run to buy items. Purchases apply to the current run.";
+
+  openModal(storeModal);  // opens + sets body ui-lock
+});
+
+  // Pause the game if a run is active (purchases apply to the current run)
+  if (state.running && !state.paused && !state.over) togglePause();
+
+  // Enable/disable buy buttons depending on run state
+  const canBuy = state.running && !state.over; // paused counts as "in run"
+  [buyAmmo, buyShrink, buyLife].forEach(btn => btn.disabled = !canBuy);
+
+  storeMsg.style.color = "var(--muted)";
+  storeMsg.textContent = canBuy
+    ? ""
+    : "Start a run to buy items. Purchases apply to the current run.";
+
+  openModal(storeModal);  // opens + sets body ui-lock
 });
 
 // Close the store
@@ -1080,8 +1113,15 @@ function getCoins(){
 
 async function spendCoins(cost){
   if (!window.firebase.auth.currentUser) throw new Error("Sign in to buy.");
+
+  // Purchases are per-run: only allow while a run is active
+  if (!state.running || state.over) {
+    throw new Error("Start a run first. Purchases apply only to the current run.");
+  }
+
   const have = getCoins();
   if (have < cost) throw new Error(`You need ${cost} coins (you have ${have}).`);
+
   // Deduct via Firestore (server-side authoritative)
   await window.firebase.addCoins(-cost);
 }
@@ -1137,16 +1177,12 @@ function renderHearts(){
   lifeBar.innerHTML = out.join("");
 }
   
-  const prevent = (e) => { 
-  if (
-    e.target.closest(".overlay") ||
-    e.target.closest(".modal")   ||
-    e.target.closest("#menuPopup") // ✅ allow touches inside menu popup
-  ) return;
-  e.preventDefault();
-};
-["touchstart","touchmove","touchend","gesturestart"].forEach(ev => 
-  document.addEventListener(ev, prevent, { passive:false })
+// Allow touches on overlay, modals, menu popup, and the HUD/header (toolbar)
+// Only block touch gestures inside the game area (#stage), never on the HUD/header
+const stage = document.getElementById("stage");
+const blockTouch = (e) => { e.preventDefault(); };
+["touchstart","touchmove","touchend","gesturestart"].forEach(ev =>
+  stage.addEventListener(ev, blockTouch, { passive:false })
 );
 
   // Name modal
@@ -1316,15 +1352,26 @@ renderHearts();
 
   // Start button — support both click and pointerdown, and force sign-in when needed
   function handleStart(e){
-    e.preventDefault();
-    if (!window.firebase.auth.currentUser){
-      document.getElementById("authModal").style.display = "flex";
-      return;
-    }
-    startGame();
+  e.preventDefault();
+
+  // If we're on the pause overlay, make the button RESUME
+  if (showingPaused && state.paused && !state.over) {
+    overlay.style.display = "none";
+    showingPaused = false;
+    togglePause();                 // unpause + continue current run
+    return;
   }
+
+  // Auth gate for brand-new starts
+  if (!window.firebase.auth.currentUser){
+    document.getElementById("authModal").style.display = "flex";
+    return;
+  }
+
+  // Fresh run only when NOT paused
+  startGame();
+}
   startBtn.addEventListener("pointerdown", handleStart);
-  startBtn.addEventListener("click", handleStart);
 
   pauseBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); togglePause(); });
 
@@ -1383,6 +1430,7 @@ function togglePause(){
     showingPaused = false;
     state.last = performance.now();
     requestAnimationFrame(loop);
+    startBtn.textContent = "Resume";
   }
 }
 
