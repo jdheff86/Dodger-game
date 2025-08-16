@@ -1005,9 +1005,37 @@ function showPausedOverlay(){
 showWaitingOverlay();
 
 // Tap anywhere on the overlay: start or resume
-// Tap anywhere on the overlay: start or resume
+// Tap anywhere on the overlay: start or 
+
 function tryStartOrResume(e){
   e.preventDefault();
+
+  // ⬅️ NEW: ignore taps that happen inside the overlay card
+  // (this is where the Start button lives)
+  if (e.target.closest('#overlay .card')) return;
+
+  // 1) Don’t resume if any UI is open or we’re inside the HUD/menu
+  if (document.body.classList.contains("ui-lock")) return;
+  if (e.target.closest("header, #menuPopup")) return;
+
+  // 2) Don’t resume immediately after a UI closes (shield)
+  if (performance.now() < _resumeBlockUntil) return;
+
+  // 3) If we were paused, resume
+  if (showingPaused && !state.over) {
+    overlay.style.display = "none";
+    showingPaused = false;
+    if (state.paused) togglePause();  // unpause + restart loop
+    return;
+  }
+
+  // 4) Otherwise start a fresh run (auth-gated)
+  if (!window.firebase.auth.currentUser){
+    window.openModal(document.getElementById("authModal"));
+    return;
+  }
+  startGame();
+}
 
   // 1) Don’t resume if any UI is open or we’re inside the HUD/menu
   if (document.body.classList.contains("ui-lock")) return;
@@ -1352,8 +1380,17 @@ canvas.addEventListener("pointerdown", e=>{
     }
     startGame();
   }
-  startBtn.addEventListener("pointerdown", handleStart);
-  startBtn.addEventListener("click", handleStart);
+  
+  startBtn.addEventListener("pointerdown", (e)=>{
+  e.preventDefault();
+  e.stopPropagation();          // keep the tap from bubbling to the overlay
+  handleStart(e);
+});
+startBtn.addEventListener("click", (e)=>{
+  e.preventDefault();
+  e.stopPropagation();          // same for the click event
+  handleStart(e);
+});
 
   pauseBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); togglePause(); });
 
