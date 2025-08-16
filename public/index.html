@@ -845,16 +845,19 @@ function closeModal(m){
   document.body.classList.remove("ui-lock");
   window.blockResume?.();              // brief shield so the close tap can't resume
 }
+// Make modal helpers available to the non-module game script
+window.openModal  = openModal;
+window.closeModal = closeModal;
 
   document.querySelectorAll(".modal").forEach(m=>{
-    m.addEventListener("pointerdown", (e)=>{ if(e.target === m) closeModal(m); }, {passive:true});
+    m.addEventListener("pointerdown", (e)=>{ if(e.target === m) window.closeModal(m); }, {passive:true});
   });
   document.addEventListener("keydown", (e)=>{
-    if (e.key === "Escape") document.querySelectorAll(".modal").forEach(m=>{ if(m.style.display==="flex") closeModal(m); });
+    if (e.key === "Escape") document.querySelectorAll(".modal").forEach(m=>{ if(m.style.display==="flex") window.closeModal(m); });
   });
 
-  authBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); openModal(authModal); });
-  authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); closeModal(authModal); });
+  authBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); window.openModal(authModal); });
+  authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); window.closeModal(authModal); });
 
   // Sign in / Sign up
   btnIn.addEventListener("pointerdown", async e=>{
@@ -863,7 +866,7 @@ function closeModal(m){
       const email = (authEmail.value || "").trim();
       const pass  = authPass.value || "";
       await signInWithEmailAndPassword(auth, email, pass);
-      closeModal(authModal);
+      window.closeModal(authModal);
     }catch(err){ authMsg.textContent = prettyAuthError(err); }
   });
   btnUp.addEventListener("pointerdown", async e=>{
@@ -874,11 +877,11 @@ function closeModal(m){
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       const def = email.split("@")[0].slice(0,24) || "Player";
       await updateProfile(cred.user, { displayName: def });
-      closeModal(authModal);
+      window.closeModal(authModal);
     }catch(err){ authMsg.textContent = prettyAuthError(err); }
   });
   btnOut.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); await signOut(auth); closeModal(authModal);
+    e.preventDefault(); await signOut(auth); window.closeModal(authModal);
   });
 
   // Password reset
@@ -980,7 +983,7 @@ function openStore(e){
   if (!window.firebase.auth.currentUser){
     // If you see "openModal is not defined", export it from the module script:
     //   window.openModal = openModal;
-    openModal(document.getElementById("authModal"));
+    window.openModal(document.getElementById("authModal"));
     return;
   }
 
@@ -1065,7 +1068,7 @@ function tryStartOrResume(e){
 
   // 4) Otherwise start a fresh run (auth-gated)
   if (!window.firebase.auth.currentUser){
-    openModal(document.getElementById("authModal"));
+    window.openModal(document.getElementById("authModal"));
     return;
   }
   startGame();
@@ -1085,16 +1088,11 @@ howtoBtn.addEventListener("pointerdown", e => {
 
 howtoClose.addEventListener("pointerdown", e => {
   e.preventDefault();
-  closeModal(howtoModal);
+  window.closeModal(howtoModal);
 });
 
 // Open the store (require sign-in)
-// Open the store (require sign-in)
-storeBtn.addEventListener("click", (e)=>{
-  e.preventDefault();
-
-  if (!window.firebase.auth.currentUser){
-    openModal(document.getElementById("authModal"));   // use your modal helper
+// Opuse your modal helper
     return;
   }
 
@@ -1120,7 +1118,7 @@ storeBtn.addEventListener("click", (e)=>{
 
 storeClose.addEventListener("pointerdown", (e)=>{
   e.preventDefault();
-  closeModal(storeModal);
+  window.closeModal(storeModal);
 });
 function getCoins(){
   // coinCountEl is kept live by wallet listener in the Firebase script
@@ -1206,7 +1204,7 @@ const blockTouch = (e) => { e.preventDefault(); };
 
 [nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{
   e.preventDefault();
-  closeModal(nameModal);
+  window.closeModal(nameModal);
 }));
   saveName.addEventListener("pointerdown", async e=>{
     e.preventDefault();
@@ -1245,7 +1243,7 @@ const blockTouch = (e) => { e.preventDefault(); };
   });
   lbClose.addEventListener("pointerdown", e=>{
   e.preventDefault();
-  closeModal(lbModal);
+  window.closeModal(lbModal);
 });
   function escapeHtml(x){ return (x||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
   
@@ -1380,7 +1378,7 @@ renderHearts();
 
   // Auth gate for brand-new starts
   if (!window.firebase.auth.currentUser){
-    document.getElementById("authModal").style.display = "flex";
+    window.openModal(authModal);
     return;
   }
 
