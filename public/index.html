@@ -1141,17 +1141,17 @@ function renderHearts(){
   lifeBar.innerHTML = out.join("");
 }
   
-  const prevent = (e) => { 
-  if (
-    e.target.closest(".overlay") ||
-    e.target.closest(".modal")   ||
-    e.target.closest("#menuPopup") // ✅ allow touches inside menu popup
-  ) return;
+  // Limit default-preventing to in-game gestures only
+const stage = document.getElementById('stage');
+const preventMove = (e) => {
+  // Allow HUD/menu/modals
+  if (e.target.closest('header, #menuPopup, .modal')) return;
   e.preventDefault();
 };
-["touchstart","touchmove","touchend","gesturestart"].forEach(ev => 
-  document.addEventListener(ev, prevent, { passive:false })
-);
+
+// Don't block taps: no touchstart/touchend here
+stage.addEventListener('touchmove', preventMove, { passive:false });
+stage.addEventListener('gesturestart', preventMove, { passive:false });
 
   // Name modal
 nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); window.openModal(nameModal); });
