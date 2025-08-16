@@ -833,8 +833,15 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   startBtn.textContent = "Start";
 });
 
-  function openModal(m){ m.style.display="flex"; }
-  function closeModal(m){ m.style.display="none"; }
+  function openModal(m){
+  m.style.display = "flex";
+  document.body.classList.add("ui-lock");
+}
+function closeModal(m){
+  m.style.display = "none";
+  document.body.classList.remove("ui-lock");
+  window.blockResume?.();              // brief shield so the close tap can't resume
+}
 
   document.querySelectorAll(".modal").forEach(m=>{
     m.addEventListener("pointerdown", (e)=>{ if(e.target === m) closeModal(m); }, {passive:true});
@@ -961,6 +968,11 @@ const storeMsg   = document.getElementById("storeMsg");
 const overlayCard  = document.querySelector("#overlay .card");
 const overlayTitle = document.querySelector("#overlay .title");
 let showingPaused  = false;
+// Prevents accidental resume for ~250ms after closing any UI
+let _resumeBlockUntil = 0;
+window.blockResume = function(ms = 250){
+  _resumeBlockUntil = performance.now() + ms;
+};
 
 function ensureSubtitle(){
   let sub = document.querySelector("#overlay .subtitle");
@@ -992,18 +1004,28 @@ function showPausedOverlay(){
 showWaitingOverlay();
 
 // Tap anywhere on the overlay: start or resume
+// Tap anywhere on the overlay: start or resume
 function tryStartOrResume(e){
   e.preventDefault();
-  // If we were paused, resume
+
+  // 1) Don’t resume if any UI is open or we’re inside the HUD/menu
+  if (document.body.classList.contains("ui-lock")) return;
+  if (e.target.closest("header, #menuPopup")) return;
+
+  // 2) Don’t resume immediately after a UI closes (shield)
+  if (performance.now() < _resumeBlockUntil) return;
+
+  // 3) If we were paused, resume
   if (showingPaused && !state.over) {
     overlay.style.display = "none";
     showingPaused = false;
-    if (state.paused) togglePause();    // will unpause + restart loop
+    if (state.paused) togglePause();  // unpause + restart loop
     return;
   }
-  // Otherwise start a fresh run (auth-gated)
+
+  // 4) Otherwise start a fresh run (auth-gated)
   if (!window.firebase.auth.currentUser){
-    document.getElementById("authModal").style.display = "flex";
+    openModal(document.getElementById("authModal"));
     return;
   }
   startGame();
@@ -1024,8 +1046,9 @@ howtoBtn.addEventListener("pointerdown", e => {
 
 howtoClose.addEventListener("pointerdown", e => {
   e.preventDefault();
-  howtoModal.style.display = "none";
+  closeModal(howtoModal);
 });
+
 // Open the store (require sign-in)
 storeBtn.addEventListener("pointerdown", (e)=>{
   e.preventDefault();
@@ -1040,9 +1063,10 @@ storeBtn.addEventListener("pointerdown", (e)=>{
 });
 
 // Close the store
+
 storeClose.addEventListener("pointerdown", (e)=>{
   e.preventDefault();
-  storeModal.style.display = "none";
+  closeModal(storeModal);
 });
 function getCoins(){
   // coinCountEl is kept live by wallet listener in the Firebase script
@@ -1122,7 +1146,11 @@ function renderHearts(){
 
   // Name modal
   nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); nameModal.style.display="flex"; });
-  [nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{ e.preventDefault(); nameModal.style.display="none"; }));
+
+[nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{
+  e.preventDefault();
+  closeModal(nameModal);
+}));
   saveName.addEventListener("pointerdown", async e=>{
     e.preventDefault();
     const dn = await window.firebase?.setDisplayName?.(nameInput.value||"Player");
@@ -1158,7 +1186,10 @@ function renderHearts(){
     }
     lbModal.style.display="flex";
   });
-  lbClose.addEventListener("pointerdown", e=>{ e.preventDefault(); lbModal.style.display="none"; });
+  lbClose.addEventListener("pointerdown", e=>{
+  e.preventDefault();
+  closeModal(lbModal);
+});
   function escapeHtml(x){ return (x||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
   
   // ── Menu dropdown logic
@@ -1175,6 +1206,7 @@ function openMenu(){
 function closeMenu(){
   menuPopup.style.display = "none";
   menuBtn.setAttribute("aria-expanded", "false");
+  window.blockResume?.();  // brief shield so that close tap doesn’t resume
 }
 
 menuBtn.addEventListener("pointerdown", (e)=>{
