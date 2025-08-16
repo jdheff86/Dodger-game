@@ -1265,7 +1265,7 @@ menuPopup.addEventListener("pointerdown", (e)=>{
     bullets:[],
     ammo:0, lives:0, shrinkCharges:0,
     powerups:[], powTimer:2.5,
-    cointimer:3.5,
+    coinTimer:3.5,
     effects:{ shrinkUntil:0, shieldUntil:0, slowUntil:0, magnetUntil:0 },
     coins:[]
     
@@ -1330,7 +1330,7 @@ renderHearts();
 
   function startGame(){
     state.blocks.length=0; state.bullets.length=0; state.powerups.length=0; state.coins.length=0;
-    state.score=0; state.time=0; state.blockTimer=0; state.powTimer=2.5; state.cointimer =2.5;
+    state.score=0; state.time=0; state.blockTimer=0; state.powTimer=2.5; state.coinTimer =2.5;
     state.difficulty=1; state.over=false; state.paused=false;
     state.effects = { shrinkUntil:0, shieldUntil:0, slowUntil:0, magnetUntil:0 };
     state.player.invUntil = 0;
