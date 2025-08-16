@@ -972,6 +972,34 @@ const storeBtn   = document.getElementById("storeBtn");
 const storeModal = document.getElementById("storeModal");
 const storeClose = document.getElementById("storeClose");
 const storeMsg   = document.getElementById("storeMsg");
+// One shared handler that opens the Store
+function openStore(e){
+  if (e) e.preventDefault();
+
+  // Require sign-in
+  if (!window.firebase.auth.currentUser){
+    // If you see "openModal is not defined", export it from the module script:
+    //   window.openModal = openModal;
+    openModal(document.getElementById("authModal"));
+    return;
+  }
+
+  // If a run is active, pause it so purchases apply to that run
+  if (state.running && !state.paused && !state.over) togglePause();
+
+  // Enable/disable buy buttons depending on run state
+  const canBuy = state.running && !state.over;   // paused counts as “in run”
+  [buyAmmo, buyShrink, buyLife].forEach(btn => btn.disabled = !canBuy);
+
+  storeMsg.style.color = "var(--muted)";
+  storeMsg.textContent = canBuy
+    ? ""
+    : "Start a run to buy items. Purchases apply to the current run.";
+
+  openModal(storeModal);  // opens + sets body ui-lock
+}
+storeBtn.addEventListener("pointerdown", openStore);
+storeBtn.addEventListener("click", openStore);
 // ── Start/Pause overlay helpers ──────────────────────────────────────────
 const overlayCard  = document.querySelector("#overlay .card");
 const overlayTitle = document.querySelector("#overlay .title");
@@ -1086,19 +1114,7 @@ storeBtn.addEventListener("click", (e)=>{
 });
 
   // Pause the game if a run is active (purchases apply to the current run)
-  if (state.running && !state.paused && !state.over) togglePause();
 
-  // Enable/disable buy buttons depending on run state
-  const canBuy = state.running && !state.over; // paused counts as "in run"
-  [buyAmmo, buyShrink, buyLife].forEach(btn => btn.disabled = !canBuy);
-
-  storeMsg.style.color = "var(--muted)";
-  storeMsg.textContent = canBuy
-    ? ""
-    : "Start a run to buy items. Purchases apply to the current run.";
-
-  openModal(storeModal);  // opens + sets body ui-lock
-});
 
 // Close the store
 
