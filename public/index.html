@@ -404,6 +404,16 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   font-size:15px;
   margin:0;
 }
+/* Let forms & buttons behave normally inside modals and header */
+header, .modal, .modal * {
+  touch-action: auto !important;
+}
+
+input, button, textarea {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  touch-action: manipulation; /* improves click on iOS */
+}
 </style>
 </head>
 <body class="safe">
@@ -851,36 +861,51 @@ window.closeModal = function(m){
     if (e.key === "Escape") document.querySelectorAll(".modal").forEach(m=>{ if(m.style.display==="flex") window.closeModal(m); });
   });
 
-  authBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); window.openModal(authModal); });
-  authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); window.closeModal(authModal); });
+  authBtn.addEventListener("click", e=>{ e.preventDefault(); window.openModal(authModal); });
+  authClose.addEventListener("click", e=>{ e.preventDefault(); window.closeModal(authModal); });
 
   // Sign in / Sign up
-  btnIn.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); authMsg.textContent = "";
-    try{
-      const email = (authEmail.value || "").trim();
-      const pass  = authPass.value || "";
-      await signInWithEmailAndPassword(auth, email, pass);
-      window.closeModal(authModal);
-    }catch(err){ authMsg.textContent = prettyAuthError(err); }
-  });
-  btnUp.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); authMsg.textContent = "";
-    try{
-      const email = (authEmail.value || "").trim();
-      const pass  = authPass.value || "";
-      const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      const def = email.split("@")[0].slice(0,24) || "Player";
-      await updateProfile(cred.user, { displayName: def });
-      window.closeModal(authModal);
-    }catch(err){ authMsg.textContent = prettyAuthError(err); }
-  });
-  btnOut.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); await signOut(auth); window.closeModal(authModal);
-  });
+  // Sign in
+btnIn.addEventListener("click", async (e)=>{
+  e.preventDefault();
+  e.stopPropagation();
+  authMsg.textContent = "";
+  try{
+    const email = (authEmail.value || "").trim();
+    const pass  = authPass.value || "";
+    await signInWithEmailAndPassword(auth, email, pass);
+    window.closeModal(authModal);
+  }catch(err){ authMsg.textContent = prettyAuthError(err); }
+});
+
+// Create account
+btnUp.addEventListener("click", async (e)=>{
+  e.preventDefault();
+  e.stopPropagation();
+  authMsg.textContent = "";
+  try{
+    const email = (authEmail.value || "").trim();
+    const pass  = authPass.value || "";
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    const def = email.split("@")[0].slice(0,24) || "Player";
+    await updateProfile(cred.user, { displayName: def });
+    window.closeModal(authModal);
+  }catch(err){ authMsg.textContent = prettyAuthError(err); }
+});
+
+// Sign out
+btnOut.addEventListener("click", async (e)=>{
+  e.preventDefault();
+  e.stopPropagation();
+  await signOut(auth);
+  window.closeModal(authModal);
+});
 
   // Password reset
-  btnForgot.addEventListener("pointerdown", async e=>{
+  btnForgot.addEventListener("click", async (e)=>{
+  e.preventDefault();
+  e.stopPropagation();
+  // rest unchanged
     e.preventDefault();
     const email = (authEmail.value || "").trim();
     if (!email) { authMsg.textContent = "Enter your email first, then tap Reset."; return; }
