@@ -896,6 +896,11 @@ function closeModal(m){
 <script>
 (function () {
   "use strict";
+  // --- Spawn tuning (independent) ---
+let COIN_CHANCE = 0.55;            // 0..1 chance when coin timer fires
+let COIN_INTERVAL_MIN = 6, COIN_INTERVAL_MAX = 10;      // seconds
+
+let POWERUP_INTERVAL_MIN = 8, POWERUP_INTERVAL_MAX = 13; // seconds
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
@@ -1260,8 +1265,10 @@ menuPopup.addEventListener("pointerdown", (e)=>{
     bullets:[],
     ammo:0, lives:0, shrinkCharges:0,
     powerups:[], powTimer:2.5,
+    cointimer:3.5,
     effects:{ shrinkUntil:0, shieldUntil:0, slowUntil:0, magnetUntil:0 },
     coins:[]
+    
   };
   bestEl.textContent = state.best;
 ammoEl.textContent = state.ammo;
@@ -1323,7 +1330,7 @@ renderHearts();
 
   function startGame(){
     state.blocks.length=0; state.bullets.length=0; state.powerups.length=0; state.coins.length=0;
-    state.score=0; state.time=0; state.blockTimer=0; state.powTimer=2.5;
+    state.score=0; state.time=0; state.blockTimer=0; state.powTimer=2.5; state.cointimer =2.5;
     state.difficulty=1; state.over=false; state.paused=false;
     state.effects = { shrinkUntil:0, shieldUntil:0, slowUntil:0, magnetUntil:0 };
     state.player.invUntil = 0;
@@ -1486,8 +1493,19 @@ if (state.blockTimer <= 0) {
   state.blockTimer = interval;
 }
 
-    state.powTimer -= worldDT;
-    if (state.powTimer <= 0) { if (Math.random() < 0.35) spawnCoin(); else spawnPowerup(); state.powTimer = rand(8, 13); }
+    // Power-ups (own cadence)
+state.powTimer -= worldDT;
+if (state.powTimer <= 0) {
+  spawnPowerup();
+  state.powTimer = rand(POWERUP_INTERVAL_MIN, POWERUP_INTERVAL_MAX);
+}
+
+// Coins (own cadence + chance)
+state.coinTimer -= worldDT;
+if (state.coinTimer <= 0) {
+  if (Math.random() < COIN_CHANCE) spawnCoin();
+  state.coinTimer = rand(COIN_INTERVAL_MIN, COIN_INTERVAL_MAX);
+}
 
     for (let i=state.blocks.length-1; i>=0; i--) {
       const b = state.blocks[i]; b.y += b.vy * worldDT; if (b.y - b.h > height + 8) { state.blocks.splice(i,1); }
