@@ -404,16 +404,6 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   font-size:15px;
   margin:0;
 }
-/* Let forms & buttons behave normally inside modals and header */
-header, .modal, .modal * {
-  touch-action: auto !important;
-}
-
-input, button, textarea {
-  -webkit-user-select: text !important;
-  user-select: text !important;
-  touch-action: manipulation; /* improves click on iOS */
-}
 </style>
 </head>
 <body class="safe">
@@ -843,69 +833,53 @@ input, button, textarea {
   startBtn.textContent = "Start";
 });
 
-// Make these available to other scripts (non-module)
-window.openModal = function(m){
+  function openModal(m){
   m.style.display = "flex";
   document.body.classList.add("ui-lock");
-};
-window.closeModal = function(m){
+}
+function closeModal(m){
   m.style.display = "none";
   document.body.classList.remove("ui-lock");
-  window.blockResume?.(); // brief shield so the close tap can't resume
-};
+  window.blockResume?.();              // brief shield so the close tap can't resume
+}
 
   document.querySelectorAll(".modal").forEach(m=>{
-    m.addEventListener("pointerdown", (e)=>{ if(e.target === m) window.closeModal(m); }, {passive:true});
+    m.addEventListener("pointerdown", (e)=>{ if(e.target === m) closeModal(m); }, {passive:true});
   });
   document.addEventListener("keydown", (e)=>{
-    if (e.key === "Escape") document.querySelectorAll(".modal").forEach(m=>{ if(m.style.display==="flex") window.closeModal(m); });
+    if (e.key === "Escape") document.querySelectorAll(".modal").forEach(m=>{ if(m.style.display==="flex") closeModal(m); });
   });
 
-  authBtn.addEventListener("click", e=>{ e.preventDefault(); window.openModal(authModal); });
-  authClose.addEventListener("click", e=>{ e.preventDefault(); window.closeModal(authModal); });
+  authBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); openModal(authModal); });
+  authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); closeModal(authModal); });
 
   // Sign in / Sign up
-  // Sign in
-btnIn.addEventListener("click", async (e)=>{
-  e.preventDefault();
-  e.stopPropagation();
-  authMsg.textContent = "";
-  try{
-    const email = (authEmail.value || "").trim();
-    const pass  = authPass.value || "";
-    await signInWithEmailAndPassword(auth, email, pass);
-    window.closeModal(authModal);
-  }catch(err){ authMsg.textContent = prettyAuthError(err); }
-});
-
-// Create account
-btnUp.addEventListener("click", async (e)=>{
-  e.preventDefault();
-  e.stopPropagation();
-  authMsg.textContent = "";
-  try{
-    const email = (authEmail.value || "").trim();
-    const pass  = authPass.value || "";
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    const def = email.split("@")[0].slice(0,24) || "Player";
-    await updateProfile(cred.user, { displayName: def });
-    window.closeModal(authModal);
-  }catch(err){ authMsg.textContent = prettyAuthError(err); }
-});
-
-// Sign out
-btnOut.addEventListener("click", async (e)=>{
-  e.preventDefault();
-  e.stopPropagation();
-  await signOut(auth);
-  window.closeModal(authModal);
-});
+  btnIn.addEventListener("pointerdown", async e=>{
+    e.preventDefault(); authMsg.textContent = "";
+    try{
+      const email = (authEmail.value || "").trim();
+      const pass  = authPass.value || "";
+      await signInWithEmailAndPassword(auth, email, pass);
+      closeModal(authModal);
+    }catch(err){ authMsg.textContent = prettyAuthError(err); }
+  });
+  btnUp.addEventListener("pointerdown", async e=>{
+    e.preventDefault(); authMsg.textContent = "";
+    try{
+      const email = (authEmail.value || "").trim();
+      const pass  = authPass.value || "";
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      const def = email.split("@")[0].slice(0,24) || "Player";
+      await updateProfile(cred.user, { displayName: def });
+      closeModal(authModal);
+    }catch(err){ authMsg.textContent = prettyAuthError(err); }
+  });
+  btnOut.addEventListener("pointerdown", async e=>{
+    e.preventDefault(); await signOut(auth); closeModal(authModal);
+  });
 
   // Password reset
-  btnForgot.addEventListener("click", async (e)=>{
-  e.preventDefault();
-  e.stopPropagation();
-  // rest unchanged
+  btnForgot.addEventListener("pointerdown", async e=>{
     e.preventDefault();
     const email = (authEmail.value || "").trim();
     if (!email) { authMsg.textContent = "Enter your email first, then tap Reset."; return; }
@@ -1030,15 +1004,10 @@ function showPausedOverlay(){
 showWaitingOverlay();
 
 // Tap anywhere on the overlay: start or resume
-// Tap anywhere on the overlay: start or 
-
+// Tap anywhere on the overlay: start or resume
 function tryStartOrResume(e){
   e.preventDefault();
 
-  // ⬅️ NEW: ignore taps that happen inside the overlay card
-  // (this is where the Start button lives)
-  if (e.target.closest('#overlay .card')) return;
-
   // 1) Don’t resume if any UI is open or we’re inside the HUD/menu
   if (document.body.classList.contains("ui-lock")) return;
   if (e.target.closest("header, #menuPopup")) return;
@@ -1056,32 +1025,9 @@ function tryStartOrResume(e){
 
   // 4) Otherwise start a fresh run (auth-gated)
   if (!window.firebase.auth.currentUser){
-    window.openModal(document.getElementById("authModal"));
+    openModal(document.getElementById("authModal"));
     return;
   }
-  startGame();
-}
-
-  // 1) Don’t resume if any UI is open or we’re inside the HUD/menu
-  if (document.body.classList.contains("ui-lock")) return;
-  if (e.target.closest("header, #menuPopup")) return;
-
-  // 2) Don’t resume immediately after a UI closes (shield)
-  if (performance.now() < _resumeBlockUntil) return;
-
-  // 3) If we were paused, resume
-  if (showingPaused && !state.over) {
-    overlay.style.display = "none";
-    showingPaused = false;
-    if (state.paused) togglePause();  // unpause + restart loop
-    return;
-  }
-
-  // 4) Otherwise start a fresh run (auth-gated)
-  if (!window.firebase.auth.currentUser){
-  window.openModal(document.getElementById("authModal"));
-  return;
-}
   startGame();
 }
 overlay.addEventListener("pointerdown", tryStartOrResume);
@@ -1095,29 +1041,22 @@ const howtoClose = document.getElementById("howtoClose");
 
 howtoBtn.addEventListener("pointerdown", e => {
   e.preventDefault();
-  window.openModal(howtoModal);
-});
-howtoClose.addEventListener("pointerdown", e => {
-  e.preventDefault();
-  window.closeModal(howtoModal);
+  howtoModal.style.display = "flex";
 });
 
 howtoClose.addEventListener("pointerdown", e => {
   e.preventDefault();
-  window.closeModal(howtoModal);
+  closeModal(howtoModal);
 });
 
 // Open the store (require sign-in)
 storeBtn.addEventListener("pointerdown", (e)=>{
   e.preventDefault();
-if (!window.firebase.auth.currentUser){
-  
-  window.openModal(document.getElementById("authModal"));
-  
-  return;
-}
-
-window.openModal(storeModal);
+  if (!window.firebase.auth.currentUser){
+    // Force sign-in first
+    document.getElementById("authModal").style.display = "flex";
+    return;
+  }
   storeMsg.textContent = ""; // clear old message
   storeMsg.style.color = "var(--muted)";
   storeModal.style.display = "flex";
@@ -1127,9 +1066,8 @@ window.openModal(storeModal);
 
 storeClose.addEventListener("pointerdown", (e)=>{
   e.preventDefault();
-  window.closeModal(storeModal);
+  closeModal(storeModal);
 });
-
 function getCoins(){
   // coinCountEl is kept live by wallet listener in the Firebase script
   return (Number(coinCountEl.textContent || "0") | 0);
@@ -1194,30 +1132,24 @@ function renderHearts(){
   lifeBar.innerHTML = out.join("");
 }
   
-  // Limit default-preventing to in-game gestures only
-const stage = document.getElementById('stage');
-const preventMove = (e) => {
-  // Allow HUD/menu/modals
-  if (e.target.closest('header, #menuPopup, .modal')) return;
+  const prevent = (e) => { 
+  if (
+    e.target.closest(".overlay") ||
+    e.target.closest(".modal")   ||
+    e.target.closest("#menuPopup") // ✅ allow touches inside menu popup
+  ) return;
   e.preventDefault();
 };
-
-// Don't block taps: no touchstart/touchend here
-stage.addEventListener('touchmove', preventMove, { passive:false });
-stage.addEventListener('gesturestart', preventMove, { passive:false });
+["touchstart","touchmove","touchend","gesturestart"].forEach(ev => 
+  document.addEventListener(ev, prevent, { passive:false })
+);
 
   // Name modal
-nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); window.openModal(nameModal); });
-[nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{
-  e.preventDefault();
-  window.closeModal(nameModal);
-}));
-
-window.closeModal(nameModal);
+  nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); nameModal.style.display="flex"; });
 
 [nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{
   e.preventDefault();
-  window.closeModal(nameModal);
+  closeModal(nameModal);
 }));
   saveName.addEventListener("pointerdown", async e=>{
     e.preventDefault();
@@ -1252,11 +1184,11 @@ window.closeModal(nameModal);
     }catch(err){
       lbBody.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(err.message||String(err))}</td></tr>`;
     }
-    window.openModal(lbModal);
+    lbModal.style.display="flex";
   });
   lbClose.addEventListener("pointerdown", e=>{
   e.preventDefault();
-  window.closeModal(lbModal);
+  closeModal(lbModal);
 });
   function escapeHtml(x){ return (x||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
   
@@ -1359,27 +1291,6 @@ renderHearts();
   let swipeActive=false, swipeStartX=0;
   canvas.addEventListener("pointerdown", e=>{ swipeActive=true; swipeStartX=e.clientX; });
   window.addEventListener("pointermove", e=>{ if(!swipeActive) return; const dx=e.clientX-swipeStartX; state.input.swipeVX=dx*3; });
-  // --- Two-finger tap to pause (add once)
-const activeTouches = new Set();
-canvas.addEventListener("pointerdown", (e)=>{
-  if (e.pointerType !== "touch") return;
-  activeTouches.add(e.pointerId);
-  if (activeTouches.size >= 2 && state.running && !state.paused && !state.over) {
-    togglePause();
-  }
-});
-["pointerup","pointercancel","pointerleave","pointerout"].forEach(ev=>{
-  window.addEventListener(ev, (e)=>{
-    if (e.pointerType === "touch") activeTouches.delete(e.pointerId);
-  }, { passive:true });
-});
-
-// Keep swipe active only for single-finger drags
-canvas.addEventListener("pointerdown", e=>{
-  if (e.pointerType === "touch" && activeTouches.size > 1) return; // ignore multi-touch
-  swipeActive = true;
-  swipeStartX = e.clientX;
-});
   window.addEventListener("pointerup", ()=>{ swipeActive=false; state.input.swipeVX=0; });
 
   firePad.addEventListener("pointerdown", e=>{ e.preventDefault(); shoot(); });
@@ -1405,17 +1316,8 @@ canvas.addEventListener("pointerdown", e=>{
     }
     startGame();
   }
-  
-  startBtn.addEventListener("pointerdown", (e)=>{
-  e.preventDefault();
-  e.stopPropagation();          // keep the tap from bubbling to the overlay
-  handleStart(e);
-});
-startBtn.addEventListener("click", (e)=>{
-  e.preventDefault();
-  e.stopPropagation();          // same for the click event
-  handleStart(e);
-});
+  startBtn.addEventListener("pointerdown", handleStart);
+  startBtn.addEventListener("click", handleStart);
 
   pauseBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); togglePause(); });
 
@@ -1548,7 +1450,31 @@ function togglePause(){
 
     state.blockTimer -= worldDT;
     
+    // ── Two-finger tap to pause ──────────────────────────────────────────────
+const activeTouches = new Set();
 
+canvas.addEventListener("pointerdown", (e)=>{
+  if (e.pointerType === "touch") {
+    activeTouches.add(e.pointerId);
+    // if second finger lands during gameplay -> pause
+    if (activeTouches.size >= 2 && state.running && !state.paused && !state.over) {
+      togglePause();
+    }
+  }
+});
+
+["pointerup","pointercancel","pointerleave","pointerout"].forEach(ev=>{
+  window.addEventListener(ev, (e)=>{
+    if (e.pointerType === "touch") activeTouches.delete(e.pointerId);
+  }, { passive:true });
+});
+
+// Keep your swipe handler, but only start swipe for single-finger drags
+let swipeActive=false, swipeStartX=0;
+canvas.addEventListener("pointerdown", e=>{
+  if (e.pointerType === "touch" && activeTouches.size > 1) return; // ignore multi-touch
+  swipeActive=true; swipeStartX=e.clientX;
+});
 // base interval grows ~8–10% to reduce spawn frequency slightly
 const baseInterval = Math.max(0.24, 0.9 - state.time * 0.03);
 const interval = baseInterval * 1.08; // bump to 1.10 for ~10% fewer spawns
