@@ -876,7 +876,7 @@ window.closeModal = function(m){
     }catch(err){ authMsg.textContent = prettyAuthError(err); }
   });
   btnOut.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); await signOut(auth); closeModal(authModal);
+    e.preventDefault(); await signOut(auth); window.closeModal(authModal);
   });
 
   // Password reset
@@ -1063,7 +1063,7 @@ if (!window.firebase.auth.currentUser){
   
   return;
 }
-...
+
 window.openModal(storeModal);
   storeMsg.textContent = ""; // clear old message
   storeMsg.style.color = "var(--muted)";
@@ -1159,7 +1159,7 @@ nameBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); window.openModa
   e.preventDefault();
   window.closeModal(nameModal);
 }));
-...
+
 window.closeModal(nameModal);
 
 [nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{
