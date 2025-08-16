@@ -845,14 +845,14 @@ window.closeModal = function(m){
 };
 
   document.querySelectorAll(".modal").forEach(m=>{
-    m.addEventListener("pointerdown", (e)=>{ if(e.target === m) closeModal(m); }, {passive:true});
+    m.addEventListener("pointerdown", (e)=>{ if(e.target === m) window.closeModal(m); }, {passive:true});
   });
   document.addEventListener("keydown", (e)=>{
-    if (e.key === "Escape") document.querySelectorAll(".modal").forEach(m=>{ if(m.style.display==="flex") closeModal(m); });
+    if (e.key === "Escape") document.querySelectorAll(".modal").forEach(m=>{ if(m.style.display==="flex") window.closeModal(m); });
   });
 
-  authBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); openModal(authModal); });
-  authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); closeModal(authModal); });
+  authBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); window.openModal(authModal); });
+  authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); window.closeModal(authModal); });
 
   // Sign in / Sign up
   btnIn.addEventListener("pointerdown", async e=>{
@@ -861,7 +861,7 @@ window.closeModal = function(m){
       const email = (authEmail.value || "").trim();
       const pass  = authPass.value || "";
       await signInWithEmailAndPassword(auth, email, pass);
-      closeModal(authModal);
+      window.closeModal(authModal);
     }catch(err){ authMsg.textContent = prettyAuthError(err); }
   });
   btnUp.addEventListener("pointerdown", async e=>{
@@ -872,7 +872,7 @@ window.closeModal = function(m){
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       const def = email.split("@")[0].slice(0,24) || "Player";
       await updateProfile(cred.user, { displayName: def });
-      closeModal(authModal);
+      window.closeModal(authModal);
     }catch(err){ authMsg.textContent = prettyAuthError(err); }
   });
   btnOut.addEventListener("pointerdown", async e=>{
@@ -1051,7 +1051,7 @@ howtoClose.addEventListener("pointerdown", e => {
 
 howtoClose.addEventListener("pointerdown", e => {
   e.preventDefault();
-  closeModal(howtoModal);
+  window.closeModal(howtoModal);
 });
 
 // Open the store (require sign-in)
@@ -1164,7 +1164,7 @@ window.closeModal(nameModal);
 
 [nameClose,cancelName].forEach(el=>el.addEventListener("pointerdown", e=>{
   e.preventDefault();
-  closeModal(nameModal);
+  window.closeModal(nameModal);
 }));
   saveName.addEventListener("pointerdown", async e=>{
     e.preventDefault();
