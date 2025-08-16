@@ -1036,7 +1036,6 @@ function tryStartOrResume(e){
   startGame();
 }
 overlay.addEventListener("pointerdown", tryStartOrResume);
-overlay.addEventListener("click", tryStartOrResume);
 const buyAmmo    = document.getElementById("buyAmmo");
 const buyShrink  = document.getElementById("buyShrink");
 const buyLife    = document.getElementById("buyLife");
@@ -1222,10 +1221,10 @@ menuBtn.addEventListener("pointerdown", (e)=>{
 
 // click outside to close
 document.addEventListener("pointerdown", (e)=>{
-  if (!menuPopup.contains(e.target) && e.target !== menuBtn){
+  if (!menuPopup.contains(e.target) && !e.target.closest("#menuBtn")){
     closeMenu();
   }
-}, {passive:true});
+}, { passive:true });
 
 // Esc closes
 document.addEventListener("keydown", (e)=>{
@@ -1295,10 +1294,42 @@ renderHearts();
     el.addEventListener("pointerdown", down); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("pointerleave", up); }
   bindPad(leftPad,-1); bindPad(rightPad,1);
 
-  let swipeActive=false, swipeStartX=0;
-  canvas.addEventListener("pointerdown", e=>{ swipeActive=true; swipeStartX=e.clientX; });
-  window.addEventListener("pointermove", e=>{ if(!swipeActive) return; const dx=e.clientX-swipeStartX; state.input.swipeVX=dx*3; });
-  window.addEventListener("pointerup", ()=>{ swipeActive=false; state.input.swipeVX=0; });
+  /* ===== Input: swipe + two-finger pause (global, run once) ===== */
+const activeTouches = new Set();
+let swipeActive = false, swipeStartX = 0;
+
+canvas.addEventListener("pointerdown", e=>{
+  // Track touches
+  if (e.pointerType === "touch") {
+    activeTouches.add(e.pointerId);
+    // 2nd finger during gameplay pauses
+    if (activeTouches.size >= 2 && state.running && !state.paused && !state.over) {
+      togglePause();
+      return; // don't start a swipe from the 2nd finger
+    }
+  }
+  // Start swipe for mouse/pen or single-touch
+  if (e.pointerType !== "touch" || activeTouches.size <= 1) {
+    swipeActive = true;
+    swipeStartX = e.clientX;
+  }
+});
+
+["pointerup","pointercancel","pointerleave","pointerout"].forEach(ev=>{
+  window.addEventListener(ev, e=>{
+    if (e.pointerType === "touch") activeTouches.delete(e.pointerId);
+  }, { passive:true });
+});
+
+window.addEventListener("pointermove", e=>{
+  if (!swipeActive) return;
+  const dx = e.clientX - swipeStartX;
+  state.input.swipeVX = dx * 3;
+});
+window.addEventListener("pointerup", ()=>{
+  swipeActive = false;
+  state.input.swipeVX = 0;
+});
 
   firePad.addEventListener("pointerdown", e=>{ e.preventDefault(); shoot(); });
   shrinkBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); useShrink(); });
@@ -1457,31 +1488,7 @@ function togglePause(){
 
     state.blockTimer -= worldDT;
     
-    // ── Two-finger tap to pause ──────────────────────────────────────────────
-const activeTouches = new Set();
 
-canvas.addEventListener("pointerdown", (e)=>{
-  if (e.pointerType === "touch") {
-    activeTouches.add(e.pointerId);
-    // if second finger lands during gameplay -> pause
-    if (activeTouches.size >= 2 && state.running && !state.paused && !state.over) {
-      togglePause();
-    }
-  }
-});
-
-["pointerup","pointercancel","pointerleave","pointerout"].forEach(ev=>{
-  window.addEventListener(ev, (e)=>{
-    if (e.pointerType === "touch") activeTouches.delete(e.pointerId);
-  }, { passive:true });
-});
-
-// Keep your swipe handler, but only start swipe for single-finger drags
-let swipeActive=false, swipeStartX=0;
-canvas.addEventListener("pointerdown", e=>{
-  if (e.pointerType === "touch" && activeTouches.size > 1) return; // ignore multi-touch
-  swipeActive=true; swipeStartX=e.clientX;
-});
 // base interval grows ~8–10% to reduce spawn frequency slightly
 const baseInterval = Math.max(0.24, 0.9 - state.time * 0.03);
 const interval = baseInterval * 1.08; // bump to 1.10 for ~10% fewer spawns
