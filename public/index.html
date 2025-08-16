@@ -558,7 +558,7 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
 <div class="modal" id="lbModal">
   <div class="panel">
     <button class="x" id="lbClose">×</button>
-    <h2>Global Leaderboard (Top 20)</h2>
+    <h2>Global Leaderboard (Top 100)</h2>
     <table id="lbTable">
       <thead><tr><th style="text-align:left;">#</th><th style="text-align:left;">Name</th><th>Score</th><th>When</th></tr></thead>
       <tbody></tbody>
@@ -1163,7 +1163,7 @@ function renderHearts(){
     e.preventDefault();
     lbBody.innerHTML = "<tr><td colspan='4'>Loading…</td></tr>";
     try{
-      const rows = await window.firebase.loadTop(20);
+      const rows = await window.firebase.loadTop(100);
       if (!rows.length) {
         lbBody.innerHTML = "<tr><td colspan='4'>No scores yet.</td></tr>";
       } else {
