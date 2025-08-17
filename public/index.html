@@ -651,6 +651,12 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
     <h2>Store</h2>
 
     <div id="storeMsg" class="muted" style="margin-bottom:8px;"></div>
+    
+        <!-- Hidden admin unlock (coupon code) -->
+    <div class="grid" style="margin-bottom:8px;">
+      <input id="adminCode" type="text" placeholder="Coupon code">
+      <button class="btn2" id="redeemAdmin">Redeem</button>
+    </div>
 
   <div class="grid">
   <button class="btn2 itemBtn" id="buyAmmo" title="Buy blaster ammo">
@@ -674,6 +680,33 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
 
     <div class="muted" style="margin-top:10px;">
       Purchases apply to the current run. (Persistent lives coming soon.)
+    </div>
+  </div>
+</div>
+
+<!-- Admin modal (hidden; only opens when UID + code match) -->
+<div class="modal" id="adminModal">
+  <div class="panel">
+    <button class="x" id="adminClose">×</button>
+    <h2>Admin</h2>
+    <div class="muted" id="adminMsg" style="margin-bottom:8px;"></div>
+
+    <div class="grid">
+      <input id="adminTargetUid" type="text" placeholder="Target UID (exact)">
+      <input id="adminAmount" type="number" step="1" placeholder="Amount (e.g. 50 or -10)">
+      <button class="btn2 primary" id="adminGrant">Apply coin change</button>
+    </div>
+
+    <div class="muted" style="margin-top:10px;">Wallet preview</div>
+    <div class="grid" style="margin-top:6px;">
+      <button class="btn2" id="adminLoadWallet">Load target wallet</button>
+      <pre id="adminWalletView" style="background:#0f141f;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px;white-space:pre-wrap;max-height:200px;overflow:auto;">(no data)</pre>
+    </div>
+
+    <div class="muted" style="margin-top:10px;">Recent wallets (sample)</div>
+    <div class="grid" style="margin-top:6px;">
+      <button class="btn2" id="adminListWallets">List 20 wallets</button>
+      <pre id="adminWalletList" style="background:#0f141f;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px;white-space:pre-wrap;max-height:260px;overflow:auto;">(no data)</pre>
     </div>
   </div>
 </div>
@@ -706,6 +739,9 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db   = getFirestore(app);
+  // === Admin gate ===
+const ADMIN_UID  = "ga7oyzYX9egqBYcsdrQLWDLev0s2";  // <-- replace with your real UID
+const ADMIN_CODE = "letmein123";         // <-- your secret coupon string
 
   setPersistence(auth, browserLocalPersistence).catch(()=>{});
 
@@ -783,9 +819,26 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
           return { name: data.name||"Player", score: Number(data.score)||0, ts: data.ts||null };
         });
       }
-    }
-  };
+        },
 
+    // === ADMIN COUPON 
+// === ADMIN COUPON CHECK ===
+// === ADMIN COUPON CHECK ===
+async checkCouponAndOpenAdmin(code){
+  const u = auth.currentUser;
+  if (!u) return false;
+
+  if (u.uid !== ADMIN_UID) return false;                 // only your UID
+  if ((code || "").trim() !== ADMIN_CODE) return false;  // must match code
+
+  const admin = document.getElementById("adminModal");
+  if (admin){
+    admin.style.display = "flex";
+    document.body.classList.add("ui-lock");
+  }
+  return true;
+},
+  };
   function prettyAuthError(err){
     const code = (err && err.code) || "";
     if (code.includes("invalid-credential")) return "Email or password is incorrect.";
@@ -1047,6 +1100,8 @@ overlay.addEventListener("pointerdown", tryStartOrResume);
 const buyAmmo    = document.getElementById("buyAmmo");
 const buyShrink  = document.getElementById("buyShrink");
 const buyLife    = document.getElementById("buyLife");
+const adminCodeInput = document.getElementById("adminCode");
+const redeemAdminBtn = document.getElementById("redeemAdmin");
 const howtoBtn   = document.getElementById("howtoBtn");
 const howtoModal = document.getElementById("howtoModal");
 const howtoClose = document.getElementById("howtoClose");
@@ -1054,6 +1109,19 @@ const howtoClose = document.getElementById("howtoClose");
 howtoBtn.addEventListener("pointerdown", e => {
   e.preventDefault();
   howtoModal.style.display = "flex";
+});
+
+// Handle hidden admin coupon unlock
+redeemAdminBtn.addEventListener("pointerdown", async (e) => {
+  e.preventDefault();
+  const code = adminCodeInput.value;
+  const ok = await window.firebase.checkCouponAndOpenAdmin(code);
+  if (!ok) {
+    alert("Invalid code.");
+  } else {
+    alert("Admin panel unlocked!");
+    // you can replace this alert with: openModal(document.getElementById("adminModal"))
+  }
 });
 
 howtoClose.addEventListener("pointerdown", e => {
