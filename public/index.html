@@ -820,7 +820,38 @@ const ADMIN_CODE = "letmein123";         // <-- your secret coupon string
         });
       }
         },
+    // --- ADMIN ACTIONS (guarded by ADMIN_UID) ----------------------------
+    async adminApplyCoins(targetUid, amount){
+      const u = auth.currentUser;
+      if (!u || u.uid !== ADMIN_UID) throw new Error("Not authorized");
+      const uid = String(targetUid||"").trim();
+      const amt = Number(amount||0) | 0;
+      if (!uid) throw new Error("Enter target UID");
+      if (!Number.isFinite(amt) || amt === 0) throw new Error("Enter a non-zero amount");
 
+      const ref = doc(db, "wallets", uid);
+      // ensure document exists
+      await setDoc(ref, { coins: 0 }, { merge: true });
+      await updateDoc(ref, { coins: increment(amt) });
+      return true;
+    },
+
+    async adminLoadWallet(uid){
+      const u = auth.currentUser;
+      if (!u || u.uid !== ADMIN_UID) throw new Error("Not authorized");
+      const ref = doc(db, "wallets", String(uid||"").trim());
+      const snap = await getDoc(ref);
+      return snap.exists() ? snap.data() : null;
+    },
+
+    async adminListWallets(n = 20){
+      const u = auth.currentUser;
+      if (!u || u.uid !== ADMIN_UID) throw new Error("Not authorized");
+      // no timestamp, so just take first N docs (optionally sort by coins if you want)
+      const q = query(collection(db, "wallets"), limit(n));
+      const s = await getDocs(q);
+      return s.docs.map(d => ({ uid: d.id, ...(d.data()||{}) }));
+    },
     // === ADMIN COUPON 
 // === ADMIN COUPON CHECK ===
 // === ADMIN COUPON CHECK ===
@@ -1102,6 +1133,66 @@ const buyShrink  = document.getElementById("buyShrink");
 const buyLife    = document.getElementById("buyLife");
 const adminCodeInput = document.getElementById("adminCode");
 const redeemAdminBtn = document.getElementById("redeemAdmin");
+// --- Admin modal wiring ---------------------------------------------------
+const adminModal        = document.getElementById("adminModal");
+const adminClose        = document.getElementById("adminClose");
+const adminTargetUidInp = document.getElementById("adminTargetUid");
+const adminAmountInp    = document.getElementById("adminAmount");
+const adminGrantBtn     = document.getElementById("adminGrant");
+const adminLoadBtn      = document.getElementById("adminLoadWallet");
+const adminWalletView   = document.getElementById("adminWalletView");
+const adminListBtn      = document.getElementById("adminListWallets");
+const adminWalletList   = document.getElementById("adminWalletList");
+
+adminClose.addEventListener("pointerdown", e=>{
+  e.preventDefault();
+  closeModal(adminModal);
+});
+
+// Apply coin change
+adminGrantBtn.addEventListener("pointerdown", async (e)=>{
+  e.preventDefault();
+  adminWalletView.textContent = "(working…)";
+  try{
+    const uid = (adminTargetUidInp.value||"").trim();
+    const amt = parseInt(adminAmountInp.value||"0", 10) || 0;
+    await window.firebase.adminApplyCoins(uid, amt);
+    adminWalletView.textContent = `Applied ${amt} coins to ${uid}. Tap “Load target wallet” to refresh.`;
+  }catch(err){
+    adminWalletView.textContent = "Error: " + (err.message || String(err));
+  }
+});
+
+// Load target wallet
+adminLoadBtn.addEventListener("pointerdown", async (e)=>{
+  e.preventDefault();
+  adminWalletView.textContent = "(loading…)";
+  try{
+    const uid = (adminTargetUidInp.value||"").trim();
+    const data = await window.firebase.adminLoadWallet(uid);
+    adminWalletView.textContent = data ? JSON.stringify(data, null, 2) : "(no wallet)";
+  }catch(err){
+    adminWalletView.textContent = "Error: " + (err.message || String(err));
+  }
+});
+
+// List 20 wallets (sample)
+adminListBtn.addEventListener("pointerdown", async (e)=>{
+  e.preventDefault();
+  adminWalletList.textContent = "(loading…)";
+  try{
+    const rows = await window.firebase.adminListWallets(20);
+    if (!rows.length){
+      adminWalletList.textContent = "(no data)";
+    } else {
+      adminWalletList.textContent = rows
+        .map(r => `${r.uid} — coins: ${Number(r.coins||0)}`)
+        .join("\n");
+    }
+  }catch(err){
+    adminWalletList.textContent = "Error: " + (err.message || String(err));
+  }
+});
 const howtoBtn   = document.getElementById("howtoBtn");
 const howtoModal = document.getElementById("howtoModal");
 const howtoClose = document.getElementById("howtoClose");
