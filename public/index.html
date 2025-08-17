@@ -1788,22 +1788,42 @@ menuPopup.addEventListener("pointerdown", (e)=>{
 const trail = [];
 
 // 🔥 richer fire emitter: denser core + occasional sparks
+// 🔥 downward cone + occasional sparks (no horizontal bias)
 function spawnFlameParticles(cx, cy){
-  // core flames (chaotic cone)
+  const base = Math.PI / 2;          // straight down (canvas Y+)
+  const spread = Math.PI / 6;        // ±30°
+
+  // core flames
   for (let i = 0; i < 4; i++){
-    const ang   = (Math.random()*Math.PI/3) + Math.PI*0.85; // mostly downward
-    const speed = 80 + Math.random()*140;
+    const ang   = base + (Math.random() - 0.5) * (spread * 2);
+    const speed = 110 + Math.random()*140;
     trail.push({
-      x:  cx + (Math.random()-0.5)*6,
-      y:  cy + 6 + (Math.random()-0.5)*6,
-      vx: Math.cos(ang)*speed,
-      vy: Math.sin(ang)*speed,
+      x:  cx + (Math.random()-0.5)*3,
+      y:  cy + 2 + (Math.random()-0.5)*3,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
       age: 0,
-      life: 0.35 + Math.random()*0.35,
+      life: 0.32 + Math.random()*0.36,
       size: 6 + Math.random()*6,
       spark: false
     });
   }
+
+  // bright orange sparks that shoot out a bit
+  if (Math.random() < 0.25){
+    const ang   = base + (Math.random() - 0.5) * (spread * 2);
+    const speed = 220 + Math.random()*160;
+    trail.push({
+      x: cx, y: cy,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      age: 0,
+      life: 0.22 + Math.random()*0.28,
+      size: 3 + Math.random()*3,
+      spark: true
+    });
+  }
+}
 
   // bright flying sparks
   if (Math.random() < 0.25){
@@ -2076,9 +2096,10 @@ function togglePause(){
   const pw = p.w * p.scale, ph = p.h * p.scale;
 
   // Apply equipped trail (spawn particles at player center)
-  if (cosmetics.equipped.trail === "trail.flame") {
-    spawnFlameParticles(p.x + pw/2, p.y + ph/2);
-  }
+  // Emit from bottom-center of the player
+if (cosmetics.equipped.trail === "trail.flame") {
+  spawnFlameParticles(p.x + pw/2, p.y + ph - 2);
+}
 
   if (p.x < 0) { p.x = 0; p.vx = Math.max(0, p.vx); }
   if (p.x + pw > width) { p.x = width - pw; p.vx = Math.min(0, p.vx); }
@@ -2251,24 +2272,30 @@ for (let i = trail.length - 1; i >= 0; i--){
     const p = state.player, pw = p.w*p.scale, ph = p.h*p.scale;
     // --- draw flame trail particles ---
 // --- 🔥 flame trail (glow + hot core + sparks) ---
+// --- 🔥 flame trail (glow + hot core + orange/red undertone) ---
 for (const t of trail){
-  const a = Math.max(0, 1 - (t.age / t.life));   // fade 1→0
-  const s = (t.size || 8) * (0.6 + 0.4 * a);     // shrink over life
+  const a = Math.max(0, 1 - (t.age / t.life));      // fade 1→0
+  const s = (t.size || 8) * (0.6 + 0.4 * a);        // shrink over life
 
-  // heat color: bright core (yellow/white) → orange → red
-  const heat = a;                                // 1 = new, 0 = old
+  // warmer palette: strong orange undertones
+  // heat=1 (new): yellow-white; heat=0 (old): dark red/orange
+  const heat = a;
   const r = 255;
-  const g = Math.floor(150 + 105 * heat);        // 150..255
-  const b = Math.floor(30  * (1 - heat));        // 0..30
+  const g = Math.floor(80 + 140 * heat);            // 80..220 (less green → more orange)
+  const b = Math.floor(10 * (1 - heat));            // 10..0
 
   ctx.save();
   ctx.globalAlpha = a;
 
-  // soft glow behind each particle (stronger for core than sparks)
-  ctx.shadowBlur  = t.spark ? 8 : 14;
-  ctx.shadowColor = `rgba(255,140,20,${0.85 * a})`;
+  // outer orange glow
+  ctx.shadowBlur  = t.spark ? 8 : 16;
+  ctx.shadowColor = `rgba(255,128,20,${0.9 * a})`;
 
-  // draw the particle
+  // draw a soft orange puff first (undertone)
+  ctx.fillStyle = `rgba(255,120,20,${0.6 * a})`;
+  roundRect(ctx, t.x - s/1.2, t.y - s/1.2, s*1.2, s*1.2, t.spark ? 2 : 4, true);
+
+  // bright hot core on top
   ctx.fillStyle = `rgb(${r},${g},${b})`;
   roundRect(ctx, t.x - s/2, t.y - s/2, s, s, t.spark ? 2 : 4, true);
 
