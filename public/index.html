@@ -1199,32 +1199,31 @@ adminFindByNameBtn.addEventListener("pointerdown", async (e)=>{
   adminNameResults.textContent = "(searching…)";
 
   try{
-    const name = (adminSearchNameInp.value || "").trim();
-    if (!name) { adminNameResults.textContent = "Enter a name."; return; }
+    const raw = (adminSearchNameInp.value || "").trim();
+    if (!raw) { adminNameResults.textContent = "Enter a name."; return; }
 
-  const q1 = window.__fs.query(
-  window.__fs.collection(window.firebase.db, "profiles"),
-  window.__fs.where("nameLower","==", name.toLowerCase()),
-  window.__fs.limit(10)
-);
-const s1 = await window.__fs.getDocs(q1);
+    const nameLower = raw.toLowerCase();
+
+    const q1 = query(
+      collection(db, "profiles"),
+      where("nameLower","==", nameLower),
+      limit(10)
+    );
+    const s1 = await getDocs(q1);
 
     if (s1.empty){
       adminNameResults.textContent = "No matches.";
       return;
     }
 
-    const rows = [];
-    s1.forEach(d=>{
+    const rows = s1.docs.map(d => {
       const data = d.data() || {};
-      const line = `${data.name || "(no name)"} — ${d.id}`;
-      rows.push(line);
+      return `${data.name || "(no name)"} — ${d.id}`;
     });
     adminNameResults.textContent = rows.join("\n");
 
     if (s1.size === 1){
-      const only = s1.docs[0];
-      adminTargetUidInp.value = only.id;
+      adminTargetUidInp.value = s1.docs[0].id;
     }
   }catch(err){
     adminNameResults.textContent = "Error: " + (err.message || String(err));
