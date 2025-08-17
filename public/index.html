@@ -1202,12 +1202,12 @@ adminFindByNameBtn.addEventListener("pointerdown", async (e)=>{
     const name = (adminSearchNameInp.value || "").trim();
     if (!name) { adminNameResults.textContent = "Enter a name."; return; }
 
-    const q1 = query(
-      collection(window.firebase.db, "profiles"),
-      where("nameLower","==", name.toLowerCase()),
-      limit(10)
-    );
-    const s1 = await getDocs(q1);
+  const q1 = window.__fs.query(
+  window.__fs.collection(window.firebase.db, "profiles"),
+  window.__fs.where("nameLower","==", name.toLowerCase()),
+  window.__fs.limit(10)
+);
+const s1 = await window.__fs.getDocs(q1);
 
     if (s1.empty){
       adminNameResults.textContent = "No matches.";
@@ -1254,15 +1254,23 @@ adminGrantBtn.addEventListener("pointerdown", async (e)=>{
 adminLoadBtn.addEventListener("pointerdown", async (e)=>{
   e.preventDefault();
   adminWalletView.textContent = "(loading…)";
+
   try{
     const uid = (adminTargetUidInp.value||"").trim();
+
+    // ⬇️ GUARD: stop if no UID was entered
+    if (!uid) {
+      adminWalletView.textContent = "Enter a Target UID above (or use Find) before loading.";
+      return;
+    }
+    // ⬆️ GUARD
+
     const data = await window.firebase.adminLoadWallet(uid);
     adminWalletView.textContent = data ? JSON.stringify(data, null, 2) : "(no wallet)";
   }catch(err){
     adminWalletView.textContent = "Error: " + (err.message || String(err));
   }
 });
-
 // List 20 wallets (sample)
 adminListBtn.addEventListener("pointerdown", async (e)=>{
   e.preventDefault();
