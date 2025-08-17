@@ -1044,29 +1044,29 @@ async findWalletByUsername(name){
     userChip.textContent = "Not signed in";
     coinCountEl.textContent = "0";
     await window.firebase.watchWallet(null, null);
-      // Clear cosmetics state/UI when signed out
-  cosmetics.owned.clear();
-  cosmetics.equipped = { trail:null, skin:null, death:null };
-  refreshInventoryChip?.();
-  renderEquipText?.();
-  refreshCosmeticsList?.();
-    
+
+    // Re-sync cosmetics safely (no user → empty)
+    await window.loadCosmeticsFromCloud?.();
+
     startSub.textContent = "Two-finger tap to pause. Tap to start.";
     startBtn.textContent = "Sign in";
     return;
   }
 
+  // Signed-in branch
   userChip.textContent = u.displayName ? `Signed in: ${u.displayName}` :
                          u.email ? `Signed in: ${u.email}` : "Signed in";
 
-  // NEW: keep the profiles/{uid} doc fresh for admin search-by-name
+  // Keep profiles/{uid} fresh for admin search-by-name
   await window.firebase.upsertProfile(u);
 
+  // Live wallet chip
   await window.firebase.watchWallet(u.uid, (coins)=>{
     coinCountEl.textContent = String(coins);
   });
-  // Load inventory + refresh the UI list/chip
-await window.loadCosmeticsFromCloud?.();
+
+  // Load cosmetics from cloud and refresh UI
+  await window.loadCosmeticsFromCloud?.();
 
   startSub.textContent = "Two-finger tap to pause. Tap to start.";
   startBtn.textContent = "Start";
@@ -1770,20 +1770,36 @@ menuPopup.addEventListener("pointerdown", (e)=>{
 
   // Game state
   const state = {
-    running:false, paused:false, over:false,
-    score:0, best:Number(localStorage.getItem("dodger_best")||0),
-    time:0, last:performance.now(),
-    player:{ x:0, y:0, w:48, h:48, speed:420, vx:0, scale:1, invUntil:0 },
-    blocks:[], blockTimer:0, difficulty:1,
-    input:{ left:false, right:false, swipeVX:0 },
-    bullets:[],
-    ammo:0, lives:0, shrinkCharges:0,
-    powerups:[], powTimer:2.5,
-    coinTimer:3.5,
-    effects:{ shrinkUntil:0, shieldUntil:0, slowUntil:0, magnetUntil:0 },
-    coins:[]
-    const trail = [];  // tiny particles behind the player
-  };
+  running:false, paused:false, over:false,
+  score:0, best:Number(localStorage.getItem("dodger_best")||0),
+  time:0, last:performance.now(),
+  player:{ x:0, y:0, w:48, h:48, speed:420, vx:0, scale:1, invUntil:0 },
+  blocks:[], blockTimer:0, difficulty:1,
+  input:{ left:false, right:false, swipeVX:0 },
+  bullets:[],
+  ammo:0, lives:0, shrinkCharges:0,
+  powerups:[], powTimer:2.5,
+  coinTimer:3.5,
+  effects:{ shrinkUntil:0, shieldUntil:0, slowUntil:0, magnetUntil:0 },
+  coins:[]
+};
+
+// Cosmetic trail particles (e.g., flame)
+const trail = [];
+
+function spawnFlameParticles(cx, cy){
+  // Spawn 2 small particles per frame
+  for (let i = 0; i < 2; i++){
+    const vx = (Math.random()*2 - 1) * 40;          // slight sideways
+    const vy = 60 + Math.random()*80;               // drifts downward
+    trail.push({
+      x: cx, y: cy,
+      vx, vy,
+      age: 0,
+      life: 0.35 + Math.random()*0.25              // seconds
+    });
+  }
+}
   
   bestEl.textContent = state.best;
 ammoEl.textContent = state.ammo;
@@ -2021,177 +2037,181 @@ function togglePause(){
   }
 
   function update(dt){
-    state.time += dt;
-    state.score += dt*10;
-    scoreEl.textContent = Math.floor(state.score);
-    state.difficulty = 1 + Math.min(2.2, state.time/24);
+  state.time += dt;
+  state.score += dt*10;
+  scoreEl.textContent = Math.floor(state.score);
+  state.difficulty = 1 + Math.min(2.2, state.time/24);
 
-    const slowActive = state.effects.slowUntil > state.time;
-    const worldDT = dt * (slowActive ? 0.55 : 1);
-    state.player.scale = (state.effects.shrinkUntil > state.time) ? 0.6 : 1;
+  const slowActive = state.effects.slowUntil > state.time;
+  const worldDT = dt * (slowActive ? 0.55 : 1);
+  state.player.scale = (state.effects.shrinkUntil > state.time) ? 0.6 : 1;
 
-    const p = state.player, base = p.speed * state.difficulty * 0.95;
-    // --- draw flame trail particles ---
-for (const t of trail) {
-  const a = 1 - (t.age / t.life);        // fade out
-  ctx.globalAlpha = Math.max(0, a);
-  // orange → red as it ages
-  const r = Math.floor(255);
-  const g = Math.floor(120 + 80 * (1 - a));
-  const b = Math.floor(20);
-  ctx.fillStyle = `rgb(${r},${g},${b})`;
-  const s = 6 + 6 * a;                    // size shrinks a bit
-  roundRect(ctx, t.x - s/2, t.y - s/2, s, s, 3, true);
-}
-ctx.globalAlpha = 1;
-    let targetVX = 0;
-    if(state.input.left) targetVX -= base;
-    if(state.input.right) targetVX += base;
-    targetVX += state.input.swipeVX;
-    p.vx += (targetVX - p.vx) * Math.min(1, dt*10);
-    p.x += p.vx * dt;
-    // --- Apply equipped cosmetics each frame ---
-if (cosmetics.equipped.trail === "trail.flame") {
-  spawnFlameParticles(p.x + pw/2, p.y + ph/2); 
-}
-// Later you can add sparkle, smoke, etc.
-    const pw = p.w * p.scale, ph = p.h * p.scale;
-    if (p.x < 0) { p.x = 0; p.vx = Math.max(0, p.vx); }
-    if (p.x + pw > width) { p.x = width - pw; p.vx = Math.min(0, p.vx); }
-    // keep player perched above bottom UI (accounts for shrink scaling)
-    const floorY = height - uiBottom - ph - 10;
-    p.y = Math.max(0, floorY);
+  const p = state.player, base = p.speed * state.difficulty * 0.95;
 
-    state.blockTimer -= worldDT;
-    
+  let targetVX = 0;
+  if(state.input.left) targetVX -= base;
+  if(state.input.right) targetVX += base;
+  targetVX += state.input.swipeVX;
+  p.vx += (targetVX - p.vx) * Math.min(1, dt*10);
+  p.x += p.vx * dt;
 
-// base interval grows ~8–10% to reduce spawn frequency slightly
-const baseInterval = Math.max(0.24, 0.9 - state.time * 0.03);
-const interval = baseInterval * 1.08; // bump to 1.10 for ~10% fewer spawns
+  const pw = p.w * p.scale, ph = p.h * p.scale;
 
-if (state.blockTimer <= 0) {
-  spawnBlock();
-  // Step 2 (below) also reduces the “double-spawn” chance
-  if (state.time > 12 && Math.random() < 0.25) spawnBlock();
-  state.blockTimer = interval;
-}
-
-    // Power-ups (own cadence)
-state.powTimer -= worldDT;
-if (state.powTimer <= 0) {
-  spawnPowerup();
-  state.powTimer = rand(POWERUP_INTERVAL_MIN, POWERUP_INTERVAL_MAX);
-}
-
-// Coins (own cadence + chance)
-state.coinTimer -= worldDT;
-if (state.coinTimer <= 0) {
-  if (Math.random() < COIN_CHANCE) spawnCoin();
-  state.coinTimer = rand(COIN_INTERVAL_MIN, COIN_INTERVAL_MAX);
-}
-
-    for (let i=state.blocks.length-1; i>=0; i--) {
-      const b = state.blocks[i]; b.y += b.vy * worldDT; if (b.y - b.h > height + 8) { state.blocks.splice(i,1); }
-    }
-
-    const magnet = state.effects.magnetUntil > state.time;
-    for (let i=state.powerups.length-1; i>=0; i--) {
-      const u = state.powerups[i];
-  if (magnet) {
-  const cx = (p.x + pw/2) - (u.x + u.w/2);
-  const cy = (p.y + ph/2) - (u.y + u.h/2);
-  const dist = Math.max(1, Math.hypot(cx, cy));
-  if (dist < MAGNET_PULL_RADIUS) {
-    u.x += (cx/dist) * MAGNET_PULL_SPEED * worldDT;
-    u.y += (cy/dist) * MAGNET_PULL_SPEED * worldDT;
-  } else {
-    u.y += u.vy * worldDT;
+  // Apply equipped trail (spawn particles at player center)
+  if (cosmetics.equipped.trail === "trail.flame") {
+    spawnFlameParticles(p.x + pw/2, p.y + ph/2);
   }
-} else { u.y += u.vy * worldDT; }
-      if (u.y - u.h > height + 8) { state.powerups.splice(i,1); continue; }
-      if (u.x < p.x + pw && u.x + u.w > p.x && u.y < p.y + ph && u.y + u.h > p.y) {
-        if (u.type === "blaster") { state.ammo += 6; ammoEl.textContent = state.ammo; }
-        else if (u.type === "shrink") { state.shrinkCharges += 1; shrinkCountEl.textContent = state.shrinkCharges; }
-        else if (u.type === "shield") { state.effects.shieldUntil = Math.max(state.effects.shieldUntil, state.time) + 6; }
-        else if (u.type === "slow")   { state.effects.slowUntil   = Math.max(state.effects.slowUntil,   state.time) + 6; }
-        else if (u.type === "magnet") {
-  state.effects.magnetUntil = Math.max(state.effects.magnetUntil, state.time) + getMagnetDurationSec();
-}
-        else if (u.type === "life")   { state.lives = Math.min(5, state.lives + 1); renderHearts(); }
-        state.powerups.splice(i,1);
+
+  if (p.x < 0) { p.x = 0; p.vx = Math.max(0, p.vx); }
+  if (p.x + pw > width) { p.x = width - pw; p.vx = Math.min(0, p.vx); }
+  const floorY = height - uiBottom - ph - 10;
+  p.y = Math.max(0, floorY);
+
+  state.blockTimer -= worldDT;
+
+  // base interval grows ~8–10% to reduce spawn frequency slightly
+  const baseInterval = Math.max(0.24, 0.9 - state.time * 0.03);
+  const interval = baseInterval * 1.08;
+
+  if (state.blockTimer <= 0) {
+    spawnBlock();
+    if (state.time > 12 && Math.random() < 0.25) spawnBlock();
+    state.blockTimer = interval;
+  }
+
+  // Power-ups cadence
+  state.powTimer -= worldDT;
+  if (state.powTimer <= 0) {
+    spawnPowerup();
+    state.powTimer = rand(POWERUP_INTERVAL_MIN, POWERUP_INTERVAL_MAX);
+  }
+
+  // Coins cadence
+  state.coinTimer -= worldDT;
+  if (state.coinTimer <= 0) {
+    if (Math.random() < COIN_CHANCE) spawnCoin();
+    state.coinTimer = rand(COIN_INTERVAL_MIN, COIN_INTERVAL_MAX);
+  }
+
+  // Blocks fall
+  for (let i=state.blocks.length-1; i>=0; i--) {
+    const b = state.blocks[i];
+    b.y += b.vy * worldDT;
+    if (b.y - b.h > height + 8) state.blocks.splice(i,1);
+  }
+
+  const magnet = state.effects.magnetUntil > state.time;
+
+  // Power-ups fall / magnet
+  for (let i=state.powerups.length-1; i>=0; i--) {
+    const u = state.powerups[i];
+    if (magnet){
+      const cx = (p.x + pw/2) - (u.x + u.w/2);
+      const cy = (p.y + ph/2) - (u.y + u.h/2);
+      const dist = Math.max(1, Math.hypot(cx, cy));
+      if (dist < MAGNET_PULL_RADIUS) {
+        u.x += (cx/dist) * MAGNET_PULL_SPEED * worldDT;
+        u.y += (cy/dist) * MAGNET_PULL_SPEED * worldDT;
+      } else {
+        u.y += u.vy * worldDT;
       }
+    } else {
+      u.y += u.vy * worldDT;
     }
 
-    // coins (pickup) — no manual UI bump; Firestore snapshot updates the chip
-    // coins (pickup) — magnet pulls coins too
-for (let i = state.coins.length - 1; i >= 0; i--) {
-  const c = state.coins[i];
+    if (u.y - u.h > height + 8) { state.powerups.splice(i,1); continue; }
 
-  if (magnet) {
-    // Pull coin toward player if within radius; otherwise fall normally
-    const cx = (p.x + pw/2) - (c.x + c.w/2);
-    const cy = (p.y + ph/2) - (c.y + c.h/2);
-    const dist = Math.max(1, Math.hypot(cx, cy));
-    if (dist < MAGNET_PULL_RADIUS) {
-      c.x += (cx / dist) * MAGNET_PULL_SPEED * worldDT;
-      c.y += (cy / dist) * MAGNET_PULL_SPEED * worldDT;
+    if (u.x < p.x + pw && u.x + u.w > p.x && u.y < p.y + ph && u.y + u.h > p.y) {
+      if (u.type === "blaster") { state.ammo += 6; ammoEl.textContent = state.ammo; }
+      else if (u.type === "shrink") { state.shrinkCharges += 1; shrinkCountEl.textContent = state.shrinkCharges; }
+      else if (u.type === "shield") { state.effects.shieldUntil = Math.max(state.effects.shieldUntil, state.time) + 6; }
+      else if (u.type === "slow")   { state.effects.slowUntil   = Math.max(state.effects.slowUntil,   state.time) + 6; }
+      else if (u.type === "magnet") { state.effects.magnetUntil = Math.max(state.effects.magnetUntil, state.time) + getMagnetDurationSec(); }
+      else if (u.type === "life")   { state.lives = Math.min(5, state.lives + 1); renderHearts(); }
+      state.powerups.splice(i,1);
+    }
+  }
+
+  // Coins fall / magnet / pickup
+  for (let i = state.coins.length - 1; i >= 0; i--) {
+    const c = state.coins[i];
+
+    if (magnet) {
+      const cx = (p.x + pw/2) - (c.x + c.w/2);
+      const cy = (p.y + ph/2) - (c.y + c.h/2);
+      const dist = Math.max(1, Math.hypot(cx, cy));
+      if (dist < MAGNET_PULL_RADIUS) {
+        c.x += (cx / dist) * MAGNET_PULL_SPEED * worldDT;
+        c.y += (cy / dist) * MAGNET_PULL_SPEED * worldDT;
+      } else {
+        c.y += c.vy * worldDT;
+      }
     } else {
       c.y += c.vy * worldDT;
     }
-  } else {
-    c.y += c.vy * worldDT;
-  }
 
-  // Cull off-screen
-  if (c.y - c.h > height + 8) {
-    state.coins.splice(i, 1);
-    continue;
-  }
+    if (c.y - c.h > height + 8) { state.coins.splice(i, 1); continue; }
 
-  // Collision — expand pickup box a bit when magnet is active
-  const grab = magnet ? 14 : 0; // small vacuum effect
-  if (
-    c.x < p.x + pw + grab &&
-    c.x + c.w > p.x - grab &&
-    c.y < p.y + ph + grab &&
-    c.y + c.h > p.y - grab
-  ) {
-    state.coins.splice(i, 1);
-    window.firebase.addCoins(1).catch(()=>{});
-  }
-}
-
-    // bullets
-    for (let i=state.bullets.length-1; i>=0; i--) {
-      const bullet = state.bullets[i]; bullet.y += bullet.vy * dt;
-      if (bullet.y + bullet.h < -10) { state.bullets.splice(i,1); continue; }
-      for (let j=state.blocks.length-1; j>=0; j--) {
-        const b = state.blocks[j];
-        if (bullet.x < b.x + b.w && bullet.x + bullet.w > b.x && bullet.y < b.y + b.h && bullet.y + bullet.h > b.y) {
-          state.blocks.splice(j,1); state.bullets.splice(i,1); state.score += 5; break;
-        }
-      }
+    const grab = magnet ? 14 : 0;
+    if (
+      c.x < p.x + pw + grab &&
+      c.x + c.w > p.x - grab &&
+      c.y < p.y + ph + grab &&
+      c.y + c.h > p.y - grab
+    ) {
+      state.coins.splice(i, 1);
+      window.firebase.addCoins(1).catch(()=>{});
     }
+  }
 
-    // block vs player
-    for (let i=state.blocks.length-1; i>=0; i--) {
-      const b = state.blocks[i];
-      const p2 = state.player, pw2 = p2.w*p2.scale, ph2 = p2.h*p2.scale;
-      if (b.x < p2.x + pw2 && b.x + b.w > p2.x && b.y < p2.y + ph2 && b.y + b.h > p2.y) {
-        if (state.player.invUntil > state.time) { state.blocks.splice(i,1); continue; }
-        const shieldActive = state.effects.shieldUntil > state.time;
-        if (shieldActive) { state.effects.shieldUntil = Math.max(state.time, state.effects.shieldUntil - 0.5); state.player.invUntil = state.time + 0.5; state.blocks.splice(i,1); continue; }
-        if (state.lives > 0) {
-  state.lives--;
-  renderHearts();
-  state.player.invUntil = state.time + 1.2;
-  state.blocks.splice(i,1);
-  continue;
-}
-        gameOver(); return;
+  // Bullets
+  for (let i=state.bullets.length-1; i>=0; i--) {
+    const bullet = state.bullets[i];
+    bullet.y += bullet.vy * dt;
+    if (bullet.y + bullet.h < -10) { state.bullets.splice(i,1); continue; }
+    for (let j=state.blocks.length-1; j>=0; j--) {
+      const b = state.blocks[j];
+      if (bullet.x < b.x + b.w && bullet.x + bullet.w > b.x && bullet.y < b.y + b.h && bullet.y + bullet.h > b.y) {
+        state.blocks.splice(j,1); state.bullets.splice(i,1); state.score += 5; break;
       }
     }
   }
+
+  // Block vs player
+  for (let i=state.blocks.length-1; i>=0; i--) {
+    const b = state.blocks[i];
+    const p2 = state.player, pw2 = p2.w*p2.scale, ph2 = p2.h*p2.scale;
+    if (b.x < p2.x + pw2 && b.x + b.w > p2.x && b.y < p2.y + ph2 && b.y + b.h > p2.y) {
+      if (state.player.invUntil > state.time) { state.blocks.splice(i,1); continue; }
+      const shieldActive = state.effects.shieldUntil > state.time;
+      if (shieldActive) {
+        state.effects.shieldUntil = Math.max(state.time, state.effects.shieldUntil - 0.5);
+        state.player.invUntil = state.time + 0.5;
+        state.blocks.splice(i,1);
+        continue;
+      }
+      if (state.lives > 0) {
+        state.lives--;
+        renderHearts();
+        state.player.invUntil = state.time + 1.2;
+        state.blocks.splice(i,1);
+        continue;
+      }
+      gameOver(); return;
+    }
+  }
+
+  // Age & move trail particles (physics only; drawing is in draw())
+  for (let i = trail.length - 1; i >= 0; i--){
+    const t = trail[i];
+    t.age += dt;
+    t.x += t.vx * dt;
+    t.y += t.vy * dt;
+    t.vx *= 0.98;
+    t.vy *= 0.98;
+    if (t.age >= t.life) trail.splice(i,1);
+  }
+}
 
   function draw(){
     const g = ctx.createLinearGradient(0,0,0,height); g.addColorStop(0,"#0b1220"); g.addColorStop(1,"#0c0f14");
