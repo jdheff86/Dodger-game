@@ -1066,7 +1066,7 @@ async findWalletByUsername(name){
     coinCountEl.textContent = String(coins);
   });
   // Load inventory + refresh the UI list/chip
-await loadCosmeticsFromCloud();
+await window.loadCosmeticsFromCloud?.();
 
   startSub.textContent = "Two-finger tap to pause. Tap to start.";
   startBtn.textContent = "Start";
@@ -1162,7 +1162,7 @@ const cosmetics = {
   equipped: { trail:null, skin:null, death:null }
 };
 
-async function loadCosmeticsFromCloud(){
+window.loadCosmeticsFromCloud = async function (){
   try{
     const inv = await window.firebase.loadInventory();
     cosmetics.owned = new Set(inv.owned || []);
@@ -1545,6 +1545,7 @@ storeBtn.addEventListener("pointerdown", (e)=>{
   }
   storeMsg.textContent = ""; // clear old message
   storeMsg.style.color = "var(--muted)";
+  refreshCosmeticsList();
   storeModal.style.display = "flex";
 });
 
