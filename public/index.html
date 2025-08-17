@@ -2243,20 +2243,55 @@ if (cosmetics.equipped.trail === "trail.flame") {
   // Age & move trail particles (physics only; drawing is in draw())
   // Age & move trail particles (hot air rises a bit; sparks are snappier)
 for (let i = trail.length - 1; i >= 0; i--){
+// Cosmetic trail particles (e.g., flame)
+const trail = [];
+
+// 🔥 downward cone + occasional sparks (tight jet look = option B)
+function spawnFlameParticles(cx, cy){
+  const base   = Math.PI / 2;     // straight down
+  const spread = Math.PI / 6;     // ±30°
+
+  // core flames
+  for (let i = 0; i < 4; i++){
+    const ang   = base + (Math.random() - 0.5) * (spread * 2);
+    const speed = 110 + Math.random()*140;
+    trail.push({
+      x:  cx + (Math.random()-0.5)*3,
+      y:  cy + 2 + (Math.random()-0.5)*3,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      age: 0,
+      life: 0.32 + Math.random()*0.36,
+      size: 6 + Math.random()*6,
+      spark: false
+    });
+  }
+
+  // bright orange sparks that shoot out a bit
+  if (Math.random() < 0.25){
+    const ang   = base + (Math.random() - 0.5) * (spread * 2);
+    const speed = 220 + Math.random()*160;
+    trail.push({
+      x: cx, y: cy,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      age: 0,
+      life: 0.22 + Math.random()*0.28,
+      size: 3 + Math.random()*3,
+      spark: true
+    });
+  }
+}
+
+// flame particle integrator (already present below; keep as-is)
+for (let i = trail.length - 1; i >= 0; i--){
   const t = trail[i];
   t.age += dt;
-
-  // motion
   t.x += t.vx * dt;
   t.y += t.vy * dt;
-
-  // gentle drag
   t.vx *= 0.97;
   t.vy *= 0.97;
-
-  // buoyancy (fire drifts upward slightly over time)
-  t.vy -= 28 * dt;
-
+  t.vy -= 28 * dt; // buoyancy
   if (t.age >= t.life) trail.splice(i, 1);
 }
 }
