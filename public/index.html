@@ -756,152 +756,149 @@ const ADMIN_CODE = "letmein123";         // <-- your secret coupon string
   // ── Helpers exposed to game code (aligned to your rules)
   let walletUnsub = null;
 
-  window.firebase = {
-    auth, db,
+window.firebase = {
+  auth, db,
 
-    onUser(cb){ return onAuthStateChanged(auth, cb); },
+  onUser(cb){ return onAuthStateChanged(auth, cb); },
 
-    async ensureWallet(uid){
-      const ref = doc(db, "wallets", uid);
-      const s = await getDoc(ref).catch(()=>null);
-      if (!s || !s.exists()) await setDoc(ref, { coins: 0 });
-      return ref;
-    },
+  async ensureWallet(uid){
+    const ref = doc(db, "wallets", uid);
+    const s = await getDoc(ref).catch(()=>null);
+    if (!s || !s.exists()) await setDoc(ref, { coins: 0 });
+    return ref;
+  },
 
-    async watchWallet(uid, onCoins){
-      if (walletUnsub) { walletUnsub(); walletUnsub = null; }
-      if (!uid) { onCoins?.(0); return; }
-      const ref = await this.ensureWallet(uid);
-      walletUnsub = onSnapshot(ref, (snap)=>{
-        const coins = Number(snap.data()?.coins || 0);
-        onCoins?.(coins);
+  async watchWallet(uid, onCoins){
+    if (walletUnsub) { walletUnsub(); walletUnsub = null; }
+    if (!uid) { onCoins?.(0); return; }
+    const ref = await this.ensureWallet(uid);
+    walletUnsub = onSnapshot(ref, (snap)=>{
+      const coins = Number(snap.data()?.coins || 0);
+      onCoins?.(coins);
+    });
+  },
+
+  async setDisplayName(name){
+    if (!auth.currentUser) return;
+    const clean = String(name||"Player").trim().slice(0,24);
+    await updateProfile(auth.currentUser, { displayName: clean });
+    return clean;
+  },
+
+  async saveScore(score){
+    if (!auth.currentUser) return { ok:false, error:"Not signed in" };
+    try{
+      await addDoc(collection(db,"scores"),{
+        uid: auth.currentUser.uid,
+        name: auth.currentUser.displayName || auth.currentUser.email || "Player",
+        score: Math.floor(Number(score)||0),
+        ts: serverTimestamp()
       });
-    },
+      return { ok:true };
+    }catch(e){ return { ok:false, error:e.message }; }
+  },
 
-    async setDisplayName(name){
-      if (!auth.currentUser) return;
-      const clean = String(name||"Player").trim().slice(0,24);
-      await updateProfile(auth.currentUser, { displayName: clean });
-      return clean;
-    },
+  async upsertProfile(u){
+    try{
+      const name = (u.displayName || "Player").trim().slice(0,24);
+      const nameLower = name.toLowerCase();
+      await setDoc(doc(db, "profiles", u.uid), {
+        name, nameLower,
+        email: u.email || null,
+        updated: serverTimestamp()
+      }, { merge: true });
+    }catch(_){}
+  },
 
-    async saveScore(score){
-      if (!auth.currentUser) return { ok:false, error:"Not signed in" };
-      try{
-        await addDoc(collection(db,"scores"),{
-          uid: auth.currentUser.uid,
-          name: auth.currentUser.displayName || auth.currentUser.email || "Player",
-          score: Math.floor(Number(score)||0),
-          ts: serverTimestamp()
-        });
-        return { ok:true };
-      }catch(e){ return { ok:false, error:e.message }; }
-    },
-    
-    async upsertProfile(u){
-  try{
-    const name = (u.displayName || "Player").trim().slice(0,24);
-    const nameLower = name.toLowerCase();
-    await setDoc(doc(db, "profiles", u.uid), {
-      name, nameLower,
-      email: u.email || null,
-      updated: serverTimestamp()
-    }, { merge: true });
-  }catch(_){}
-},
+  async addCoins(n){
+    const u = auth.currentUser;
+    if (!u) throw new Error("Not signed in");
+    const ref = await this.ensureWallet(u.uid);
+    await updateDoc(ref, { coins: increment(n|0) });
+  },
 
-    async addCoins(n){
-      const u = auth.currentUser;
-      if (!u) throw new Error("Not signed in");
-      const ref = await this.ensureWallet(u.uid);
-      await updateDoc(ref, { coins: increment(n|0) });
-    },
+  async loadTop(n = 20){
+    try{
+      const q1 = query(
+        collection(db,"scores"),
+        orderBy("score","desc"),
+        orderBy("ts","desc"),
+        limit(n)
+      );
+      const s1 = await getDocs(q1);
+      return s1.docs.map(d => {
+        const data = d.data() || {};
+        return { name: data.name||"Player", score: Number(data.score)||0, ts: data.ts||null };
+      });
+    }catch(e){
+      const q2 = query(collection(db,"scores"), orderBy("score","desc"), limit(n));
+      const s2 = await getDocs(q2);
+      return s2.docs.map(d => {
+        const data = d.data() || {};
+        return { name: data.name||"Player", score: Number(data.score)||0, ts: data.ts||null };
+      });
+    }
+  },
 
-    async loadTop(n = 20){
-      try{
-        const q1 = query(
-          collection(db,"scores"),
-          orderBy("score","desc"),
-          orderBy("ts","desc"),
-          limit(n)
-        );
-        const s1 = await getDocs(q1);
-        return s1.docs.map(d => {
-          const data = d.data() || {};
-          return { name: data.name||"Player", score: Number(data.score)||0, ts: data.ts||null };
-        });
-      }catch(e){
-        // Fallback if the composite index isn't available
-        const q2 = query(collection(db,"scores"), orderBy("score","desc"), limit(n));
-        const s2 = await getDocs(q2);
-        return s2.docs.map(d => {
-          const data = d.data() || {};
-          return { name: data.name||"Player", score: Number(data.score)||0, ts: data.ts||null };
-        });
-      }
-        },
-    // --- ADMIN ACTIONS (guarded by ADMIN_UID) ----------------------------
-    async adminApplyCoins(targetUid, amount){
-      const u = auth.currentUser;
-      if (!u || u.uid !== ADMIN_UID) throw new Error("Not authorized");
-      const uid = String(targetUid||"").trim();
-      const amt = Number(amount||0) | 0;
-      if (!uid) throw new Error("Enter target UID");
-      if (!Number.isFinite(amt) || amt === 0) throw new Error("Enter a non-zero amount");
+  // --- ADMIN (guarded by ADMIN_UID) ---
+  async adminApplyCoins(targetUid, amount){
+    const u = auth.currentUser;
+    if (!u || u.uid !== ADMIN_UID) throw new Error("Not authorized");
+    const uid = String(targetUid||"").trim();
+    const amt = Number(amount||0) | 0;
+    if (!uid) throw new Error("Enter target UID");
+    if (!Number.isFinite(amt) || amt === 0) throw new Error("Enter a non-zero amount");
 
-      const ref = doc(db, "wallets", uid);
-      // ensure document exists
-      await setDoc(ref, { coins: 0 }, { merge: true });
-      await updateDoc(ref, { coins: increment(amt) });
-      return true;
-    },
+    const ref = doc(db, "wallets", uid);
+    await setDoc(ref, { coins: 0 }, { merge: true });
+    await updateDoc(ref, { coins: increment(amt) });
+    return true;
+  },
 
-    async adminLoadWallet(uid){
-      const u = auth.currentUser;
-      if (!u || u.uid !== ADMIN_UID) throw new Error("Not authorized");
-      const ref = doc(db, "wallets", String(uid||"").trim());
-      const snap = await getDoc(ref);
-      return snap.exists() ? snap.data() : null;
-    },
+  async adminLoadWallet(uid){
+    const u = auth.currentUser;
+    if (!u || u.uid !== ADMIN_UID) throw new Error("Not authorized");
+    const ref = doc(db, "wallets", String(uid||"").trim());
+    const snap = await getDoc(ref);
+    return snap.exists() ? snap.data() : null;
+  },
 
-    async adminListWallets(n = 20){
-      const u = auth.currentUser;
-      if (!u || u.uid !== ADMIN_UID) throw new Error("Not authorized");
-      // no timestamp, so just take first N docs (optionally sort by coins if you want)
-      const q = query(collection(db, "wallets"), limit(n));
-      const s = await getDocs(q);
-      return s.docs.map(d => ({ uid: d.id, ...(d.data()||{}) }));
-    },
-    // === ADMIN COUPON 
-// === ADMIN COUPON CHECK ===
-// === ADMIN COUPON CHECK ===
-async checkCouponAndOpenAdmin(code){
-  const u = auth.currentUser;
-  if (!u) return false;
+  async adminListWallets(n = 20){
+    const u = auth.currentUser;
+    if (!u || u.uid !== ADMIN_UID) throw new Error("Not authorized");
+    const q = query(collection(db, "wallets"), limit(n));
+    const s = await getDocs(q);
+    return s.docs.map(d => ({ uid: d.id, ...(d.data()||{}) }));
+  },
 
-  if (u.uid !== ADMIN_UID) return false;                 // only your UID
-  if ((code || "").trim() !== ADMIN_CODE) return false;  // must match code
+  // Admin coupon → open panel if UID + code match
+  async checkCouponAndOpenAdmin(code){
+    const u = auth.currentUser;
+    if (!u) return false;
+    if (u.uid !== ADMIN_UID) return false;
+    if ((code || "").trim() !== ADMIN_CODE) return false;
 
-  const admin = document.getElementById("adminModal");
-  if (admin){
-    admin.style.display = "flex";
-    document.body.classList.add("ui-lock");
-  }
-  return true;
-},
-  // === ADMIN: Lookup wallet by username ===
-// put this INSIDE the window.firebase object
-async findWalletByUsername(name){
-  const q = query(
-    collection(db, "profiles"),
-    where("nameLower", "==", String(name||"").toLowerCase()),
-    limit(1)
-  );
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  const docSnap = snap.docs[0];
-  return { uid: docSnap.id, ...docSnap.data() };
-},
+    const admin = document.getElementById("adminModal");
+    if (admin){
+      admin.style.display = "flex";
+      document.body.classList.add("ui-lock");
+    }
+    return true;
+  },
+
+  // Admin helper: find UID by exact (lowercased) name
+  async findWalletByUsername(name){
+    const q = query(
+      collection(db, "profiles"),
+      where("nameLower","==", String(name||"").toLowerCase()),
+      limit(1)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    const docSnap = snap.docs[0];
+    return { uid: docSnap.id, ...docSnap.data() };
+  },
+}; // ← important: close the object and keep this semicolon
 
   function prettyAuthError(err){
     const code = (err && err.code) || "";
