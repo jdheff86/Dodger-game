@@ -1286,18 +1286,30 @@ function refreshCosmeticsList(){
       const cost = document.createElement("span"); cost.className = "cost";
       cost.innerHTML = `<span class="num">${item.price}</span><svg class="coinMini"><use href="#dcoin"></use></svg>`;
       const buyBtn = button("Buy","btn2 primary");
-      buyBtn.addEventListener("pointerdown", async (e)=>{
-        e.preventDefault();
-        try{
-          await window.firebase.purchaseCosmetic(item.sku, item.price);
-          cosmetics.owned.add(item.sku);
-          if (!cosmetics.equipped[item.type]){
-            const eq = await window.firebase.equipCosmetic(item.type, item.sku);
-            cosmetics.equipped = Object.assign({}, eq);
-          }
-          refreshCosmeticsList(); refreshInventoryChip(); renderEquipText();
-        }catch(err){ /* optional toast */ }
-      });
+buyBtn.addEventListener("pointerdown", async (e)=>{
+  e.preventDefault();
+  try{
+    await window.firebase.purchaseCosmetic(item.sku, item.price);
+
+    // Re-sync from server so UI is authoritative
+    await window.loadCosmeticsFromCloud?.();
+
+    // Auto-equip if nothing in that slot yet
+    if (!cosmetics.equipped[item.type]){
+      const eq = await window.firebase.equipCosmetic(item.type, item.sku);
+      cosmetics.equipped = Object.assign({}, eq);
+    }
+
+    refreshCosmeticsList();
+    refreshInventoryChip();
+    renderEquipText();
+
+    // ✅ Visible confirmation in the Store modal
+    flashStoreMsg(`Purchased ${item.name} — equipped!`);
+  }catch(err){
+    flashStoreMsg(err?.message || String(err), false);
+  }
+});
       right.appendChild(cost); right.appendChild(buyBtn);
     }
 
@@ -1770,7 +1782,7 @@ menuPopup.addEventListener("pointerdown", (e)=>{
     coinTimer:3.5,
     effects:{ shrinkUntil:0, shieldUntil:0, slowUntil:0, magnetUntil:0 },
     coins:[]
-    
+    const trail = [];  // tiny particles behind the player
   };
   
   bestEl.textContent = state.best;
@@ -2019,12 +2031,30 @@ function togglePause(){
     state.player.scale = (state.effects.shrinkUntil > state.time) ? 0.6 : 1;
 
     const p = state.player, base = p.speed * state.difficulty * 0.95;
+    // --- draw flame trail particles ---
+for (const t of trail) {
+  const a = 1 - (t.age / t.life);        // fade out
+  ctx.globalAlpha = Math.max(0, a);
+  // orange → red as it ages
+  const r = Math.floor(255);
+  const g = Math.floor(120 + 80 * (1 - a));
+  const b = Math.floor(20);
+  ctx.fillStyle = `rgb(${r},${g},${b})`;
+  const s = 6 + 6 * a;                    // size shrinks a bit
+  roundRect(ctx, t.x - s/2, t.y - s/2, s, s, 3, true);
+}
+ctx.globalAlpha = 1;
     let targetVX = 0;
     if(state.input.left) targetVX -= base;
     if(state.input.right) targetVX += base;
     targetVX += state.input.swipeVX;
     p.vx += (targetVX - p.vx) * Math.min(1, dt*10);
     p.x += p.vx * dt;
+    // --- Apply equipped cosmetics each frame ---
+if (cosmetics.equipped.trail === "trail.flame") {
+  spawnFlameParticles(p.x + pw/2, p.y + ph/2); 
+}
+// Later you can add sparkle, smoke, etc.
     const pw = p.w * p.scale, ph = p.h * p.scale;
     if (p.x < 0) { p.x = 0; p.vx = Math.max(0, p.vx); }
     if (p.x + pw > width) { p.x = width - pw; p.vx = Math.min(0, p.vx); }
@@ -2172,6 +2202,19 @@ for (let i = state.coins.length - 1; i >= 0; i--) {
     for(let y=(height%grid); y<height; y+=grid){ ctx.moveTo(0,y); ctx.lineTo(width,y); } ctx.stroke(); ctx.globalAlpha = 1;
 
     const p = state.player, pw = p.w*p.scale, ph = p.h*p.scale;
+    // --- draw flame trail particles ---
+for (const t of trail) {
+  const a = 1 - (t.age / t.life);        // fade out
+  ctx.globalAlpha = Math.max(0, a);
+  // orange → red as it ages
+  const r = Math.floor(255);
+  const g = Math.floor(120 + 80 * (1 - a));
+  const b = Math.floor(20);
+  ctx.fillStyle = `rgb(${r},${g},${b})`;
+  const s = 6 + 6 * a;                    // size shrinks a bit
+  roundRect(ctx, t.x - s/2, t.y - s/2, s, s, 3, true);
+}
+ctx.globalAlpha = 1;
 
     if (state.effects.shieldUntil > state.time) {
       ctx.save(); ctx.globalAlpha = 0.25 + 0.15*Math.sin(state.time*8); ctx.fillStyle = "#4ade80";
