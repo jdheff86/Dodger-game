@@ -690,8 +690,16 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
     <button class="x" id="adminClose">×</button>
     <h2>Admin</h2>
     <div class="muted" id="adminMsg" style="margin-bottom:8px;"></div>
-
+<input id="adminTargetName" type="text" placeholder="Target Name (exact)">
+<button class="btn2" id="adminFindUid">Find UID</button>
+<pre id="adminNameResult" style="background:#0f141f;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px;white-space:pre-wrap;max-height:80px;overflow:auto;">(no data)</pre>
     <div class="grid">
+      
+      <div class="grid" style="margin-bottom:6px;">
+  <input id="adminSearchName" type="text" placeholder="Search by player name">
+  <button class="btn2" id="adminFindByName">Find</button>
+</div>
+<pre id="adminNameResults" style="background:#0f141f;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px;white-space:pre-wrap;max-height:160px;overflow:auto;"></pre>
       <input id="adminTargetUid" type="text" placeholder="Target UID (exact)">
       <input id="adminAmount" type="number" step="1" placeholder="Amount (e.g. 50 or -10)">
       <button class="btn2 primary" id="adminGrant">Apply coin change</button>
@@ -723,7 +731,7 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
   import {
     getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp,
-    doc, setDoc, getDoc, updateDoc, increment, onSnapshot
+    doc, setDoc, getDoc, updateDoc, increment, onSnapshot, where
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -881,7 +889,19 @@ async checkCouponAndOpenAdmin(code){
   }
   return true;
 },
-  };
+  // === ADMIN: Lookup wallet by username ===
+async function findWalletByUsername(name) {
+  const q = query(
+    collection(db, "wallets"),
+    where("name", "==", name),
+    limit(1)
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const docSnap = snap.docs[0];
+  return { uid: docSnap.id, ...docSnap.data() };
+}
+
   function prettyAuthError(err){
     const code = (err && err.code) || "";
     if (code.includes("invalid-credential")) return "Email or password is incorrect.";
@@ -1166,7 +1186,48 @@ const adminGrantBtn     = document.getElementById("adminGrant");
 const adminLoadBtn      = document.getElementById("adminLoadWallet");
 const adminWalletView   = document.getElementById("adminWalletView");
 const adminListBtn      = document.getElementById("adminListWallets");
+
 const adminWalletList   = document.getElementById("adminWalletList");
+const adminSearchNameInp = document.getElementById("adminSearchName");
+const adminFindByNameBtn = document.getElementById("adminFindByName");
+const adminNameResults   = document.getElementById("adminNameResults");
+
+adminFindByNameBtn.addEventListener("pointerdown", async (e)=>{
+  e.preventDefault();
+  adminNameResults.textContent = "(searching…)";
+
+  try{
+    const name = (adminSearchNameInp.value || "").trim();
+    if (!name) { adminNameResults.textContent = "Enter a name."; return; }
+
+    const q1 = query(
+      collection(window.firebase.db, "profiles"),
+      where("nameLower","==", name.toLowerCase()),
+      limit(10)
+    );
+    const s1 = await getDocs(q1);
+
+    if (s1.empty){
+      adminNameResults.textContent = "No matches.";
+      return;
+    }
+
+    const rows = [];
+    s1.forEach(d=>{
+      const data = d.data() || {};
+      const line = `${data.name || "(no name)"} — ${d.id}`;
+      rows.push(line);
+    });
+    adminNameResults.textContent = rows.join("\n");
+
+    if (s1.size === 1){
+      const only = s1.docs[0];
+      adminTargetUidInp.value = only.id;
+    }
+  }catch(err){
+    adminNameResults.textContent = "Error: " + (err.message || String(err));
+  }
+});
 
 adminClose.addEventListener("pointerdown", e=>{
   e.preventDefault();
