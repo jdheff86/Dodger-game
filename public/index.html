@@ -519,6 +519,8 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
     <div class="right">
   <button class="btn" id="lbBtn">Leaderboard</button>
   <button class="btn" id="howtoBtn">How to play</button>
+  
+  <button id="inventoryBtn" class="btn" title="Your cosmetics">Inventory</button>
 
   <!-- ▼ New gear Menu button -->
   <button class="btn" id="menuBtn" title="Menu">
@@ -655,12 +657,14 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
     <h2>Store</h2>
 
     <div id="storeMsg" class="muted" style="margin-bottom:8px;"></div>
+  
     
         <!-- Hidden admin unlock (coupon code) -->
     <div class="grid" style="margin-bottom:8px;">
       <input id="adminCode" type="text" placeholder="Coupon code">
       <button class="btn2" id="redeemAdmin">Redeem</button>
     </div>
+
 
   <div class="grid">
   <button class="btn2 itemBtn" id="buyAmmo" title="Buy blaster ammo">
@@ -681,13 +685,21 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
     <span class="cost"><span class="num">10</span><svg class="coinMini"><use href="#dcoin"></use></svg></span>
   </button>
 </div>
-
+<h3 style="margin-top:14px;">Cosmetics</h3>
+<div id="cosmeticsList" class="grid"></div>
     <div class="muted" style="margin-top:10px;">
       Purchases apply to the current run. (Persistent lives coming soon.)
     </div>
   </div>
 </div>
-
+<div class="modal" id="invModal">
+  <div class="panel">
+    <button class="x" id="invClose">×</button>
+    <h2>Inventory</h2>
+    <div id="invSummary" class="muted" style="margin-bottom:8px;">(none)</div>
+    <div id="invEquipped" class="muted"></div>
+  </div>
+</div>
 <!-- Admin modal (hidden; only opens when UID + code match) -->
 <div class="modal" id="adminModal">
   <div class="panel admin-menu">
@@ -778,7 +790,64 @@ window.firebase = {
   auth, db,
 
   onUser(cb){ return onAuthStateChanged(auth, cb); },
+// ==== COSMETICS (permanent unlocks) ====
+// Firestore layout:
+// inventories/{uid}: { owned: string[], equipped: { trail?: string, skin?: string, death?: string }, updated: serverTimestamp() }
 
+async ensureInventory(uid){
+  const ref = doc(this.db, "inventories", uid);
+  const s = await getDoc(ref).catch(()=>null);
+  if (!s || !s.exists()){
+    await setDoc(ref, { owned: [], equipped: {}, updated: serverTimestamp() });
+  }
+  return ref;
+},
+
+async loadInventory(){
+  const u = this.auth.currentUser;
+  if (!u) return { owned: [], equipped: {} };
+  const ref = await this.ensureInventory(u.uid);
+  const snap = await getDoc(ref);
+  const data = snap.exists() ? (snap.data()||{}) : {};
+  return { owned: data.owned || [], equipped: data.equipped || {} };
+},
+
+async purchaseCosmetic(sku, price){
+  const u = this.auth.currentUser;
+  if (!u) throw new Error("Sign in to buy.");
+
+  // Check wallet balance first
+  const wref = await this.ensureWallet(u.uid);
+  const wsnap = await getDoc(wref);
+  const have = Number(wsnap.data()?.coins || 0);
+  if (have < price) throw new Error(`Need ${price} coins (you have ${have}).`);
+
+  // Deduct
+  await updateDoc(wref, { coins: increment(-price) });
+
+  // Add to owned
+  const ref = await this.ensureInventory(u.uid);
+  const snap = await getDoc(ref);
+  const cur = snap.exists() ? (snap.data()||{}) : {};
+  const owned = new Set(cur.owned || []);
+  if (owned.has(sku)) return true; // already owned
+  owned.add(sku);
+  await setDoc(ref, { owned: Array.from(owned), updated: serverTimestamp() }, { merge:true });
+  return true;
+},
+
+async equipCosmetic(slot, sku){
+  const u = this.auth.currentUser;
+  if (!u) throw new Error("Sign in to equip.");
+  const ref = await this.ensureInventory(u.uid);
+  const snap = await getDoc(ref);
+  const cur = snap.exists() ? (snap.data()||{}) : {};
+  const owned = new Set(cur.owned || []);
+  if (!owned.has(sku)) throw new Error("You don’t own this item.");
+  const equipped = Object.assign({}, cur.equipped || {}, { [slot]: sku });
+  await setDoc(ref, { equipped, updated: serverTimestamp() }, { merge:true });
+  return equipped;
+},
   async ensureWallet(uid){
     const ref = doc(db, "wallets", uid);
     const s = await getDoc(ref).catch(()=>null);
@@ -834,6 +903,8 @@ window.firebase = {
     const ref = await this.ensureWallet(u.uid);
     await updateDoc(ref, { coins: increment(n|0) });
   },
+  
+  
 
   async loadTop(n = 20){
     try{
@@ -973,6 +1044,13 @@ async findWalletByUsername(name){
     userChip.textContent = "Not signed in";
     coinCountEl.textContent = "0";
     await window.firebase.watchWallet(null, null);
+      // Clear cosmetics state/UI when signed out
+  cosmetics.owned.clear();
+  cosmetics.equipped = { trail:null, skin:null, death:null };
+  refreshInventoryChip?.();
+  renderEquipText?.();
+  refreshCosmeticsList?.();
+    
     startSub.textContent = "Two-finger tap to pause. Tap to start.";
     startBtn.textContent = "Sign in";
     return;
@@ -987,6 +1065,8 @@ async findWalletByUsername(name){
   await window.firebase.watchWallet(u.uid, (coins)=>{
     coinCountEl.textContent = String(coins);
   });
+  // Load inventory + refresh the UI list/chip
+await loadCosmeticsFromCloud();
 
   startSub.textContent = "Two-finger tap to pause. Tap to start.";
   startBtn.textContent = "Start";
@@ -1068,7 +1148,27 @@ btnUp.addEventListener("pointerdown", async e=>{
 const MAGNET_CYCLES       = 2;    // lasts ~2 power-up spawn cycles
 const MAGNET_PULL_SPEED   = 300;  // px/sec toward player
 const MAGNET_PULL_RADIUS  = 520;  // only pull items within this px
+// --- COSMETIC CATALOG ---
+const COSMETICS = [
+  { sku:"trail.sparkle", type:"trail", name:"Sparkle Trail", price:50 },
+  { sku:"trail.smoke",   type:"trail", name:"Smoke Trail",   price:50 },
+  // later: { sku:"skin.neon", type:"skin", name:"Neon Skin", price:60 }
+];
 
+const cosmetics = {
+  owned: new Set(),
+  equipped: { trail:null, skin:null, death:null }
+};
+
+async function loadCosmeticsFromCloud(){
+  try{
+    const inv = await window.firebase.loadInventory();
+    cosmetics.owned = new Set(inv.owned || []);
+    cosmetics.equipped = Object.assign({ trail:null, skin:null, death:null }, inv.equipped||{});
+    refreshInventoryChip();
+    refreshCosmeticsList();
+  }catch(_){}
+}
 function getMagnetDurationSec(){
   // average of [POWERUP_INTERVAL_MIN..MAX] × cycles
   const avg = (POWERUP_INTERVAL_MIN + POWERUP_INTERVAL_MAX) / 2;
@@ -1136,6 +1236,88 @@ let POWERUP_INTERVAL_MIN = 8, POWERUP_INTERVAL_MAX = 13; // seconds
   const lbBody = document.querySelector("#lbTable tbody");
   const shrinkBtn = document.getElementById("shrinkBtn");
   const shrinkCountEl = document.getElementById("shrinkCount");
+  const inventoryBtn  = document.getElementById("inventoryBtn");
+const invModal      = document.getElementById("invModal");
+const invClose      = document.getElementById("invClose");
+const invSummary    = document.getElementById("invSummary");
+const invEquipped   = document.getElementById("invEquipped");
+const cosmeticsList = document.getElementById("cosmeticsList");
+
+function refreshInventoryChip(){
+  if (!inventoryBtn) return;
+  const n = cosmetics.owned.size;
+  inventoryBtn.textContent = n ? `Inventory (${n})` : "Inventory";
+}
+function owned(sku){ return cosmetics.owned.has(sku); }
+function isEquipped(slot, sku){ return (cosmetics.equipped?.[slot] || null) === sku; }
+function renderEquipText(){
+  const e = cosmetics.equipped || {};
+  if (invSummary)  invSummary.textContent  = `Owned: ${cosmetics.owned.size}`;
+  if (invEquipped) invEquipped.textContent = `Equipped — Trail: ${e.trail || "none"} | Skin: ${e.skin || "none"} | Death: ${e.death || "none"}`;
+}
+function button(label, klass="btn2"){
+  const b=document.createElement("button"); b.className=klass; b.textContent=label; return b;
+}
+
+function refreshCosmeticsList(){
+  if (!cosmeticsList) return;
+  cosmeticsList.innerHTML = "";
+  COSMETICS.forEach(item=>{
+    const row  = document.createElement("div"); row.className = "itemBtn btn2";
+    const left = document.createElement("span"); left.className = "label";
+    left.innerHTML = `<strong>${item.name}</strong> <small style="opacity:.7">(${item.sku})</small>`;
+    const right = document.createElement("span");
+
+    if (owned(item.sku)){
+      const equipBtn = button(isEquipped(item.type, item.sku) ? "Equipped" : "Equip");
+      equipBtn.disabled = isEquipped(item.type, item.sku);
+      equipBtn.addEventListener("pointerdown", async (e)=>{
+        e.preventDefault();
+        try{
+          const eq = await window.firebase.equipCosmetic(item.type, item.sku);
+          cosmetics.equipped = Object.assign({}, eq);
+          refreshCosmeticsList(); renderEquipText();
+        }catch(err){ /* optional toast */ }
+      });
+      right.appendChild(equipBtn);
+    } else {
+      const cost = document.createElement("span"); cost.className = "cost";
+      cost.innerHTML = `<span class="num">${item.price}</span><svg class="coinMini"><use href="#dcoin"></use></svg>`;
+      const buyBtn = button("Buy","btn2 primary");
+      buyBtn.addEventListener("pointerdown", async (e)=>{
+        e.preventDefault();
+        try{
+          await window.firebase.purchaseCosmetic(item.sku, item.price);
+          cosmetics.owned.add(item.sku);
+          if (!cosmetics.equipped[item.type]){
+            const eq = await window.firebase.equipCosmetic(item.type, item.sku);
+            cosmetics.equipped = Object.assign({}, eq);
+          }
+          refreshCosmeticsList(); refreshInventoryChip(); renderEquipText();
+        }catch(err){ /* optional toast */ }
+      });
+      right.appendChild(cost); right.appendChild(buyBtn);
+    }
+
+    row.appendChild(left); row.appendChild(right);
+    cosmeticsList.appendChild(row);
+  });
+}
+
+// Inventory modal wiring
+if (inventoryBtn){
+  inventoryBtn.addEventListener("pointerdown", e=>{
+    e.preventDefault();
+    renderEquipText();
+    invModal.style.display = "flex";
+  });
+}
+if (invClose){
+  invClose.addEventListener("pointerdown", e=>{
+    e.preventDefault();
+    closeModal(invModal);
+  });
+}
   // MENU (gear)
 const menuBtn        = document.getElementById("menuBtn");
 const menuPopup      = document.getElementById("menuPopup");
