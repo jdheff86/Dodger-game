@@ -16,7 +16,11 @@
   body { overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   canvas { display:block; width:100%; height:100%; }
   .safe { padding-top: env(safe-area-inset-top); }
-
+.admin-menu {
+  max-height: 80vh;   /* limits it to 80% of screen height */
+  overflow-y: auto;   /* adds vertical scroll if needed */
+  padding-right: 8px; /* optional, so scrollbar doesn’t cover text */
+}
   /* HUD -*/
   header { position:absolute; top:0; left:0; right:0; z-index:8; display:flex; flex-direction:column; padding:8px 10px; gap:6px; pointer-events:none; }
   /* allow clicking inside the menu popup */
@@ -686,7 +690,7 @@ header .toolbar .right::-webkit-scrollbar{ display:none; }
 
 <!-- Admin modal (hidden; only opens when UID + code match) -->
 <div class="modal" id="adminModal">
-  <div class="panel">
+  <div class="panel admin-menu">
     <button class="x" id="adminClose">×</button>
     <h2>Admin</h2>
     <div class="muted" id="adminMsg" style="margin-bottom:8px;"></div>
