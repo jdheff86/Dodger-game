@@ -1787,16 +1787,34 @@ menuPopup.addEventListener("pointerdown", (e)=>{
 // Cosmetic trail particles (e.g., flame)
 const trail = [];
 
+// 🔥 richer fire emitter: denser core + occasional sparks
 function spawnFlameParticles(cx, cy){
-  // Spawn 2 small particles per frame
-  for (let i = 0; i < 2; i++){
-    const vx = (Math.random()*2 - 1) * 40;          // slight sideways
-    const vy = 60 + Math.random()*80;               // drifts downward
+  // core flames (chaotic cone)
+  for (let i = 0; i < 4; i++){
+    const ang   = (Math.random()*Math.PI/3) + Math.PI*0.85; // mostly downward
+    const speed = 80 + Math.random()*140;
+    trail.push({
+      x:  cx + (Math.random()-0.5)*6,
+      y:  cy + 6 + (Math.random()-0.5)*6,
+      vx: Math.cos(ang)*speed,
+      vy: Math.sin(ang)*speed,
+      age: 0,
+      life: 0.35 + Math.random()*0.35,
+      size: 6 + Math.random()*6,
+      spark: false
+    });
+  }
+
+  // bright flying sparks
+  if (Math.random() < 0.25){
     trail.push({
       x: cx, y: cy,
-      vx, vy,
+      vx: (Math.random()<0.5 ? -1 : 1) * (140 + Math.random()*160),
+      vy: - (120 + Math.random()*140),
       age: 0,
-      life: 0.35 + Math.random()*0.25              // seconds
+      life: 0.22 + Math.random()*0.28,
+      size: 3 + Math.random()*3,
+      spark: true
     });
   }
 }
@@ -2202,15 +2220,24 @@ function togglePause(){
   }
 
   // Age & move trail particles (physics only; drawing is in draw())
-  for (let i = trail.length - 1; i >= 0; i--){
-    const t = trail[i];
-    t.age += dt;
-    t.x += t.vx * dt;
-    t.y += t.vy * dt;
-    t.vx *= 0.98;
-    t.vy *= 0.98;
-    if (t.age >= t.life) trail.splice(i,1);
-  }
+  // Age & move trail particles (hot air rises a bit; sparks are snappier)
+for (let i = trail.length - 1; i >= 0; i--){
+  const t = trail[i];
+  t.age += dt;
+
+  // motion
+  t.x += t.vx * dt;
+  t.y += t.vy * dt;
+
+  // gentle drag
+  t.vx *= 0.97;
+  t.vy *= 0.97;
+
+  // buoyancy (fire drifts upward slightly over time)
+  t.vy -= 28 * dt;
+
+  if (t.age >= t.life) trail.splice(i, 1);
+}
 }
 
   function draw(){
@@ -2223,18 +2250,30 @@ function togglePause(){
 
     const p = state.player, pw = p.w*p.scale, ph = p.h*p.scale;
     // --- draw flame trail particles ---
-for (const t of trail) {
-  const a = 1 - (t.age / t.life);        // fade out
-  ctx.globalAlpha = Math.max(0, a);
-  // orange → red as it ages
-  const r = Math.floor(255);
-  const g = Math.floor(120 + 80 * (1 - a));
-  const b = Math.floor(20);
+// --- 🔥 flame trail (glow + hot core + sparks) ---
+for (const t of trail){
+  const a = Math.max(0, 1 - (t.age / t.life));   // fade 1→0
+  const s = (t.size || 8) * (0.6 + 0.4 * a);     // shrink over life
+
+  // heat color: bright core (yellow/white) → orange → red
+  const heat = a;                                // 1 = new, 0 = old
+  const r = 255;
+  const g = Math.floor(150 + 105 * heat);        // 150..255
+  const b = Math.floor(30  * (1 - heat));        // 0..30
+
+  ctx.save();
+  ctx.globalAlpha = a;
+
+  // soft glow behind each particle (stronger for core than sparks)
+  ctx.shadowBlur  = t.spark ? 8 : 14;
+  ctx.shadowColor = `rgba(255,140,20,${0.85 * a})`;
+
+  // draw the particle
   ctx.fillStyle = `rgb(${r},${g},${b})`;
-  const s = 6 + 6 * a;                    // size shrinks a bit
-  roundRect(ctx, t.x - s/2, t.y - s/2, s, s, 3, true);
+  roundRect(ctx, t.x - s/2, t.y - s/2, s, s, t.spark ? 2 : 4, true);
+
+  ctx.restore();
 }
-ctx.globalAlpha = 1;
 
     if (state.effects.shieldUntil > state.time) {
       ctx.save(); ctx.globalAlpha = 0.25 + 0.15*Math.sin(state.time*8); ctx.fillStyle = "#4ade80";
