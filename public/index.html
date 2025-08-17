@@ -789,6 +789,18 @@ const ADMIN_CODE = "letmein123";         // <-- your secret coupon string
         return { ok:true };
       }catch(e){ return { ok:false, error:e.message }; }
     },
+    
+    async upsertProfile(u){
+  try{
+    const name = (u.displayName || "Player").trim().slice(0,24);
+    const nameLower = name.toLowerCase();
+    await setDoc(doc(db, "profiles", u.uid), {
+      name, nameLower,
+      email: u.email || null,
+      updated: serverTimestamp()
+    }, { merge: true });
+  }catch(_){}
+},
 
     async addCoins(n){
       const u = auth.currentUser;
@@ -902,7 +914,6 @@ async checkCouponAndOpenAdmin(code){
     userChip.textContent = "Not signed in";
     coinCountEl.textContent = "0";
     await window.firebase.watchWallet(null, null);
-    // Keep the simple, non-emoji message
     startSub.textContent = "Two-finger tap to pause. Tap to start.";
     startBtn.textContent = "Sign in";
     return;
@@ -910,9 +921,14 @@ async checkCouponAndOpenAdmin(code){
 
   userChip.textContent = u.displayName ? `Signed in: ${u.displayName}` :
                          u.email ? `Signed in: ${u.email}` : "Signed in";
-  await window.firebase.watchWallet(u.uid, (coins)=>{ coinCountEl.textContent = String(coins); });
 
-  // Keep the same non-emoji message even when signed in
+  // NEW: keep the profiles/{uid} doc fresh for admin search-by-name
+  await window.firebase.upsertProfile(u);
+
+  await window.firebase.watchWallet(u.uid, (coins)=>{
+    coinCountEl.textContent = String(coins);
+  });
+
   startSub.textContent = "Two-finger tap to pause. Tap to start.";
   startBtn.textContent = "Start";
 });
@@ -943,7 +959,7 @@ function closeModal(m){
     try{
       const email = (authEmail.value || "").trim();
       const pass  = authPass.value || "";
-      await signInWithEmailAndPassword(auth, email, pass);
+      await signInWithEmailAndPassword(auth, email, pass)await window.firebase.upsertProfile(auth.currentUser);
       closeModal(authModal);
     }catch(err){ authMsg.textContent = prettyAuthError(err); }
   });
@@ -954,7 +970,9 @@ function closeModal(m){
       const pass  = authPass.value || "";
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       const def = email.split("@")[0].slice(0,24) || "Player";
-      await updateProfile(cred.user, { displayName: def });
+      await updateProfile(cred.user, { displayName: def })
+      await this.upsertProfile(auth.currentUser);
+      await window.firebase.upsertProfile(cred.user);
       closeModal(authModal);
     }catch(err){ authMsg.textContent = prettyAuthError(err); }
   });
