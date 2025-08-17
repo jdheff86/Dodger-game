@@ -905,16 +905,39 @@ window.firebase = {
   },
 
   // Admin helper: find UID by exact (lowercased) name
-  async findWalletByUsername(name){
-  const q = window.__fs.query(
+  // Admin helper: find UID by exact (lowercased) name
+async findWalletByUsername(name){
+  const clean = String(name||"").trim();
+  if (!clean) return null;
+
+  // 1) Try profiles (case-insensitive)
+  const q1 = window.__fs.query(
     window.__fs.collection(db, "profiles"),
-    window.__fs.where("nameLower","==", String(name||"").toLowerCase()),
+    window.__fs.where("nameLower","==", clean.toLowerCase()),
     window.__fs.limit(1)
   );
-  const snap = await window.__fs.getDocs(q);
-  if (snap.empty) return null;
-  const docSnap = snap.docs[0];
-  return { uid: docSnap.id, ...docSnap.data() };
+  const s1 = await window.__fs.getDocs(q1);
+  if (!s1.empty){
+    const d = s1.docs[0];
+    return { uid: d.id, ...d.data() };
+  }
+
+  // 2) Fallback: try scores by exact display name (case-sensitive)
+  // Works for people who’ve played/saved a score but don’t have a profile doc yet.
+  const q2 = window.__fs.query(
+    window.__fs.collection(db, "scores"),
+    window.__fs.where("name","==", clean),
+    window.__fs.limit(1)
+  );
+  const s2 = await window.__fs.getDocs(q2);
+  if (!s2.empty){
+    const d = s2.docs[0];
+    const data = d.data() || {};
+    // return the scorer’s uid and name
+    return { uid: data.uid || null, name: data.name || clean };
+  }
+
+  return null;
 },
 }; // ← important: close the object and keep this semicolon
 
