@@ -1064,6 +1064,16 @@ btnUp.addEventListener("pointerdown", async e=>{
 (function () {
   "use strict";
   // --- Spawn tuning (independent) ---
+// Magnet tuning
+const MAGNET_CYCLES       = 2;    // lasts ~2 power-up spawn cycles
+const MAGNET_PULL_SPEED   = 300;  // px/sec toward player
+const MAGNET_PULL_RADIUS  = 520;  // only pull items within this px
+
+function getMagnetDurationSec(){
+  // average of [POWERUP_INTERVAL_MIN..MAX] × cycles
+  const avg = (POWERUP_INTERVAL_MIN + POWERUP_INTERVAL_MAX) / 2;
+  return avg * MAGNET_CYCLES;
+}
 let COIN_CHANCE = 0.55;            // 0..1 chance when coin timer fires
 let COIN_INTERVAL_MIN = 6, COIN_INTERVAL_MAX = 10;      // seconds
 
@@ -1872,33 +1882,69 @@ if (state.coinTimer <= 0) {
     const magnet = state.effects.magnetUntil > state.time;
     for (let i=state.powerups.length-1; i>=0; i--) {
       const u = state.powerups[i];
-      if (magnet) {
-        const cx = (p.x + pw/2) - (u.x + u.w/2);
-        const cy = (p.y + ph/2) - (u.y + u.h/2);
-        const dist = Math.max(1, Math.hypot(cx, cy));
-        u.x += (cx/dist) * 220 * worldDT; u.y += (cy/dist) * 220 * worldDT;
-      } else { u.y += u.vy * worldDT; }
+  if (magnet) {
+  const cx = (p.x + pw/2) - (u.x + u.w/2);
+  const cy = (p.y + ph/2) - (u.y + u.h/2);
+  const dist = Math.max(1, Math.hypot(cx, cy));
+  if (dist < MAGNET_PULL_RADIUS) {
+    u.x += (cx/dist) * MAGNET_PULL_SPEED * worldDT;
+    u.y += (cy/dist) * MAGNET_PULL_SPEED * worldDT;
+  } else {
+    u.y += u.vy * worldDT;
+  }
+} else { u.y += u.vy * worldDT; }
       if (u.y - u.h > height + 8) { state.powerups.splice(i,1); continue; }
       if (u.x < p.x + pw && u.x + u.w > p.x && u.y < p.y + ph && u.y + u.h > p.y) {
         if (u.type === "blaster") { state.ammo += 6; ammoEl.textContent = state.ammo; }
         else if (u.type === "shrink") { state.shrinkCharges += 1; shrinkCountEl.textContent = state.shrinkCharges; }
         else if (u.type === "shield") { state.effects.shieldUntil = Math.max(state.effects.shieldUntil, state.time) + 6; }
         else if (u.type === "slow")   { state.effects.slowUntil   = Math.max(state.effects.slowUntil,   state.time) + 6; }
-        else if (u.type === "magnet") { state.effects.magnetUntil = Math.max(state.effects.magnetUntil, state.time) + 8; }
+        else if (u.type === "magnet") {
+  state.effects.magnetUntil = Math.max(state.effects.magnetUntil, state.time) + getMagnetDurationSec();
+}
         else if (u.type === "life")   { state.lives = Math.min(5, state.lives + 1); renderHearts(); }
         state.powerups.splice(i,1);
       }
     }
 
     // coins (pickup) — no manual UI bump; Firestore snapshot updates the chip
-    for (let i=state.coins.length-1; i>=0; i--) {
-      const c = state.coins[i]; c.y += c.vy * worldDT;
-      if (c.y - c.h > height + 8) { state.coins.splice(i,1); continue; }
-      if (c.x < p.x + pw && c.x + c.w > p.x && c.y < p.y + ph && c.y + c.h > p.y) {
-        state.coins.splice(i,1);
-        window.firebase.addCoins(1).catch(()=>{});
-      }
+    // coins (pickup) — magnet pulls coins too
+for (let i = state.coins.length - 1; i >= 0; i--) {
+  const c = state.coins[i];
+
+  if (magnet) {
+    // Pull coin toward player if within radius; otherwise fall normally
+    const cx = (p.x + pw/2) - (c.x + c.w/2);
+    const cy = (p.y + ph/2) - (c.y + c.h/2);
+    const dist = Math.max(1, Math.hypot(cx, cy));
+    if (dist < MAGNET_PULL_RADIUS) {
+      c.x += (cx / dist) * MAGNET_PULL_SPEED * worldDT;
+      c.y += (cy / dist) * MAGNET_PULL_SPEED * worldDT;
+    } else {
+      c.y += c.vy * worldDT;
     }
+  } else {
+    c.y += c.vy * worldDT;
+  }
+
+  // Cull off-screen
+  if (c.y - c.h > height + 8) {
+    state.coins.splice(i, 1);
+    continue;
+  }
+
+  // Collision — expand pickup box a bit when magnet is active
+  const grab = magnet ? 14 : 0; // small vacuum effect
+  if (
+    c.x < p.x + pw + grab &&
+    c.x + c.w > p.x - grab &&
+    c.y < p.y + ph + grab &&
+    c.y + c.h > p.y - grab
+  ) {
+    state.coins.splice(i, 1);
+    window.firebase.addCoins(1).catch(()=>{});
+  }
+}
 
     // bullets
     for (let i=state.bullets.length-1; i>=0; i--) {
