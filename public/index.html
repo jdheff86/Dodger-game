@@ -954,28 +954,34 @@ function closeModal(m){
   authClose.addEventListener("pointerdown", e=>{ e.preventDefault(); closeModal(authModal); });
 
   // Sign in / Sign up
-  btnIn.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); authMsg.textContent = "";
-    try{
-      const email = (authEmail.value || "").trim();
-      const pass  = authPass.value || "";
-      await signInWithEmailAndPassword(auth, email, pass)await window.firebase.upsertProfile(auth.currentUser);
-      closeModal(authModal);
-    }catch(err){ authMsg.textContent = prettyAuthError(err); }
-  });
-  btnUp.addEventListener("pointerdown", async e=>{
-    e.preventDefault(); authMsg.textContent = "";
-    try{
-      const email = (authEmail.value || "").trim();
-      const pass  = authPass.value || "";
-      const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      const def = email.split("@")[0].slice(0,24) || "Player";
-      await updateProfile(cred.user, { displayName: def })
-      await this.upsertProfile(auth.currentUser);
-      await window.firebase.upsertProfile(cred.user);
-      closeModal(authModal);
-    }catch(err){ authMsg.textContent = prettyAuthError(err); }
-  });
+btnIn.addEventListener("pointerdown", async e=>{
+  e.preventDefault(); authMsg.textContent = "";
+  try{
+    const email = (authEmail.value || "").trim();
+    const pass  = authPass.value || "";
+    const cred  = await signInWithEmailAndPassword(auth, email, pass);
+    await window.firebase.upsertProfile(cred.user);  // ok to keep or remove since onAuthStateChanged also calls it
+    closeModal(authModal);
+  }catch(err){
+    authMsg.textContent = prettyAuthError(err);
+  }
+});
+btnUp.addEventListener("pointerdown", async e=>{
+  e.preventDefault(); authMsg.textContent = "";
+  try{
+    const email = (authEmail.value || "").trim();
+    const pass  = authPass.value || "";
+    const cred  = await createUserWithEmailAndPassword(auth, email, pass);
+
+    const def = email.split("@")[0].slice(0,24) || "Player";
+    await updateProfile(cred.user, { displayName: def });  // ← add semicolon
+    await window.firebase.upsertProfile(cred.user);        // ← use window.firebase, not this
+
+    closeModal(authModal);
+  }catch(err){
+    authMsg.textContent = prettyAuthError(err);
+  }
+});
   btnOut.addEventListener("pointerdown", async e=>{
     e.preventDefault(); await signOut(auth); closeModal(authModal);
   });
