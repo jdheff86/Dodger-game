@@ -1184,6 +1184,38 @@ let POWERUP_INTERVAL_MIN = 8, POWERUP_INTERVAL_MAX = 13; // seconds
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
 
+// --- Cached smoke puff sprites (fast) ---
+const SMOKE_SPRITES = [];
+(function buildSmokeSprites(){
+  const SIZES = [48, 64, 80];          // three resolutions (used for LOD)
+  const TONES = [150, 175, 200];       // darker → lighter gray variants
+
+  for (const size of SIZES){
+    for (const gray of TONES){
+      const off = document.createElement('canvas');
+      off.width = off.height = size;
+      const c = off.getContext('2d');
+
+      // multi-stop radial “puff” baked once
+      const cx = size/2, cy = size/2, r = size*0.48;
+      const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0.00, `rgba(${gray+30},${gray+30},${gray+30},0.28)`);
+      g.addColorStop(0.40, `rgba(${gray},${gray},${gray},0.22)`);
+      g.addColorStop(1.00, `rgba(${gray-30},${gray-30},${gray-30},0)`);
+      c.fillStyle = g;
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.fill();
+
+      // subtle highlight baked in so we don’t layer extra arcs later
+      const hi = Math.min(255, gray+28);
+      c.globalAlpha = 0.22;
+      c.fillStyle = `rgb(${hi},${hi},${hi})`;
+      c.beginPath(); c.arc(cx - r*0.22, cy - r*0.36, r*0.32, 0, Math.PI*2); c.fill();
+
+      SMOKE_SPRITES.push({ img: off, size });
+    }
+  }
+})();
+
   // Reserve vertical space for bottom UI so the player can't sit under it
   let uiBottom = 140;
   function measureUIBottom(){
@@ -1855,36 +1887,33 @@ function spawnSparkleParticles(cx, cy){
 }
 
 function spawnSmokeParticles(cx, cy){
-  // ↓ tight downward cone, starts tiny & widens as it travels
   const base   = Math.PI / 2;   // down
-  const spread = 0.14;          // narrow = tight source
-  const count  = 3;             // fewer puffs so it’s not too thick
+  const spread = 0.14;
+  const count  = 3;             // fewer = lighter; raise to 4 if you want denser
 
   for (let i = 0; i < count; i++){
     const ang   = base + (Math.random() - 0.5) * spread * 2;
     const speed = 90 + Math.random() * 110;
 
-    const s0   = 3.8 + Math.random() * 3.2;          // tiny at the cube
-    const life = 0.95 + Math.random() * 0.55;        // lasts a bit
+    const s0   = 3.6 + Math.random() * 3.2;      // starts tiny at the cube
+    const life = 0.9 + Math.random() * 0.55;
 
-    // subtle grayscale variance (cool → warm gray)
-    const tint = 0.65 + Math.random() * 0.28;        // 0.65..0.93
+    // pick a cached sprite (random tone / resolution)
+    const sprite = SMOKE_SPRITES[(Math.random() * SMOKE_SPRITES.length) | 0];
 
     trail.push({
       kind: "smoke",
-      x: cx + (Math.random() - 0.5) * 1.4,
-      y: cy + 1 + (Math.random() - 0.5) * 1.4,
+      x: cx + (Math.random() - 0.5) * 1.2,
+      y: cy + 1 + (Math.random() - 0.5) * 1.2,
       vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,   // down
+      vy: Math.sin(ang) * speed,
       age: 0,
       life,
       size: s0,
-      grow: 1.25 + Math.random() * 0.35,    // billow rate
-      cone: (Math.random() - 0.5) * 16,     // sideways push (used below)
-      tint,
-      // layered look: 2–3 soft rings per puff
-      layers: 2 + (Math.random() < 0.35 ? 1 : 0),
-      seed: Math.random()
+      grow: 1.25 + Math.random() * 0.35,
+      cone: (Math.random() - 0.5) * 16,
+      sprite,                   // <— cached image + native size
+      seed: Math.random()       // for slight per-puff offset
     });
   }
 }
@@ -2315,17 +2344,18 @@ for (let i = trail.length - 1; i >= 0; i--) {
 
   // kind-specific tweaks
 if (t.kind === "smoke") {
-  // widen the cone as particles age (tight at source → wider downstream)
-  const k = (t.age / t.life);
+  const k = t.age / t.life;
+
+  // widen the cone as it ages → tight near cube, wider downstream
   if (t.cone) t.vx += t.cone * 1.6 * k * dt;
 
-  // drift downward (canvas y+ goes down)
+  // drift downward (positive y is down on canvas)
   t.vy += 18 * dt;
 
-  // gentle curl so it doesn’t look noisy
+  // gentle micro-curl (very cheap)
   t.vx += (Math.random() - 0.5) * 0.35;
 
-  // billow/expand while moving
+  // expansion
   if (t.grow) t.size *= (1 + (t.grow - 1) * dt);
 
   // keep the cone tight
@@ -2388,45 +2418,34 @@ for (const t of trail) {
     ctx.fill();
 
   } else if (t.kind === "smoke") {
-  // Multi-layer soft puffs, normal alpha blend (not additive)
-  const k    = t.age / t.life;                 // 0→1
-  const base = (t.size || 8) * (1.0 + 0.6 * k); // grows down the trail
+  // fast sprite draw instead of per-frame gradients
+  const k      = t.age / t.life;
+  const scale  = (t.size || 8) * (1.0 + 0.6 * k);   // grows along the plume
+  const haze   = 0.16 + 0.28 * (1 - k);            // opacity profile
+  const s      = t.sprite || SMOKE_SPRITES[0];
+  const w      = s.size * scale / 48;              // normalize to 48px base
+  const h      = w;                                // square puff
 
-  // tone & opacity
-  const tint = t.tint || 0.8;                  // 0.65..0.93
-  const gray = Math.floor(118 + 92 * tint);    // 118..210
-  const haze = 0.16 + 0.28 * (1 - k);          // denser mid, lighter tail
+  // slight per-ring offset for volume
+  const ox = 0.14 * w * Math.sin(t.seed * 11 + k * 5);
+  const oy = -0.10 * h;
 
-  ctx.shadowBlur   = 0;
-  ctx.globalAlpha  = haze;
+  ctx.globalAlpha = haze;
+  ctx.drawImage(
+    s.img,
+    t.x + ox - w/2,
+    t.y + oy - h/2,
+    w, h
+  );
 
-  // render 2–3 concentric, slightly offset rings per puff
-  const rings = t.layers || 2;
-  for (let r = 0; r < rings; r++){
-    const f   = 1 + r * 0.22;                  // ring scale
-    const off = (r === 0 ? 0 : r * 0.15 * base);
-    const ox  = off * Math.sin(t.seed * 11 + r * 0.9);
-    const oy  = -off * 0.7;                    // bias upward inside puff
-
-    const g = ctx.createRadialGradient(t.x + ox, t.y + oy, 0, t.x + ox, t.y + oy, base * f);
-    // soft core → fuller mid → soft edge
-    g.addColorStop(0.00, `rgba(${gray+24},${gray+24},${gray+24},${0.30})`);
-    g.addColorStop(0.38, `rgba(${gray},${gray},${gray},${0.22})`);
-    g.addColorStop(1.00, `rgba(${gray-32},${gray-32},${gray-32},0)`);
-    ctx.fillStyle = g;
-
-    ctx.beginPath();
-    ctx.arc(t.x + ox, t.y + oy, base * f, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // small, brighter highlight for volume
-  const hi = Math.min(255, gray + 28);
-  ctx.globalAlpha = haze * 0.35;
-  ctx.fillStyle   = `rgb(${hi},${hi},${hi})`;
-  ctx.beginPath();
-  ctx.arc(t.x - base * 0.22, t.y - base * 0.38, base * 0.35, 0, Math.PI * 2);
-  ctx.fill();
+  // optional second subtle ring (very cheap)
+  ctx.globalAlpha = haze * 0.6;
+  ctx.drawImage(
+    s.img,
+    t.x - ox*0.6 - (w*0.85)/2,
+    t.y - oy*0.6 - (h*0.85)/2,
+    w*0.85, h*0.85
+  );
   }
 
   ctx.restore();
