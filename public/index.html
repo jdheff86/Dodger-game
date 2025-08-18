@@ -2326,6 +2326,7 @@ for (let i = trail.length - 1; i >= 0; i--) {
     const p = state.player, pw = p.w*p.scale, ph = p.h*p.scale;
     // --- draw flame trail particles ---
 // ── Particle rendering (flame | sparkle | smoke) ─────────────────────────
+// ── Particle rendering (flame | sparkle | smoke) ─────────────────────────
 for (const t of trail) {
   const a = Math.max(0, 1 - (t.age / t.life));      // 1 → 0 fade
   const s = (t.size || 8) * (0.72 + 0.28 * a);      // slight shrink
@@ -2336,9 +2337,9 @@ for (const t of trail) {
   if (t.kind === "flame") {
     // warm orange glow + bright core
     const heat = a;
-    const r = 255;
-    const g = Math.floor(110 + 130 * heat);
-    const b = Math.floor(6 * (1 - heat));
+    const rr = 255;
+    const gg = Math.floor(110 + 130 * heat);
+    const bb = Math.floor(6 * (1 - heat));
 
     // glow base
     ctx.shadowBlur  = t.spark ? 8 : 18;
@@ -2348,7 +2349,7 @@ for (const t of trail) {
 
     // hot core
     ctx.shadowBlur = 0;
-    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
     roundRect(ctx, t.x - s/2, t.y - s/2, s, s, t.spark?2:4, true);
 
   } else if (t.kind === "sparkle") {
@@ -2360,11 +2361,10 @@ for (const t of trail) {
     ctx.fill();
 
   } else if (t.kind === "smoke") {
-    // soft gray puff that grows and fades (alpha blend, not additive)
-    const grow = t.grow || 1.15;      // light expansion per frame already applied in integrator
-    const tint = t.tint || 0.8;       // 0.6..1.0 → darker..lighter gray
-    const gray = Math.floor(120 + 90 * tint); // 120..210
-    const haze = 0.20 + 0.35 * a;     // opacity that drops over life
+    // soft gray puff that grows and fades
+    const tint = t.tint || 0.8;                 // 0.65..1.0
+    const gray = Math.floor(120 + 90 * tint);   // 120..210
+    const haze = 0.20 + 0.35 * a;
 
     ctx.shadowBlur = 0;
     ctx.globalAlpha = haze;
@@ -2375,13 +2375,13 @@ for (const t of trail) {
     ctx.arc(t.x, t.y - s * 0.20, s * 1.25, 0, Math.PI * 2);
     ctx.fill();
 
-    // soft outer ring for thickness
+    // outer ring for thickness
     ctx.globalAlpha = haze * 0.6;
     ctx.beginPath();
     ctx.arc(t.x + s * 0.15, t.y - s * 0.35, s * 1.55, 0, Math.PI * 2);
     ctx.fill();
 
-    // a subtle lighter highlight
+    // subtle highlight
     const hi = Math.min(255, gray + 20);
     ctx.globalAlpha = haze * 0.35;
     ctx.fillStyle = `rgb(${hi},${hi},${hi})`;
@@ -2389,19 +2389,6 @@ for (const t of trail) {
     ctx.arc(t.x - s * 0.25, t.y - s * 0.55, s * 0.9, 0, Math.PI * 2);
     ctx.fill();
   }
-
-  ctx.restore();
-}
-
-// --- sparkle overlay ---
-if (t.spark) {
-  ctx.globalAlpha = a; 
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = `rgba(255, 255, 180, ${a})`; // bright gold spark
-  ctx.beginPath();
-  ctx.arc(t.x, t.y, s*0.5, 0, Math.PI*2);
-  ctx.fill();
-}
 
   ctx.restore();
 }
