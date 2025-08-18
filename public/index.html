@@ -1855,22 +1855,28 @@ function spawnSparkleParticles(cx, cy){
 }
 
 function spawnSmokeParticles(cx, cy){
-  // rises upward with a little sideways wobble
-  const base = Math.PI/2, spread = Math.PI/10;
-  for (let i = 0; i < 3; i++){
-    const ang = base + (Math.random()-0.5)*spread*2;
-    const speed = 70 + Math.random()*110;  // slower than flame
+  // emit a tight, upward cone from the player
+  const base   = -Math.PI / 2;      // straight up
+  const spread = Math.PI / 28;      // ~6.4° (tight)
+  for (let i = 0; i < 4; i++){
+    const ang   = base + (Math.random() - 0.5) * spread * 2;
+    const speed = 60 + Math.random() * 90;     // gentle rise
+    // small outward bias so the plume widens as it rises
+    const side  = (Math.random() < 0.5 ? -1 : 1);
+    const cone  = 18 + Math.random() * 26;     // px/s² lateral push
+
     trail.push({
-      kind:"smoke",
-      x: cx + (Math.random()-0.5)*3,
-      y: cy + 2 + (Math.random()-0.5)*3,
-      vx: Math.cos(ang)*speed,
-      vy: Math.sin(ang)*speed,
-      age:0,
-      life:0.7 + Math.random()*0.6,   // lingers longer
-      size:10 + Math.random()*12,     // bigger puffs
-      grow: 1.12 + Math.random()*0.5, // expands a bit over time (your integrator can use this)
-      tint: 0.65 + Math.random()*0.35 // 0.65..1.0 to vary gray
+      kind: "smoke",
+      x: cx + (Math.random() - 0.5) * 1.4,     // tight emission point
+      y: cy - 2 + (Math.random() - 0.5) * 1.4, // just above the jet
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,               // already upward (negative)
+      cone: side * cone,                       // outward acceleration
+      age: 0,
+      life: 0.85 + Math.random() * 0.55,       // lingers a bit
+      size: 7 + Math.random() * 6,             // small at the nozzle
+      grow: 1.18 + Math.random() * 0.28,       // expands as it rises
+      tint: 0.75 + Math.random() * 0.2         // mid-light gray variety
     });
   }
 }
@@ -2301,11 +2307,23 @@ for (let i = trail.length - 1; i >= 0; i--) {
 
   // kind-specific tweaks
   if (t.kind === "smoke") {
-    t.vy -= 10 * dt;                         // more rise
-    t.vx += (Math.random() - 0.5) * 8 * dt * 60; // wobble
-  } else if (t.kind === "sparkle") {
-    t.vy -= 4 * dt;                          // slight rise
-  }
+  // widen the cone gently as particles age
+  if (t.cone) t.vx += t.cone * dt;     // outward push (left or right)
+
+  // buoyancy: make smoke rise and accelerate a touch
+  t.vy -= 22 * dt;
+
+  // subtle curl (far less wobble than before)
+  t.vx += (Math.random() - 0.5) * 2.5;
+
+  // expand the puff a little as it rises
+  if (t.grow) t.size *= (1 + (t.grow - 1) * dt);
+
+  // cap horizontal drift so the cone stays tight
+  const maxVx = 80;
+  if (t.vx >  maxVx) t.vx =  maxVx;
+  if (t.vx < -maxVx) t.vx = -maxVx;
+}
 
   // remove dead particles
   if (t.age >= t.life) trail.splice(i, 1);
