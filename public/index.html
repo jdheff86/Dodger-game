@@ -1218,7 +1218,6 @@ let POWERUP_INTERVAL_MIN = 8, POWERUP_INTERVAL_MAX = 13; // seconds
   const scoreEl = document.getElementById("score");
   const bestEl  = document.getElementById("best");
   const ammoEl  = document.getElementById("ammo");
-  const livesEl = document.getElementById("lives");
   const coinCountEl = document.getElementById("coinCount");
   const startBtn= document.getElementById("startBtn");
   const pauseBtn= document.getElementById("pauseBtn");
@@ -1783,61 +1782,7 @@ menuPopup.addEventListener("pointerdown", (e)=>{
   effects:{ shrinkUntil:0, shieldUntil:0, slowUntil:0, magnetUntil:0 },
   coins:[]
 };
-
-// Cosmetic trail particles (e.g., flame)
 const trail = [];
-
-// 🔥 richer fire emitter: denser core + occasional sparks
-// 🔥 downward cone + occasional sparks (no horizontal bias)
-function spawnFlameParticles(cx, cy){
-  const base = Math.PI / 2;          // straight down (canvas Y+)
-  const spread = Math.PI / 6;        // ±30°
-
-  // core flames
-  for (let i = 0; i < 4; i++){
-    const ang   = base + (Math.random() - 0.5) * (spread * 2);
-    const speed = 110 + Math.random()*140;
-    trail.push({
-      x:  cx + (Math.random()-0.5)*3,
-      y:  cy + 2 + (Math.random()-0.5)*3,
-      vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,
-      age: 0,
-      life: 0.32 + Math.random()*0.36,
-      size: 6 + Math.random()*6,
-      spark: false
-    });
-  }
-
-  // bright orange sparks that shoot out a bit
-  if (Math.random() < 0.25){
-    const ang   = base + (Math.random() - 0.5) * (spread * 2);
-    const speed = 220 + Math.random()*160;
-    trail.push({
-      x: cx, y: cy,
-      vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,
-      age: 0,
-      life: 0.22 + Math.random()*0.28,
-      size: 3 + Math.random()*3,
-      spark: true
-    });
-  }
-}
-
-  // bright flying sparks
-  if (Math.random() < 0.25){
-    trail.push({
-      x: cx, y: cy,
-      vx: (Math.random()<0.5 ? -1 : 1) * (140 + Math.random()*160),
-      vy: - (120 + Math.random()*140),
-      age: 0,
-      life: 0.22 + Math.random()*0.28,
-      size: 3 + Math.random()*3,
-      spark: true
-    });
-  }
-}
   
   bestEl.textContent = state.best;
 ammoEl.textContent = state.ammo;
@@ -1940,6 +1885,7 @@ function startGame(){
   state.bullets.length  = 0;
   state.powerups.length = 0;
   state.coins.length    = 0;
+  trail.length = 0;
 
   // Timers/flags
   state.score = 0;
@@ -2240,11 +2186,6 @@ if (cosmetics.equipped.trail === "trail.flame") {
     }
   }
 
-  // Age & move trail particles (physics only; drawing is in draw())
-  // Age & move trail particles (hot air rises a bit; sparks are snappier)
-for (let i = trail.length - 1; i >= 0; i--){
-// Cosmetic trail particles (e.g., flame)
-const trail = [];
 
 // 🔥 downward cone + occasional sparks (tight jet look = option B)
 function spawnFlameParticles(cx, cy){
