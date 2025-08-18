@@ -2043,8 +2043,17 @@ function togglePause(){
 
   // Apply equipped trail (spawn particles at player center)
   // Emit from bottom-center of the player
-if (cosmetics.equipped.trail === "trail.flame") {
-  spawnFlameParticles(p.x + pw/2, p.y + ph - 2);
+const emitX = p.x + pw/2, emitY = p.y + ph - 2;
+switch (cosmetics.equipped.trail) {
+  case "trail.flame":
+    spawnFlameParticles(emitX, emitY);
+    break;
+  case "trail.sparkle":
+    spawnSparkleParticles(emitX, emitY);
+    break;
+  case "trail.smoke":
+    spawnSmokeParticles(emitX, emitY);
+    break;
 }
 
   if (p.x < 0) { p.x = 0; p.vx = Math.max(0, p.vx); }
@@ -2189,6 +2198,7 @@ if (cosmetics.equipped.trail === "trail.flame") {
 
 // 🔥 downward cone + occasional sparks (tight jet look = option B)
 // 🔥 upgraded tight, solid cone (same function name/signature)
+// 🔥 upgraded tight, solid cone (same function name/signature)
 function spawnFlameParticles(cx, cy){
   const base   = Math.PI / 2;     // straight down
   const spread = Math.PI / 9;     // a touch narrower than before
@@ -2208,6 +2218,67 @@ function spawnFlameParticles(cx, cy){
       spark: false
     });
   }
+  // ✨ Sparkle: tight glints, bright core, subtle blue-white glow
+function spawnSparkleParticles(cx, cy){
+  const base   = Math.PI / 2;     // downward jet
+  const spread = Math.PI / 14;    // narrow
+
+  // small bright glints
+  for (let i = 0; i < 3; i++){
+    const ang   = base + (Math.random() - 0.5) * (spread * 2);
+    const speed = 180 + Math.random()*200;
+    trail.push({
+      kind: "sparkle",
+      x:  cx + (Math.random()-0.5)*2.0,
+      y:  cy + (Math.random()-0.5)*2.0,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      age: 0,
+      life: 0.22 + Math.random()*0.26,
+      size: 3 + Math.random()*2.5,
+      twinkle: 8 + Math.random()*6 // Hz-ish (for flicker)
+    });
+  }
+
+  // occasional larger flare
+  if (Math.random() < 0.2){
+    const ang   = base + (Math.random() - 0.5) * (spread * 2);
+    const speed = 200 + Math.random()*220;
+    trail.push({
+      kind: "sparkle",
+      x: cx, y: cy,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      age: 0,
+      life: 0.26 + Math.random()*0.28,
+      size: 5 + Math.random()*3.5,
+      twinkle: 6 + Math.random()*5
+    });
+  }
+}
+
+// 💨 Smoke: soft puffs that expand and drift upward
+function spawnSmokeParticles(cx, cy){
+  const base   = Math.PI / 2;
+  const spread = Math.PI / 10;
+
+  for (let i = 0; i < 3; i++){
+    const ang   = base + (Math.random() - 0.5) * (spread * 2);
+    const speed = 90 + Math.random()*120;
+    trail.push({
+      kind: "smoke",
+      x:  cx + (Math.random()-0.5)*3,
+      y:  cy + 2 + (Math.random()-0.5)*3,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      age: 0,
+      life: 0.6 + Math.random()*0.5,   // lives longer than flame
+      size: 8 + Math.random()*10,
+      grow: 1.1 + Math.random()*0.9,   // expands over life
+      tint: 0.7 + Math.random()*0.3    // 0.7..1.0 dark→light grey
+    });
+  }
+}
 
   // a few bright orange micro-sparks for energy (rare)
   if (Math.random() < 0.18){
@@ -2229,11 +2300,29 @@ function spawnFlameParticles(cx, cy){
 for (let i = trail.length - 1; i >= 0; i--){
   const t = trail[i];
   t.age += dt;
+
+  // base motion
   t.x += t.vx * dt;
   t.y += t.vy * dt;
   t.vx *= 0.968;
   t.vy *= 0.968;
-  t.vy -= 30 * dt; // buoyancy
+
+  // buoyancy (all trails curl up slightly)
+  t.vy -= 30 * dt;
+
+  // kind-specific tweaks
+  if (t.kind === "smoke"){
+    // smoke rises more + expands
+    t.vy -= 10 * dt;
+    // add a little horizontal wobble
+    t.vx += (Math.random()-0.5) * 8 * dt * 60;
+  } else if (t.kind === "sparkle"){
+    // sparkle keeps tighter jet; tiny upward pull
+    t.vy -= 4 * dt;
+  } else {
+    // default (flame)
+  }
+
   if (t.age >= t.life) trail.splice(i, 1);
 }
 }
@@ -2250,6 +2339,7 @@ for (let i = trail.length - 1; i >= 0; i--){
     // --- draw flame trail particles ---
 // --- 🔥 flame trail (glow + hot core + sparks) ---
 // --- 🔥 flame trail (glow + hot core + orange/red undertone) ---
+// --- 🔥 solid thruster: orange glow undertone + hot core ---
 // --- 🔥 solid thruster: orange glow undertone + hot core ---
 for (const t of trail){
   const a = Math.max(0, 1 - (t.age / t.life));      // 1 → 0
@@ -2273,6 +2363,25 @@ for (const t of trail){
   // bright hot core on top
   ctx.fillStyle = `rgb(${r},${g},${b})`;
   roundRect(ctx, t.x - s/2, t.y - s/2, s, s, t.spark?2:4, true);
+  
+// --- smoke trail ---
+if (!t.spark) {  
+  ctx.globalAlpha = a * 0.4; // lighter opacity
+  ctx.fillStyle = `rgba(80, 80, 80, ${0.35*a})`; // grayish smoke
+  ctx.beginPath();
+  ctx.arc(t.x, t.y - s*0.3, s*1.2, 0, Math.PI*2);
+  ctx.fill();
+}
+
+// --- sparkle overlay ---
+if (t.spark) {
+  ctx.globalAlpha = a; 
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = `rgba(255, 255, 180, ${a})`; // bright gold spark
+  ctx.beginPath();
+  ctx.arc(t.x, t.y, s*0.5, 0, Math.PI*2);
+  ctx.fill();
+}
 
   ctx.restore();
 }
