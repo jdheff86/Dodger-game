@@ -1886,29 +1886,36 @@ function spawnSparkleParticles(cx, cy){
   }
 }
 
+// === THICK, TIGHT SMOKE EMITTER ===
 function spawnSmokeParticles(cx, cy){
-  const base   = Math.PI / 2;      // down
-  const spread = 0.10;              // tighter cone at the start
-  const count  = 7;                 // ↑ from 5 → denser
+  const base   = Math.PI / 2;   // down
+  const spread = 0.08;          // tighter cone near the cube
+  const count  = 7;             // 6–8 = nice dense plume
 
   for (let i = 0; i < count; i++){
-    const ang   = base + (Math.random()-0.5) * spread * 2;
-    const speed = 70 + Math.random() * 90;   // ↓ a bit, lets puffs stack
+    const ang   = base + (Math.random() - 0.5) * spread * 2;
+    const speed = 90 + Math.random() * 110;
 
-    const s0    = 3.2 + Math.random() * 2.6; // a tad smaller at the cube
-    const life  = 1.05 + Math.random() * 0.65; // ↑ lasts longer
+    // larger right at the cube + lives a bit longer
+    const s0   = 6.0 + Math.random() * 3.5;
+    const life = 1.15 + Math.random() * 0.55;
+
+    // pick a cached sprite (random tone / resolution)
     const sprite = SMOKE_SPRITES[(Math.random() * SMOKE_SPRITES.length) | 0];
 
     trail.push({
-      kind:"smoke",
-      x: cx + (Math.random()-0.5) * 1.1,
-      y: cy + 1 + (Math.random()-0.5) * 1.1,
-      vx: Math.cos(ang)*speed,
-      vy: Math.sin(ang)*speed,
-      age:0, life, size:s0,
-      grow: 1.28 + Math.random()*0.28,    // gentle growth
-      cone: (Math.random()-0.5) * 14,     // little less side push = tighter
-      sprite, seed: Math.random()
+      kind: "smoke",
+      x: cx + (Math.random() - 0.5) * 0.9,
+      y: cy + 1 + (Math.random() - 0.5) * 0.9,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      age: 0,
+      life,
+      size: s0,
+      grow: 1.22 + Math.random() * 0.28,   // expands down the plume
+      cone: (Math.random() - 0.5) * 16,    // integrator widens with age
+      sprite,                              
+      seed: Math.random()
     });
   }
 }
@@ -2412,38 +2419,43 @@ for (const t of trail) {
     ctx.fill();
 
   } else if (t.kind === "smoke") {
-    // normalize particle lifetime
-    const k = t.age / t.life;
-    // in the smoke draw block, just after `const k = t.age / t.life;`
-const toneBoost = 1 + k * 0.08;   // 1 → 1.08
-const w = (s.size * toneBoost) * scale / 48; // slightly “airier” downstream
+  // normalize particle lifetime (0..1)
+  const k = t.age / t.life;
 
-    // particle grows along plume
-    const scale = (t.size || 8) * (1.0 + 0.8 * k);
+  // particle grows along plume
+  const scale = (t.size || 8) * (1.0 + 0.9 * k);
 
-    // opacity fades as it ages
-    const haze = 0.25 + 0.45 * (1 - k);
+  // slower fade → thicker column
+  const haze = 0.8 - 0.4 * k;   // 0.8 at birth → 0.4 at end
 
-    // base sprite
-    const s = t.sprite || SMOKE_SPRITES[0];
-    const w = s.size * scale / 48;
-    const h = w;
+  // base sprite + size in screen px (baked sprite is 48px “unit”)
+  const s = t.sprite || SMOKE_SPRITES[0];
+  const w = s.size * scale / 48;
+  const h = w;
 
-    // slight jitter per particle for "billow"
-    const ox = (Math.random() - 0.5) * w * 0.3;
-    const oy = (Math.random() - 0.5) * h * 0.3;
+  // slight jitter per particle for "billow"
+  const ox = (Math.random() - 0.5) * w * 0.28;
+  const oy = (Math.random() - 0.5) * h * 0.28;
 
-    // draw first pass (main puff)
-    ctx.globalAlpha = haze;
-    ctx.drawImage(s.img, t.x + ox - w / 2, t.y + oy - h / 2, w, h);
+  // **Pass 1 — main puff (dense core)**
+  ctx.globalAlpha = haze;
+  ctx.drawImage(s.img, t.x + ox - w / 2, t.y + oy - h / 2, w, h);
 
-    // second pass (slightly offset, denser)
-    ctx.globalAlpha = haze * 0.6;
-    ctx.drawImage(s.img, t.x - ox * 0.4 - w * 0.5, t.y - oy * 0.4 - h * 0.5, w * 0.9, h * 0.9);
+  // **Pass 2 — offset duplicate (adds volume)**
+  ctx.globalAlpha = haze * 0.7;
+  ctx.drawImage(s.img,
+    t.x - ox * 0.45 - (w * 0.92) / 2,
+    t.y - oy * 0.45 - (h * 0.92) / 2,
+    w * 0.92, h * 0.92
+  );
 
-    // third pass (optional faint halo)
-    ctx.globalAlpha = haze * 0.3;
-    ctx.drawImage(s.img, t.x + ox * 0.6 - w * 0.55, t.y + oy * 0.6 - h * 0.55, w * 1.2, h * 1.2);
+  // **Pass 3 — faint halo (soft edge / fills gaps)**
+  ctx.globalAlpha = haze * 0.35;
+  ctx.drawImage(s.img,
+    t.x + ox * 0.5 - (w * 1.26) / 2,
+    t.y + oy * 0.5 - (h * 1.26) / 2,
+    w * 1.26, h * 1.26
+  );
 }
 
   ctx.restore();
