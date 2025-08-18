@@ -1783,6 +1783,90 @@ menuPopup.addEventListener("pointerdown", (e)=>{
   coins:[]
 };
 const trail = [];
+// --- particle emitters (top-level) ---
+function spawnFlameParticles(cx, cy){
+  const base = Math.PI/2, spread = Math.PI/9;
+  for (let i = 0; i < 5; i++){
+    const ang = base + (Math.random()-0.5)*spread*2;
+    const speed = 150 + Math.random()*230;
+    trail.push({
+      kind:"flame",
+      x: cx + (Math.random()-0.5)*2.6,
+      y: cy + 2 + (Math.random()-0.5)*2.6,
+      vx: Math.cos(ang)*speed,
+      vy: Math.sin(ang)*speed,
+      age:0,
+      life:0.30 + Math.random()*0.36,
+      size:7 + Math.random()*6
+    });
+  }
+  if (Math.random() < 0.18){
+    const ang = base + (Math.random()-0.5)*spread*2;
+    const speed = 260 + Math.random()*160;
+    trail.push({
+      kind:"sparkle",
+      x: cx, y: cy,
+      vx: Math.cos(ang)*speed,
+      vy: Math.sin(ang)*speed,
+      age:0,
+      life:0.20 + Math.random()*0.24,
+      size:2.5 + Math.random()*2.5
+    });
+  }
+}
+
+function spawnSparkleParticles(cx, cy){
+  const base = Math.PI/2, spread = Math.PI/14;
+  for (let i = 0; i < 3; i++){
+    const ang = base + (Math.random()-0.5)*spread*2;
+    const speed = 180 + Math.random()*200;
+    trail.push({
+      kind:"sparkle",
+      x: cx + (Math.random()-0.5)*2,
+      y: cy + (Math.random()-0.5)*2,
+      vx: Math.cos(ang)*speed,
+      vy: Math.sin(ang)*speed,
+      age:0,
+      life:0.22 + Math.random()*0.26,
+      size:3 + Math.random()*2.5,
+      twinkle: 8 + Math.random()*6
+    });
+  }
+  if (Math.random() < 0.2){
+    const ang = base + (Math.random()-0.5)*spread*2;
+    const speed = 200 + Math.random()*220;
+    trail.push({
+      kind:"sparkle",
+      x: cx, y: cy,
+      vx: Math.cos(ang)*speed,
+      vy: Math.sin(ang)*speed,
+      age:0,
+      life:0.26 + Math.random()*0.28,
+      size:5 + Math.random()*3.5,
+      twinkle: 6 + Math.random()*5
+    });
+  }
+}
+
+function spawnSmokeParticles(cx, cy){
+  const base = Math.PI/2, spread = Math.PI/10;
+  for (let i = 0; i < 3; i++){
+    const ang = base + (Math.random()-0.5)*spread*2;
+    const speed = 90 + Math.random()*120;
+    trail.push({
+      kind:"smoke",
+      x: cx + (Math.random()-0.5)*3,
+      y: cy + 2 + (Math.random()-0.5)*3,
+      vx: Math.cos(ang)*speed,
+      vy: Math.sin(ang)*speed,
+      age:0,
+      life:0.6 + Math.random()*0.5,
+      size:8 + Math.random()*10,
+      grow: 1.1 + Math.random()*0.9,
+      tint: 0.7 + Math.random()*0.3
+    });
+  }
+}
   
   bestEl.textContent = state.best;
 ammoEl.textContent = state.ammo;
@@ -2193,106 +2277,6 @@ switch (cosmetics.equipped.trail) {
       }
       gameOver(); return;
     }
-  }
-
-
-// 🔥 downward cone + occasional sparks (tight jet look = option B)
-// 🔥 upgraded tight, solid cone (same function name/signature)
-// 🔥 upgraded tight, solid cone (same function name/signature)
-function spawnFlameParticles(cx, cy){
-  const base   = Math.PI / 2;     // straight down
-  const spread = Math.PI / 9;     // a touch narrower than before
-
-  // core flames — slightly denser
-  for (let i = 0; i < 5; i++){
-    const ang   = base + (Math.random() - 0.5) * (spread * 2);
-    const speed = 150 + Math.random()*230;  // faster jet
-    trail.push({
-      x:  cx + (Math.random()-0.5)*2.6,
-      y:  cy + 2 + (Math.random()-0.5)*2.6,
-      vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,
-      age: 0,
-      life: 0.30 + Math.random()*0.36,  // brief + punchy
-      size: 7 + Math.random()*6,        // solid puck
-      spark: false
-    });
-  }
-  // ✨ Sparkle: tight glints, bright core, subtle blue-white glow
-function spawnSparkleParticles(cx, cy){
-  const base   = Math.PI / 2;     // downward jet
-  const spread = Math.PI / 14;    // narrow
-
-  // small bright glints
-  for (let i = 0; i < 3; i++){
-    const ang   = base + (Math.random() - 0.5) * (spread * 2);
-    const speed = 180 + Math.random()*200;
-    trail.push({
-      kind: "sparkle",
-      x:  cx + (Math.random()-0.5)*2.0,
-      y:  cy + (Math.random()-0.5)*2.0,
-      vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,
-      age: 0,
-      life: 0.22 + Math.random()*0.26,
-      size: 3 + Math.random()*2.5,
-      twinkle: 8 + Math.random()*6 // Hz-ish (for flicker)
-    });
-  }
-
-  // occasional larger flare
-  if (Math.random() < 0.2){
-    const ang   = base + (Math.random() - 0.5) * (spread * 2);
-    const speed = 200 + Math.random()*220;
-    trail.push({
-      kind: "sparkle",
-      x: cx, y: cy,
-      vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,
-      age: 0,
-      life: 0.26 + Math.random()*0.28,
-      size: 5 + Math.random()*3.5,
-      twinkle: 6 + Math.random()*5
-    });
-  }
-}
-
-// 💨 Smoke: soft puffs that expand and drift upward
-function spawnSmokeParticles(cx, cy){
-  const base   = Math.PI / 2;
-  const spread = Math.PI / 10;
-
-  for (let i = 0; i < 3; i++){
-    const ang   = base + (Math.random() - 0.5) * (spread * 2);
-    const speed = 90 + Math.random()*120;
-    trail.push({
-      kind: "smoke",
-      x:  cx + (Math.random()-0.5)*3,
-      y:  cy + 2 + (Math.random()-0.5)*3,
-      vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,
-      age: 0,
-      life: 0.6 + Math.random()*0.5,   // lives longer than flame
-      size: 8 + Math.random()*10,
-      grow: 1.1 + Math.random()*0.9,   // expands over life
-      tint: 0.7 + Math.random()*0.3    // 0.7..1.0 dark→light grey
-    });
-  }
-}
-
-  // a few bright orange micro-sparks for energy (rare)
-  if (Math.random() < 0.18){
-    const ang   = base + (Math.random() - 0.5) * (spread * 2);
-    const speed = 260 + Math.random()*160;
-    trail.push({
-      x: cx, y: cy,
-      vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,
-      age: 0,
-      life: 0.20 + Math.random()*0.24,
-      size: 2.5 + Math.random()*2.5,
-      spark: true
-    });
   }
 }
 
