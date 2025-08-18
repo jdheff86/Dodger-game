@@ -2278,10 +2278,8 @@ switch (cosmetics.equipped.trail) {
       gameOver(); return;
     }
   }
-}
-
-// flame particle integrator (already present below; keep as-is)
-for (let i = trail.length - 1; i >= 0; i--){
+  // --- Trail particles: integrate + cull ---
+for (let i = trail.length - 1; i >= 0; i--) {
   const t = trail[i];
   t.age += dt;
 
@@ -2295,22 +2293,20 @@ for (let i = trail.length - 1; i >= 0; i--){
   t.vy -= 30 * dt;
 
   // kind-specific tweaks
-  if (t.kind === "smoke"){
-    // smoke rises more + expands
-    t.vy -= 10 * dt;
-    // add a little horizontal wobble
-    t.vx += (Math.random()-0.5) * 8 * dt * 60;
-  } else if (t.kind === "sparkle"){
-    // sparkle keeps tighter jet; tiny upward pull
-    t.vy -= 4 * dt;
-  } 
-  if (t.age >= t.life) trail.splice(i, 1);
-    // default (flame)
+  if (t.kind === "smoke") {
+    t.vy -= 10 * dt;                         // more rise
+    t.vx += (Math.random() - 0.5) * 8 * dt * 60; // wobble
+  } else if (t.kind === "sparkle") {
+    t.vy -= 4 * dt;                          // slight rise
   }
 
+  // remove dead particles
   if (t.age >= t.life) trail.splice(i, 1);
 }
 }
+
+// flame particle integrator (already present below; keep as-is)
+
 
   function draw(){
     const g = ctx.createLinearGradient(0,0,0,height); g.addColorStop(0,"#0b1220"); g.addColorStop(1,"#0c0f14");
