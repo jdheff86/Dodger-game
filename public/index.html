@@ -1849,10 +1849,11 @@ function spawnSparkleParticles(cx, cy){
 }
 
 function spawnSmokeParticles(cx, cy){
+  // rises upward with a little sideways wobble
   const base = Math.PI/2, spread = Math.PI/10;
   for (let i = 0; i < 3; i++){
     const ang = base + (Math.random()-0.5)*spread*2;
-    const speed = 90 + Math.random()*120;
+    const speed = 70 + Math.random()*110;  // slower than flame
     trail.push({
       kind:"smoke",
       x: cx + (Math.random()-0.5)*3,
@@ -1860,10 +1861,10 @@ function spawnSmokeParticles(cx, cy){
       vx: Math.cos(ang)*speed,
       vy: Math.sin(ang)*speed,
       age:0,
-      life:0.6 + Math.random()*0.5,
-      size:8 + Math.random()*10,
-      grow: 1.1 + Math.random()*0.9,
-      tint: 0.7 + Math.random()*0.3
+      life:0.7 + Math.random()*0.6,   // lingers longer
+      size:10 + Math.random()*12,     // bigger puffs
+      grow: 1.12 + Math.random()*0.5, // expands a bit over time (your integrator can use this)
+      tint: 0.65 + Math.random()*0.35 // 0.65..1.0 to vary gray
     });
   }
 }
@@ -2318,40 +2319,72 @@ for (let i = trail.length - 1; i >= 0; i--) {
 
     const p = state.player, pw = p.w*p.scale, ph = p.h*p.scale;
     // --- draw flame trail particles ---
-// --- 🔥 flame trail (glow + hot core + sparks) ---
-// --- 🔥 flame trail (glow + hot core + orange/red undertone) ---
-// --- 🔥 solid thruster: orange glow undertone + hot core ---
-// --- 🔥 solid thruster: orange glow undertone + hot core ---
-for (const t of trail){
-  const a = Math.max(0, 1 - (t.age / t.life));      // 1 → 0
+// ── Particle rendering (flame | sparkle | smoke) ─────────────────────────
+for (const t of trail) {
+  const a = Math.max(0, 1 - (t.age / t.life));      // 1 → 0 fade
   const s = (t.size || 8) * (0.72 + 0.28 * a);      // slight shrink
-
-  // color ramp (hot → cooler)
-  const heat = a;
-  const r = 255;
-  const g = Math.floor(110 + 130*heat);             // 110..240
-  const b = Math.floor(6 * (1 - heat));             // near 0
 
   ctx.save();
   ctx.globalAlpha = a;
 
-  // strong orange glow base (gives that “solid” look)
-  ctx.shadowBlur  = t.spark ? 8 : 18;
-  ctx.shadowColor = `rgba(255,128,24,${0.95*a})`;
-  ctx.fillStyle   = `rgba(255,120,20,${0.58*a})`;
-  roundRect(ctx, t.x - s/1.15, t.y - s/1.1, s*1.15, s*1.15, t.spark?2:4, true);
+  if (t.kind === "flame") {
+    // warm orange glow + bright core
+    const heat = a;
+    const r = 255;
+    const g = Math.floor(110 + 130 * heat);
+    const b = Math.floor(6 * (1 - heat));
 
-  // bright hot core on top
-  ctx.fillStyle = `rgb(${r},${g},${b})`;
-  roundRect(ctx, t.x - s/2, t.y - s/2, s, s, t.spark?2:4, true);
-  
-// --- smoke trail ---
-if (!t.spark) {  
-  ctx.globalAlpha = a * 0.4; // lighter opacity
-  ctx.fillStyle = `rgba(80, 80, 80, ${0.35*a})`; // grayish smoke
-  ctx.beginPath();
-  ctx.arc(t.x, t.y - s*0.3, s*1.2, 0, Math.PI*2);
-  ctx.fill();
+    // glow base
+    ctx.shadowBlur  = t.spark ? 8 : 18;
+    ctx.shadowColor = `rgba(255,128,24,${0.95 * a})`;
+    ctx.fillStyle   = `rgba(255,120,20,${0.58 * a})`;
+    roundRect(ctx, t.x - s/1.15, t.y - s/1.1, s*1.15, s*1.15, t.spark?2:4, true);
+
+    // hot core
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    roundRect(ctx, t.x - s/2, t.y - s/2, s, s, t.spark?2:4, true);
+
+  } else if (t.kind === "sparkle") {
+    // bright golden spark
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = `rgba(255, 255, 180, ${a})`;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, s * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+  } else if (t.kind === "smoke") {
+    // soft gray puff that grows and fades (alpha blend, not additive)
+    const grow = t.grow || 1.15;      // light expansion per frame already applied in integrator
+    const tint = t.tint || 0.8;       // 0.6..1.0 → darker..lighter gray
+    const gray = Math.floor(120 + 90 * tint); // 120..210
+    const haze = 0.20 + 0.35 * a;     // opacity that drops over life
+
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = haze;
+
+    // main puff
+    ctx.fillStyle = `rgb(${gray},${gray},${gray})`;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y - s * 0.20, s * 1.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // soft outer ring for thickness
+    ctx.globalAlpha = haze * 0.6;
+    ctx.beginPath();
+    ctx.arc(t.x + s * 0.15, t.y - s * 0.35, s * 1.55, 0, Math.PI * 2);
+    ctx.fill();
+
+    // a subtle lighter highlight
+    const hi = Math.min(255, gray + 20);
+    ctx.globalAlpha = haze * 0.35;
+    ctx.fillStyle = `rgb(${hi},${hi},${hi})`;
+    ctx.beginPath();
+    ctx.arc(t.x - s * 0.25, t.y - s * 0.55, s * 0.9, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 // --- sparkle overlay ---
