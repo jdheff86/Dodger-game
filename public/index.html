@@ -2188,37 +2188,38 @@ if (cosmetics.equipped.trail === "trail.flame") {
 
 
 // 🔥 downward cone + occasional sparks (tight jet look = option B)
+// 🔥 upgraded tight, solid cone (same function name/signature)
 function spawnFlameParticles(cx, cy){
   const base   = Math.PI / 2;     // straight down
-  const spread = Math.PI / 6;     // ±30°
+  const spread = Math.PI / 9;     // a touch narrower than before
 
-  // core flames
-  for (let i = 0; i < 4; i++){
+  // core flames — slightly denser
+  for (let i = 0; i < 5; i++){
     const ang   = base + (Math.random() - 0.5) * (spread * 2);
-    const speed = 110 + Math.random()*140;
+    const speed = 150 + Math.random()*230;  // faster jet
     trail.push({
-      x:  cx + (Math.random()-0.5)*3,
-      y:  cy + 2 + (Math.random()-0.5)*3,
+      x:  cx + (Math.random()-0.5)*2.6,
+      y:  cy + 2 + (Math.random()-0.5)*2.6,
       vx: Math.cos(ang) * speed,
       vy: Math.sin(ang) * speed,
       age: 0,
-      life: 0.32 + Math.random()*0.36,
-      size: 6 + Math.random()*6,
+      life: 0.30 + Math.random()*0.36,  // brief + punchy
+      size: 7 + Math.random()*6,        // solid puck
       spark: false
     });
   }
 
-  // bright orange sparks that shoot out a bit
-  if (Math.random() < 0.25){
+  // a few bright orange micro-sparks for energy (rare)
+  if (Math.random() < 0.18){
     const ang   = base + (Math.random() - 0.5) * (spread * 2);
-    const speed = 220 + Math.random()*160;
+    const speed = 260 + Math.random()*160;
     trail.push({
       x: cx, y: cy,
       vx: Math.cos(ang) * speed,
       vy: Math.sin(ang) * speed,
       age: 0,
-      life: 0.22 + Math.random()*0.28,
-      size: 3 + Math.random()*3,
+      life: 0.20 + Math.random()*0.24,
+      size: 2.5 + Math.random()*2.5,
       spark: true
     });
   }
@@ -2230,9 +2231,9 @@ for (let i = trail.length - 1; i >= 0; i--){
   t.age += dt;
   t.x += t.vx * dt;
   t.y += t.vy * dt;
-  t.vx *= 0.97;
-  t.vy *= 0.97;
-  t.vy -= 28 * dt; // buoyancy
+  t.vx *= 0.968;
+  t.vy *= 0.968;
+  t.vy -= 30 * dt; // buoyancy
   if (t.age >= t.life) trail.splice(i, 1);
 }
 }
@@ -2249,31 +2250,29 @@ for (let i = trail.length - 1; i >= 0; i--){
     // --- draw flame trail particles ---
 // --- 🔥 flame trail (glow + hot core + sparks) ---
 // --- 🔥 flame trail (glow + hot core + orange/red undertone) ---
+// --- 🔥 solid thruster: orange glow undertone + hot core ---
 for (const t of trail){
-  const a = Math.max(0, 1 - (t.age / t.life));      // fade 1→0
-  const s = (t.size || 8) * (0.6 + 0.4 * a);        // shrink over life
+  const a = Math.max(0, 1 - (t.age / t.life));      // 1 → 0
+  const s = (t.size || 8) * (0.72 + 0.28 * a);      // slight shrink
 
-  // warmer palette: strong orange undertones
-  // heat=1 (new): yellow-white; heat=0 (old): dark red/orange
+  // color ramp (hot → cooler)
   const heat = a;
   const r = 255;
-  const g = Math.floor(80 + 140 * heat);            // 80..220 (less green → more orange)
-  const b = Math.floor(10 * (1 - heat));            // 10..0
+  const g = Math.floor(110 + 130*heat);             // 110..240
+  const b = Math.floor(6 * (1 - heat));             // near 0
 
   ctx.save();
   ctx.globalAlpha = a;
 
-  // outer orange glow
-  ctx.shadowBlur  = t.spark ? 8 : 16;
-  ctx.shadowColor = `rgba(255,128,20,${0.9 * a})`;
-
-  // draw a soft orange puff first (undertone)
-  ctx.fillStyle = `rgba(255,120,20,${0.6 * a})`;
-  roundRect(ctx, t.x - s/1.2, t.y - s/1.2, s*1.2, s*1.2, t.spark ? 2 : 4, true);
+  // strong orange glow base (gives that “solid” look)
+  ctx.shadowBlur  = t.spark ? 8 : 18;
+  ctx.shadowColor = `rgba(255,128,24,${0.95*a})`;
+  ctx.fillStyle   = `rgba(255,120,20,${0.58*a})`;
+  roundRect(ctx, t.x - s/1.15, t.y - s/1.1, s*1.15, s*1.15, t.spark?2:4, true);
 
   // bright hot core on top
   ctx.fillStyle = `rgb(${r},${g},${b})`;
-  roundRect(ctx, t.x - s/2, t.y - s/2, s, s, t.spark ? 2 : 4, true);
+  roundRect(ctx, t.x - s/2, t.y - s/2, s, s, t.spark?2:4, true);
 
   ctx.restore();
 }
