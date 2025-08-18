@@ -1855,28 +1855,26 @@ function spawnSparkleParticles(cx, cy){
 }
 
 function spawnSmokeParticles(cx, cy){
-  // emit a tight, upward cone from the player
-  const base   = -Math.PI / 2;      // straight up
-  const spread = Math.PI / 28;      // ~6.4° (tight)
+  // Emit mostly downward with a tight spread → cone
+  const base = Math.PI / 2;     // downwards in canvas
+  const spread = 0.22;          // narrow cone
+
   for (let i = 0; i < 4; i++){
-    const ang   = base + (Math.random() - 0.5) * spread * 2;
-    const speed = 60 + Math.random() * 90;     // gentle rise
-    // small outward bias so the plume widens as it rises
-    const side  = (Math.random() < 0.5 ? -1 : 1);
-    const cone  = 18 + Math.random() * 26;     // px/s² lateral push
+    const ang = base + (Math.random() - 0.5) * spread * 2;
+    const speed = 70 + Math.random() * 90;     // slower than flame
 
     trail.push({
       kind: "smoke",
-      x: cx + (Math.random() - 0.5) * 1.4,     // tight emission point
-      y: cy - 2 + (Math.random() - 0.5) * 1.4, // just above the jet
+      x: cx + (Math.random() - 0.5) * 2.0,
+      y: cy + 2 + (Math.random() - 0.5) * 2.0,
       vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,               // already upward (negative)
-      cone: side * cone,                       // outward acceleration
+      vy: Math.sin(ang) * speed,               // ↓ starts moving down
       age: 0,
-      life: 0.85 + Math.random() * 0.55,       // lingers a bit
-      size: 7 + Math.random() * 6,             // small at the nozzle
-      grow: 1.18 + Math.random() * 0.28,       // expands as it rises
-      tint: 0.75 + Math.random() * 0.2         // mid-light gray variety
+      life: 0.8 + Math.random() * 0.55,        // lingers
+      size: 8 + Math.random() * 8,             // smaller at source
+      grow: 1.14 + Math.random() * 0.25,       // billow as it ages
+      tint: 0.72 + Math.random() * 0.22,       // subtle gray variance
+      cone: (Math.random() - 0.5) * 20         // tiny sideways push used below
     });
   }
 }
@@ -2311,16 +2309,16 @@ for (let i = trail.length - 1; i >= 0; i--) {
   if (t.cone) t.vx += t.cone * dt;     // outward push (left or right)
 
   // buoyancy: make smoke rise and accelerate a touch
-  t.vy -= 22 * dt;
+  t.vy -= 24 * dt;
 
   // subtle curl (far less wobble than before)
-  t.vx += (Math.random() - 0.5) * 2.5;
+  t.vx += (Math.random() - 0.5) * .6;
 
   // expand the puff a little as it rises
   if (t.grow) t.size *= (1 + (t.grow - 1) * dt);
 
   // cap horizontal drift so the cone stays tight
-  const maxVx = 80;
+  const maxVx = 35;
   if (t.vx >  maxVx) t.vx =  maxVx;
   if (t.vx < -maxVx) t.vx = -maxVx;
 }
