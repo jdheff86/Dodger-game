@@ -2282,6 +2282,7 @@ switch (cosmetics.equipped.trail) {
     break;
     // in update(), where you emit the equipped trail:
 case "trail.flame":
+const emitY = p.y + ph + 1; // was ph - 2
   spawnFlameParticles(emitX, emitY);
   if (Math.random() < 0.8) spawnMicroSmoke(emitX, emitY + 4);
   break;
