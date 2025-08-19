@@ -1216,67 +1216,67 @@ const SMOKE_SPRITES = [];
   }
 })();
 
-// --- Cached flame sprites (fast; bright core + orange shell) ---
-// --- Cached flame sprites (core + blue torch core + shell) ---
-// --- Cached flame sprites (core + blue torch core + shell) ---
-// --- Cached flame sprites (blue core + core + shell + ember) ---
-// --- Cached flame sprites (torch look: ember + shell + blue band + white core) ---
-const FLAME_SPRITES = [];
-(function buildFlameSprites(){
-  const SIZES = [40, 56, 72]; // LOD
+// --- Prebaked flame plumes (1 image per size; core+blue+shell+ember) ---
+const FLAME_PLUMES = {}; // keyed by size (48, 72, 96)
 
+(function buildFlamePlumes(){
+  const SIZES = [48, 72, 96];          // a few LOD buckets
   for (const size of SIZES){
-    // WHITE-HOT CORE
-    {
-      const off = document.createElement('canvas'); off.width = off.height = size;
-      const c = off.getContext('2d');
-      const cx = size/2, cy = size/2, r = size*0.50;
-      const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
-      g.addColorStop(0.00, "rgba(255,255,255,1.00)");
-      g.addColorStop(0.30, "rgba(255,250,200,0.95)");
-      g.addColorStop(1.00, "rgba(255,245,170,0.00)");
-      c.fillStyle = g; c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.fill();
-      FLAME_SPRITES.push({ img: off, size, layer:"core" });
-    }
+    const w = size, h = Math.round(size * 1.35);
+    const off = document.createElement('canvas');
+    off.width = w; off.height = h;
+    const c = off.getContext('2d');
 
-    // ELECTRIC BLUE BAND (sits between core and shell)
-    {
-      const off = document.createElement('canvas'); off.width = off.height = size;
-      const c = off.getContext('2d');
-      const cx = size/2, cy = size/2, r = size*0.46;
-      const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
-      g.addColorStop(0.00, "rgba(185,245,255,1.0)");
-      g.addColorStop(0.28, "rgba(90,190,255,0.95)");
-      g.addColorStop(1.00, "rgba(40,115,255,0.00)");
-      c.fillStyle = g; c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.fill();
-      FLAME_SPRITES.push({ img: off, size, layer:"blue" });
-    }
+    // vertical feather
+    const lg = c.createLinearGradient(w*0.5, 0, w*0.5, h);
+    lg.addColorStop(0.00, "rgba(255,120,40,0.00)");
+    lg.addColorStop(0.18, "rgba(255,160,60,0.10)");
+    lg.addColorStop(0.55, "rgba(255,110,30,0.22)");
+    lg.addColorStop(1.00, "rgba(160,25,18,0.00)");
+    c.fillStyle = lg;
+    c.fillRect(0,0,w,h);
 
-    // ORANGE SHELL
+    // orange shell
     {
-      const off = document.createElement('canvas'); off.width = off.height = size;
-      const c = off.getContext('2d');
-      const cx = size/2, cy = size/2, r = size*0.60;
-      const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
-      g.addColorStop(0.00, "rgba(255,190,70,0.90)");
-      g.addColorStop(0.48, "rgba(255,130,38,0.62)");
+      const g = c.createRadialGradient(w/2, h*0.20, 2, w/2, h*0.45, h*0.60);
+      g.addColorStop(0.00, "rgba(255,185,70,0.85)");
+      g.addColorStop(0.55, "rgba(255,130,38,0.55)");
       g.addColorStop(1.00, "rgba(255,85,22,0.00)");
-      c.fillStyle = g; c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.fill();
-      FLAME_SPRITES.push({ img: off, size, layer:"shell" });
+      c.fillStyle = g; c.beginPath();
+      c.ellipse(w/2, h*0.55, w*0.46, h*0.55, 0, 0, Math.PI*2); c.fill();
     }
 
-    // DEEP RED EMBER (outermost)
+    // blue band near the nozzle
     {
-      const off = document.createElement('canvas'); off.width = off.height = size;
-      const c = off.getContext('2d');
-      const cx = size/2, cy = size/2, r = size*0.70;
-      const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
-      g.addColorStop(0.00, "rgba(255,95,25,0.70)");
-      g.addColorStop(0.45, "rgba(235,55,20,0.55)");
-      g.addColorStop(1.00, "rgba(160,18,18,0.00)");
-      c.fillStyle = g; c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.fill();
-      FLAME_SPRITES.push({ img: off, size, layer:"ember" });
+      const g = c.createRadialGradient(w/2, h*0.15, 1, w/2, h*0.28, h*0.28);
+      g.addColorStop(0.00, "rgba(185,245,255,1.0)");
+      g.addColorStop(0.40, "rgba(90,190,255,0.90)");
+      g.addColorStop(1.00, "rgba(40,115,255,0.00)");
+      c.fillStyle = g; c.beginPath();
+      c.ellipse(w/2, h*0.28, w*0.30, h*0.30, 0, 0, Math.PI*2); c.fill();
     }
+
+    // white-hot core
+    {
+      const g = c.createRadialGradient(w/2, h*0.22, 1, w/2, h*0.36, h*0.30);
+      g.addColorStop(0.00, "rgba(255,255,255,1.0)");
+      g.addColorStop(0.35, "rgba(255,250,210,0.95)");
+      g.addColorStop(1.00, "rgba(255,245,170,0.00)");
+      c.fillStyle = g; c.beginPath();
+      c.ellipse(w/2, h*0.33, w*0.26, h*0.26, 0, 0, Math.PI*2); c.fill();
+    }
+
+    // ember fringe
+    {
+      const g = c.createRadialGradient(w/2, h*0.75, 2, w/2, h*0.85, h*0.60);
+      g.addColorStop(0.00, "rgba(255,95,25,0.50)");
+      g.addColorStop(0.50, "rgba(220,40,20,0.40)");
+      g.addColorStop(1.00, "rgba(150,18,18,0.00)");
+      c.fillStyle = g; c.beginPath();
+      c.ellipse(w/2, h*0.78, w*0.50, h*0.55, 0, 0, Math.PI*2); c.fill();
+    }
+
+    FLAME_PLUMES[size] = off;
   }
 })();
 
@@ -1887,34 +1887,29 @@ menuPopup.addEventListener("pointerdown", (e)=>{
 const trail = [];
 // --- particle emitters (top-level) ---
 // denser & detailed exhaust with a tight cone that widens downstream
+// fewer, longer-lived particles; they stretch into each other
 function spawnFlameParticles(cx, cy){
-  const base   = Math.PI / 2;   // downwards
-  const spread = 0.12;          // tight near the nozzle
-  const count  = 6 + (Math.random()*3|0); // 6–8 per frame
+  const base = Math.PI/2, spread = 0.10;
+  const count = 2 + (Math.random()*1|0); // 2–3 per frame (not 6–8)
 
-  for (let i = 0; i < count; i++){
-    const ang   = base + (Math.random()-0.5) * spread * 2;
-    const speed = 240 + Math.random()*260;
-
-    const size0 = 7 + Math.random()*5;     // starts small, grows quickly
-    const life  = 0.32 + Math.random()*0.22;
+  for (let i=0; i<count; i++){
+    const ang   = base + (Math.random()-0.5)*spread*2;
+    const speed = 220 + Math.random()*220;
 
     trail.push({
       kind : "flame",
-      x    : cx + (Math.random()-0.5)*0.8,
-      y    : cy + 1 + (Math.random()-0.5)*0.8,
-      vx   : Math.cos(ang) * speed,
-      vy   : Math.sin(ang) * speed,
+      x    : cx + (Math.random()-0.5)*0.6,
+      y    : cy + 1 + (Math.random()-0.5)*0.6,
+      vx   : Math.cos(ang)*speed,
+      vy   : Math.sin(ang)*speed,
       age  : 0,
-      life,
-      size : size0,
-      grow : 1.35 + Math.random()*0.22,    // expand downstream
-      cone : (Math.random()-0.5) * 20,     // widen with age
-      flicker: 7 + Math.random()*9,
-      seed   : Math.random()
+      life : 0.42 + Math.random()*0.22,  // lives a bit longer
+      size : 14 + Math.random()*6,
+      grow : 1.25 + Math.random()*0.20,
+      flicker: 6 + Math.random()*8
     });
   }
-
+}
   // tiny hot specks
   if (Math.random() < 0.20){
     const ang   = base + (Math.random()-0.5)*spread*2;
@@ -2473,38 +2468,26 @@ for (const t of trail) {
   ctx.save();
   ctx.globalAlpha = a;
 
-  if (t.kind === "flame") {
+if (t.kind === "flame") {
   const a = Math.max(0, 1 - (t.age / t.life));
-  const s = (t.size || 8) * (0.72 + 0.28 * a);
+  const s = (t.size || 12) * (0.75 + 0.25 * a);
 
-  // choose sprite bucket
-  const target = (s < 48) ? 40 : (s < 64) ? 56 : 72;
-  const ember  = FLAME_SPRITES.find(x => x.layer==="ember" && x.size===target);
-  const shell  = FLAME_SPRITES.find(x => x.layer==="shell" && x.size===target);
-  const blue   = FLAME_SPRITES.find(x => x.layer==="blue"  && x.size===target);
-  const core   = FLAME_SPRITES.find(x => x.layer==="core"  && x.size===target);
+  // pick atlas sprite once; no array .find() per frame
+  const target = (s < 56) ? 48 : (s < 84) ? 72 : 96;
+  const img = FLAME_PLUMES[target];
 
-  // proportions + flicker
-  const scale = s / target;
-  const w = target * scale, h = w * 1.28;
-  const jitterY = (Math.random() - 0.5) * (w * 0.08);
+  // slight vertical jitter so it shimmers
+  const w = s, h = s * 1.35;
+  const jitterY = (Math.random() - 0.5) * (w * 0.06);
 
-  // 🔥 additive blend + soft glow
-  const prevComp = ctx.globalCompositeOperation;
+  // additive blend only (no shadowBlur → much cheaper on iOS)
+  const prev = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = "lighter";
-  ctx.shadowColor = "rgba(255,180,80,0.6)";
-  ctx.shadowBlur  = Math.max(6, w * 0.28);
-
-  // draw order: ember (outer) → shell → blue band → white core
-  if (ember){ ctx.globalAlpha = a * 0.55; ctx.drawImage(ember.img, t.x - w/2, t.y + jitterY - h/2, w*1.06, h*1.12); }
-  if (shell){ ctx.globalAlpha = a * 0.75; ctx.drawImage(shell.img, t.x - w/2, t.y + jitterY - h/2, w,        h); }
-  if (blue) { ctx.globalAlpha = a * 0.90; ctx.drawImage(blue.img,  t.x - w/2, t.y + jitterY - h/2, w*0.92,   h*0.92); }
-  if (core) { ctx.globalAlpha = a * 1.00; ctx.drawImage(core.img,  t.x - w/2, t.y + jitterY - h/2, w*0.82,   h*0.82); }
-
-  // restore
-  ctx.shadowBlur = 0;
-  ctx.globalCompositeOperation = prevComp;
+  ctx.globalAlpha = a * 0.95;
+  ctx.drawImage(img, t.x - w/2, t.y + jitterY - h/2, w, h);
+  ctx.globalCompositeOperation = prev;
   ctx.globalAlpha = 1;
+
   ctx.restore();
   continue;
 }
