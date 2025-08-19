@@ -1863,7 +1863,7 @@ const trail = [];
 function spawnFlameParticles(cx, cy){
   const base   = Math.PI / 2;      // down
   const spread = 0.13;             // tight at the cube
-  const count  = 7;                 // density; bump for thicker
+  const count = 4 + Math.random() * 2; 
 
   for (let i = 0; i < count; i++){
     const ang   = base + (Math.random()-0.5) * spread * 2;
@@ -2413,6 +2413,7 @@ for (let i = trail.length - 1; i >= 0; i--) {
     t.vy += 26 * dt;                              // exhaust push
     t.vx += (Math.random() - 0.5) * 1.8;         // turbulence
     if (t.grow) t.size *= (1 + (t.grow - 1) * dt);
+    t.size *= (1 + 0.05 * Math.sin(t.seed * 20 + t.age));
     const flick = Math.sin((t.seed * 1000 + t.age) * (t.flicker || 8)) * 0.06;
     t.size *= (1 + flick);
     const maxVx = 42;
@@ -2448,11 +2449,18 @@ for (const t of trail) {
   ctx.globalAlpha = a;
 
   if (t.kind === "flame") {
-    // warm orange glow + bright core
-    const heat = a;
-    const rr = 255;
-    const gg = Math.floor(110 + 130 * heat);
-    const bb = Math.floor(6 * (1 - heat));
+  const heat = 1 - t.age / t.life; // 1 at birth, 0 at death
+  const r = 255;
+  const g = Math.floor(160 + 95 * heat); // fades from yellowish to orange
+  const b = Math.floor(30 * heat);       // faint blue at birth, gone later
+  
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = `rgba(${r},${g},${b},${0.6 * heat})`;
+  ctx.fillStyle = `rgba(${r},${g},${b},${0.9 * heat})`;
+  ctx.beginPath();
+ctx.ellipse(t.x, t.y, s * 0.6, s * 1.4, 0, 0, Math.PI * 2);
+ctx.fill();
+}
 
     // glow base
     ctx.shadowBlur  = t.spark ? 8 : 18;
