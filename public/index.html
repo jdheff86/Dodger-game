@@ -1217,25 +1217,68 @@ const SMOKE_SPRITES = [];
 })();
 
 // --- Cached flame sprites (fast; bright core + orange shell) ---
+// --- Cached flame sprites (core + blue torch core + shell) ---
 const FLAME_SPRITES = [];
 (function buildFlameSprites(){
-  const SIZES = [40, 56, 72];                    // three resolutions (LOD)
-  // two layers per size: [core, shell]
+  const SIZES = [40, 56, 72];  // three resolutions (LOD)
+
   for (const size of SIZES){
-    // CORE: white → warm yellow
+    // CORE: white -> warm yellow
     {
       const off = document.createElement('canvas');
       off.width = off.height = size;
       const c = off.getContext('2d');
       const cx = size/2, cy = size/2, r = size*0.50;
+
       const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
       g.addColorStop(0.00, "rgba(255,255,255,0.95)");
       g.addColorStop(0.35, "rgba(255,245,160,0.85)");
       g.addColorStop(1.00, "rgba(255,245,160,0.00)");
+
       c.fillStyle = g;
       c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.fill();
+
       FLAME_SPRITES.push({ img: off, size, layer: "core" });
     }
+
+    // BLUECORE: distinct torch-blue ring under the shell
+    {
+      const off = document.createElement('canvas');
+      off.width = off.height = size;
+      const c = off.getContext('2d');
+      const cx = size/2, cy = size/2, r = size*0.42;
+
+      const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0.00, "rgba(170,225,255,1.0)");   // icy blue center
+      g.addColorStop(0.30, "rgba(70,170,255,0.90)");   // propane-blue
+      g.addColorStop(1.00, "rgba(60,110,220,0.00)");   // fade out
+
+      c.fillStyle = g;
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.fill();
+
+      FLAME_SPRITES.push({ img: off, size, layer: "bluecore" });
+    }
+
+    // SHELL: hot orange/red halo
+    {
+      const off = document.createElement('canvas');
+      off.width = off.height = size;
+      const c = off.getContext('2d');
+      const cx = size/2, cy = size/2, r = size*0.55;
+
+      const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0.00, "rgba(255,180,60,0.75)");
+      g.addColorStop(0.50, "rgba(255,110,30,0.55)");
+      g.addColorStop(1.00, "rgba(255,70,20,0.00)");
+
+      c.fillStyle = g;
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.fill();
+
+      FLAME_SPRITES.push({ img: off, size, layer: "shell" });
+    }
+  }
+})();
+      
     // SHELL: hot orange/red halo
     {
       const off = document.createElement('canvas');
@@ -2446,50 +2489,41 @@ for (const t of trail) {
   ctx.save();
   ctx.globalAlpha = a;
 
-    if (t.kind === "flame") {
-    // heat factor
-    const a2 = Math.max(0, 1 - (t.age / t.life));
-    const s2 = (t.size || 8) * (0.72 + 0.28 * a2);
+  if (t.kind === "flame") {
+  // fade/size
+  const a = Math.max(0, 1 - (t.age / t.life));
+  const s = (t.size || 8) * (0.72 + 0.28 * a);
 
-    // --- Outer shell: orange/red glow ---
-    ctx.save();
-    ctx.globalAlpha = a2 * 0.85;
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = "rgba(255,140,40,0.8)";
+  // pick nearest sprite size to avoid expensive scaling
+  const target = (s < 48) ? 40 : (s < 64) ? 56 : 72;
+  const shell   = FLAME_SPRITES.find(x => x.layer==="shell"    && x.size===target);
+  const blue    = FLAME_SPRITES.find(x => x.layer==="bluecore" && x.size===target);
+  const core    = FLAME_SPRITES.find(x => x.layer==="core"     && x.size===target);
 
-    let g = ctx.createRadialGradient(t.x, t.y, s2 * 0.10, t.x, t.y, s2 * 0.70);
-    g.addColorStop(0.00, "rgba(255,255,255,0.95)");  // white-hot core
-    g.addColorStop(0.20, "rgba(70,170,255,0.85)");   // hint of blue
-    g.addColorStop(0.45, "rgba(255,220,70,0.85)");   // bright yellow
-    g.addColorStop(0.75, "rgba(255,140,30,0.75)");   // orange
-    g.addColorStop(1.00, "rgba(180,40,10,0.35)");    // deep red edge
+  // compute draw size (allow slight stretch for a torch plume)
+  const scale = s / target;
+  const w = target * scale, h = w * 1.25;
 
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.ellipse(t.x, t.y, s2 * 0.55, s2 * 1.35, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+  // small vertical flicker
+  const jitterY = (Math.random() - 0.5) * (w * 0.08);
 
-    // --- Inner core: white/blue punch ---
-    ctx.save();
-    ctx.globalAlpha = a2;
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = "rgba(255,240,160,0.9)";
-
-    let g2 = ctx.createRadialGradient(t.x, t.y - s2 * 0.05, s2 * 0.05, t.x, t.y, s2 * 0.35);
-    g2.addColorStop(0.00, "rgba(255,255,255,1.0)");
-    g2.addColorStop(0.25, "rgba(90,190,255,0.95)");  // blue-white heat
-    g2.addColorStop(1.00, "rgba(255,235,140,0.0)");
-
-    ctx.fillStyle = g2;
-    ctx.beginPath();
-    ctx.ellipse(t.x, t.y - s2 * 0.05, s2 * 0.35, s2 * 0.90, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
-    ctx.restore();
-    continue;
+  // draw order: shell -> blue -> core
+  if (shell){
+    ctx.globalAlpha = a * 0.85;
+    ctx.drawImage(shell.img, t.x - w/2, t.y + jitterY - h/2, w, h);
   }
+  if (blue){
+    ctx.globalAlpha = a * 0.85;
+    ctx.drawImage(blue.img,  t.x - w/2, t.y + jitterY - h/2, w * 0.92, h * 0.92);
+  }
+  if (core){
+    ctx.globalAlpha = a;
+    ctx.drawImage(core.img,  t.x - w/2, t.y + jitterY - h/2, w * 0.82, h * 0.82);
+  }
+
+  ctx.globalAlpha = 1;
+  continue;
+}
 
   if (t.kind === "sparkle") {
     ctx.shadowBlur = 0;
