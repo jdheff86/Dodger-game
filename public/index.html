@@ -2274,9 +2274,6 @@ function togglePause(){
   // Emit from bottom-center of the player
 const emitX = p.x + pw/2, emitY = p.y + ph - 2;
 switch (cosmetics.equipped.trail) {
-  case "trail.flame":
-    spawnFlameParticles(emitX, emitY);
-    break;
   case "trail.sparkle":
     spawnSparkleParticles(emitX, emitY);
     break;
