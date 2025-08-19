@@ -2442,86 +2442,67 @@ for (let i = trail.length - 1; i >= 0; i--) {
 // ── Particle rendering (flame | sparkle | smoke) ─────────────────────────
 // ── Particle rendering (flame | sparkle | smoke) ─────────────────────────
 for (const t of trail) {
-  const a = Math.max(0, 1 - (t.age / t.life));      // 1 → 0 fade
-  const s = (t.size || 8) * (0.72 + 0.28 * a);      // slight shrink
+  const a = Math.max(0, 1 - (t.age / t.life));
+  const s = (t.size || 8) * (0.72 + 0.28 * a);
 
   ctx.save();
   ctx.globalAlpha = a;
 
   if (t.kind === "flame") {
-  const heat = 1 - t.age / t.life; // 1 at birth, 0 at death
-  const r = 255;
-  const g = Math.floor(160 + 95 * heat); // fades from yellowish to orange
-  const b = Math.floor(30 * heat);       // faint blue at birth, gone later
-  
-  ctx.shadowBlur = 20;
-  ctx.shadowColor = `rgba(${r},${g},${b},${0.6 * heat})`;
-  ctx.fillStyle = `rgba(${r},${g},${b},${0.9 * heat})`;
-  ctx.beginPath();
-ctx.ellipse(t.x, t.y, s * 0.6, s * 1.4, 0, 0, Math.PI * 2);
-ctx.fill();
-}
+    const heat = 1 - t.age / t.life;
+    const r = 255;
+    const g = Math.floor(160 + 95 * heat);
+    const b = Math.floor(30 * heat);
 
-    // glow base
-    ctx.shadowBlur  = t.spark ? 8 : 18;
-    ctx.shadowColor = `rgba(255,128,24,${0.95 * a})`;
-    ctx.fillStyle   = `rgba(255,120,20,${0.58 * a})`;
-    roundRect(ctx, t.x - s/1.15, t.y - s/1.1, s*1.15, s*1.15, t.spark?2:4, true);
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = `rgba(${r},${g},${b},${0.6 * heat})`;
+    ctx.fillStyle = `rgba(${r},${g},${b},${0.9 * heat})`;
 
-    // hot core
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
-    roundRect(ctx, t.x - s/2, t.y - s/2, s, s, t.spark?2:4, true);
+    ctx.beginPath();
+    ctx.ellipse(t.x, t.y, s * 0.6, s * 1.4, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-  } else if (t.kind === "sparkle") {
-    // bright golden spark
+    ctx.restore();
+    continue;            // ← prevent fallthrough
+  }
+
+  if (t.kind === "sparkle") {
     ctx.shadowBlur = 0;
     ctx.fillStyle = `rgba(255, 255, 180, ${a})`;
     ctx.beginPath();
     ctx.arc(t.x, t.y, s * 0.5, 0, Math.PI * 2);
     ctx.fill();
 
-  } else if (t.kind === "smoke") {
-  // normalize particle lifetime (0..1)
-  const k = t.age / t.life;
+    ctx.restore();
+    continue;            // ← prevent fallthrough
+  }
 
-  // particle grows along plume
-  const scale = (t.size || 8) * (1.0 + 0.9 * k);
+  if (t.kind === "smoke") {
+    const k = t.age / t.life;
+    const scale = (t.size || 8) * (1.0 + 0.9 * k);
+    const haze = 0.8 - 0.4 * k;
 
-  // slower fade → thicker column
-  const haze = 0.8 - 0.4 * k;   // 0.8 at birth → 0.4 at end
+    const spr = t.sprite || SMOKE_SPRITES[0];
+    const w = spr.size * scale / 48;
+    const h = w;
 
-  // base sprite + size in screen px (baked sprite is 48px “unit”)
-  const s = t.sprite || SMOKE_SPRITES[0];
-  const w = s.size * scale / 48;
-  const h = w;
+    const ox = (Math.random() - 0.5) * w * 0.28;
+    const oy = (Math.random() - 0.5) * h * 0.28;
 
-  // slight jitter per particle for "billow"
-  const ox = (Math.random() - 0.5) * w * 0.28;
-  const oy = (Math.random() - 0.5) * h * 0.28;
+    ctx.globalAlpha = haze;
+    ctx.drawImage(spr.img, t.x + ox - w / 2, t.y + oy - h / 2, w, h);
 
-  // **Pass 1 — main puff (dense core)**
-  ctx.globalAlpha = haze;
-  ctx.drawImage(s.img, t.x + ox - w / 2, t.y + oy - h / 2, w, h);
+    ctx.globalAlpha = haze * 0.7;
+    ctx.drawImage(spr.img, t.x - ox * 0.45 - (w * 0.92) / 2, t.y - oy * 0.45 - (h * 0.92) / 2, w * 0.92, h * 0.92);
 
-  // **Pass 2 — offset duplicate (adds volume)**
-  ctx.globalAlpha = haze * 0.7;
-  ctx.drawImage(s.img,
-    t.x - ox * 0.45 - (w * 0.92) / 2,
-    t.y - oy * 0.45 - (h * 0.92) / 2,
-    w * 0.92, h * 0.92
-  );
+    ctx.globalAlpha = haze * 0.35;
+    ctx.drawImage(spr.img, t.x + ox * 0.5 - (w * 1.26) / 2, t.y + oy * 0.5 - (h * 1.26) / 2, w * 1.26, h * 1.26);
 
-  // **Pass 3 — faint halo (soft edge / fills gaps)**
-  ctx.globalAlpha = haze * 0.35;
-  ctx.drawImage(s.img,
-    t.x + ox * 0.5 - (w * 1.26) / 2,
-    t.y + oy * 0.5 - (h * 1.26) / 2,
-    w * 1.26, h * 1.26
-  );
-}
+    ctx.restore();
+    continue;            // ← prevent fallthrough
+  }
 
-  ctx.restore();
+  ctx.restore();         // default safety restore
 }
 
     if (state.effects.shieldUntil > state.time) {
