@@ -1216,6 +1216,43 @@ const SMOKE_SPRITES = [];
   }
 })();
 
+// --- Cached flame sprites (fast; bright core + orange shell) ---
+const FLAME_SPRITES = [];
+(function buildFlameSprites(){
+  const SIZES = [40, 56, 72];                    // three resolutions (LOD)
+  // two layers per size: [core, shell]
+  for (const size of SIZES){
+    // CORE: white → warm yellow
+    {
+      const off = document.createElement('canvas');
+      off.width = off.height = size;
+      const c = off.getContext('2d');
+      const cx = size/2, cy = size/2, r = size*0.50;
+      const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0.00, "rgba(255,255,255,0.95)");
+      g.addColorStop(0.35, "rgba(255,245,160,0.85)");
+      g.addColorStop(1.00, "rgba(255,245,160,0.00)");
+      c.fillStyle = g;
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.fill();
+      FLAME_SPRITES.push({ img: off, size, layer: "core" });
+    }
+    // SHELL: hot orange/red halo
+    {
+      const off = document.createElement('canvas');
+      off.width = off.height = size;
+      const c = off.getContext('2d');
+      const cx = size/2, cy = size/2, r = size*0.55;
+      const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0.00, "rgba(255,180,60,0.75)");
+      g.addColorStop(0.50, "rgba(255,110,30,0.55)");
+      g.addColorStop(1.00, "rgba(255,70,20,0.00)");
+      c.fillStyle = g;
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.fill();
+      FLAME_SPRITES.push({ img: off, size, layer: "shell" });
+    }
+  }
+})();
+
   // Reserve vertical space for bottom UI so the player can't sit under it
   let uiBottom = 140;
   function measureUIBottom(){
@@ -1822,33 +1859,48 @@ menuPopup.addEventListener("pointerdown", (e)=>{
 };
 const trail = [];
 // --- particle emitters (top-level) ---
+// denser & detailed exhaust with a tight cone that widens downstream
 function spawnFlameParticles(cx, cy){
-  const base = Math.PI/2, spread = Math.PI/9;
-  for (let i = 0; i < 5; i++){
-    const ang = base + (Math.random()-0.5)*spread*2;
-    const speed = 150 + Math.random()*230;
+  const base   = Math.PI / 2;      // down
+  const spread = 0.13;             // tight at the cube
+  const count  = 7;                 // density; bump for thicker
+
+  for (let i = 0; i < count; i++){
+    const ang   = base + (Math.random()-0.5) * spread * 2;
+    const speed = 200 + Math.random()*240;
+
+    const size0 = 6.0 + Math.random()*4.0;       // starts small at the cube
+    const life  = 0.28 + Math.random()*0.24;     // short, fiery
+
     trail.push({
-      kind:"flame",
-      x: cx + (Math.random()-0.5)*2.6,
-      y: cy + 2 + (Math.random()-0.5)*2.6,
-      vx: Math.cos(ang)*speed,
-      vy: Math.sin(ang)*speed,
-      age:0,
-      life:0.30 + Math.random()*0.36,
-      size:7 + Math.random()*6
+      kind : "flame",
+      x    : cx + (Math.random()-0.5)*1.2,
+      y    : cy + 1 + (Math.random()-0.5)*1.2,
+      vx   : Math.cos(ang) * speed,
+      vy   : Math.sin(ang) * speed,
+      age  : 0,
+      life,
+      size : size0,
+      grow : 1.32 + Math.random()*0.22,          // slight swell as it travels
+      cone : (Math.random()-0.5) * 22,           // widening force as it ages
+      flicker: 7 + Math.random()*9,              // intensity oscillation
+      seed   : Math.random()
     });
   }
-  if (Math.random() < 0.18){
-    const ang = base + (Math.random()-0.5)*spread*2;
-    const speed = 260 + Math.random()*160;
+
+  // occasional bright embers (tiny, fast)
+  if (Math.random() < 0.25){
+    const ang   = base + (Math.random()-0.5)*spread*2;
+    const speed = 260 + Math.random()*220;
     trail.push({
       kind:"sparkle",
       x: cx, y: cy,
       vx: Math.cos(ang)*speed,
       vy: Math.sin(ang)*speed,
       age:0,
-      life:0.20 + Math.random()*0.24,
-      size:2.5 + Math.random()*2.5
+      life:0.18 + Math.random()*0.18,
+      size:2.2 + Math.random()*2.0,
+      twinkle: 10 + Math.random()*6
     });
   }
 }
@@ -2330,7 +2382,7 @@ switch (cosmetics.equipped.trail) {
       gameOver(); return;
     }
   }
-  // --- Trail particles: integrate + cull ---
+// --- Trail particles: integrate + cull ---
 for (let i = trail.length - 1; i >= 0; i--) {
   const t = trail[i];
   t.age += dt;
@@ -2341,31 +2393,34 @@ for (let i = trail.length - 1; i >= 0; i--) {
   t.vx *= 0.968;
   t.vy *= 0.968;
 
-  // buoyancy (all trails curl up slightly)
+  // slight curl up
   t.vy -= 30 * dt;
 
   // kind-specific tweaks
-if (t.kind === "smoke") {
-  const k = t.age / t.life;
+  if (t.kind === "smoke") {
+    const k = t.age / t.life;
+    if (t.cone) t.vx += t.cone * 1.3 * k * dt;   // widen with age
+    t.vy += 16 * dt;                              // drift down a bit
+    t.vx += (Math.random() - 0.5) * 0.28;        // micro curl
+    if (t.grow) t.size *= (1 + (t.grow - 1) * dt);
+    const maxVx = 24;
+    if (t.vx >  maxVx) t.vx =  maxVx;
+    if (t.vx < -maxVx) t.vx = -maxVx;
 
-  // widen slowly with age (tight at cube)
-  if (t.cone) t.vx += t.cone * 1.3 * k * dt;
+  } else if (t.kind === "flame") {
+    const k = t.age / t.life;
+    if (t.cone) t.vx += t.cone * 1.4 * k * dt;   // tight → wider downstream
+    t.vy += 26 * dt;                              // exhaust push
+    t.vx += (Math.random() - 0.5) * 1.8;         // turbulence
+    if (t.grow) t.size *= (1 + (t.grow - 1) * dt);
+    const flick = Math.sin((t.seed * 1000 + t.age) * (t.flicker || 8)) * 0.06;
+    t.size *= (1 + flick);
+    const maxVx = 42;
+    if (t.vx >  maxVx) t.vx =  maxVx;
+    if (t.vx < -maxVx) t.vx = -maxVx;
+  }
 
-  // slight downward drift so the column keeps moving
-  t.vy += 16 * dt;
-
-  // tiny micro-curl
-  t.vx += (Math.random() - 0.5) * 0.28;
-
-  if (t.grow) t.size *= (1 + (t.grow - 1) * dt);
-
-  // gentle clamp so it stays conical, not blobby
-  const maxVx = 24;           // ↓ a bit tighter than 28
-  if (t.vx >  maxVx) t.vx =  maxVx;
-  if (t.vx < -maxVx) t.vx = -maxVx;
-}
-
-  // remove dead particles
+  // cull
   if (t.age >= t.life) trail.splice(i, 1);
 }
 }
