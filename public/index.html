@@ -1218,6 +1218,7 @@ const SMOKE_SPRITES = [];
 
 // --- Cached flame sprites (fast; bright core + orange shell) ---
 // --- Cached flame sprites (core + blue torch core + shell) ---
+// --- Cached flame sprites (core + blue torch core + shell) ---
 const FLAME_SPRITES = [];
 (function buildFlameSprites(){
   const SIZES = [40, 56, 72];  // three resolutions (LOD)
@@ -1274,23 +1275,6 @@ const FLAME_SPRITES = [];
       c.fillStyle = g;
       c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.fill();
 
-      FLAME_SPRITES.push({ img: off, size, layer: "shell" });
-    }
-  }
-})();
-      
-    // SHELL: hot orange/red halo
-    {
-      const off = document.createElement('canvas');
-      off.width = off.height = size;
-      const c = off.getContext('2d');
-      const cx = size/2, cy = size/2, r = size*0.55;
-      const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
-      g.addColorStop(0.00, "rgba(255,180,60,0.75)");
-      g.addColorStop(0.50, "rgba(255,110,30,0.55)");
-      g.addColorStop(1.00, "rgba(255,70,20,0.00)");
-      c.fillStyle = g;
-      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.fill();
       FLAME_SPRITES.push({ img: off, size, layer: "shell" });
     }
   }
@@ -2522,6 +2506,7 @@ for (const t of trail) {
   }
 
   ctx.globalAlpha = 1;
+  ctx.restore();
   continue;
 }
 
