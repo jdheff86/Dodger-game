@@ -2383,6 +2383,7 @@ switch (cosmetics.equipped.trail) {
     }
   }
 // --- Trail particles: integrate + cull ---
+// --- Trail particles: integrate + cull ---
 for (let i = trail.length - 1; i >= 0; i--) {
   const t = trail[i];
   t.age += dt;
@@ -2399,57 +2400,29 @@ for (let i = trail.length - 1; i >= 0; i--) {
   // kind-specific tweaks
   if (t.kind === "smoke") {
     const k = t.age / t.life;
-    if (t.cone) t.vx += t.cone * 1.3 * k * dt;   // widen with age
-    t.vy += 16 * dt;                              // drift down a bit
-    t.vx += (Math.random() - 0.5) * 0.28;        // micro curl
+    if (t.cone) t.vx += t.cone * 1.3 * k * dt;  // widen with age
+    t.vy += 16 * dt;                             // drift down a bit
+    t.vx += (Math.random() - 0.5) * 0.28;       // micro curl
     if (t.grow) t.size *= (1 + (t.grow - 1) * dt);
     const maxVx = 24;
     if (t.vx >  maxVx) t.vx =  maxVx;
     if (t.vx < -maxVx) t.vx = -maxVx;
 
-} else if (t.kind === "flame") {
-  // alpha (fade) + size wobble you already compute outside is fine
-  const a = Math.max(0, 1 - (t.age / t.life));
-  const s = (t.size || 8) * (0.72 + 0.28 * a);
+  } else if (t.kind === "flame") {
+    // physics only — drawing happens in draw()
+    if (t.grow) t.size *= (1 + (t.grow - 1) * dt);
+    t.vx += (Math.random() - 0.5) * 2.0; // tiny jitter
 
-  // --- Outer shell: orange/red with soft glow ---
-  ctx.save();
-  ctx.globalAlpha = a * 0.85;
-  ctx.shadowBlur = 18;
-  ctx.shadowColor = "rgba(255,140,40,0.8)";
+  } else if (t.kind === "sparkle") {
+    // nothing special for physics
+  }
 
-  let g = ctx.createRadialGradient(t.x, t.y, s * 0.10, t.x, t.y, s * 0.70);
-  g.addColorStop(0.00, "rgba(255,255,255,0.95)");  // white-hot core
-  g.addColorStop(0.20, "rgba(70,170,255,0.85)");   // hint of blue
-  g.addColorStop(0.45, "rgba(255,220,70,0.85)");   // bright yellow
-  g.addColorStop(0.75, "rgba(255,140,30,0.75)");   // orange
-  g.addColorStop(1.00, "rgba(180,40,10,0.35)");    // deep red edge
-
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.ellipse(t.x, t.y, s * 0.55, s * 1.35, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-
-  // --- Inner core: punchy white/blue to sell the heat ---
-  ctx.save();
-  ctx.globalAlpha = a;
-  ctx.shadowBlur = 10;
-  ctx.shadowColor = "rgba(255,240,160,0.9)";
-
-  let g2 = ctx.createRadialGradient(t.x, t.y - s * 0.05, s * 0.05, t.x, t.y, s * 0.35);
-  g2.addColorStop(0.00, "rgba(255,255,255,1.0)");
-  g2.addColorStop(0.25, "rgba(90,190,255,0.95)");  // blue-white heat
-  g2.addColorStop(1.00, "rgba(255,235,140,0.0)");
-
-  ctx.fillStyle = g2;
-  ctx.beginPath();
-  ctx.ellipse(t.x, t.y - s * 0.05, s * 0.35, s * 0.90, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-}
-}
+  // kill when done
+  if (t.age >= t.life) {
+    trail.splice(i, 1);
+  }
+}               // ← CLOSE the for-loop
+}               // ← CLOSE update()   <<< IMPORTANT
 
 // flame particle integrator (already present below; keep as-is)
 
