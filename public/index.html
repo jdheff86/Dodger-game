@@ -1217,13 +1217,35 @@ const SMOKE_SPRITES = [];
 })();
 
 // --- Prebaked flame plumes (1 image per size; core+blue+shell+ember) ---
+// --- Prebaked flame plumes (1 image per size; core + shell + deep red + ember) ---
 const FLAME_PLUMES = {}; // keyed by size (48, 72, 96)
 
-// --- Prebaked flame plumes (1 image per size; core+blue+shell+ember) ---
 (function buildFlamePlumes(){
+  function paintNoise(c, w, h, radius, alpha, scale, seed){
+    // fast “bubbly” noise: many soft dots; no perlin needed
+    const rng = (a)=> (Math.sin(a*12.9898 + seed*78.233)*43758.5453)%1;
+    c.save();
+    c.globalCompositeOperation = "lighter";
+    c.globalAlpha = alpha;
+    const n = Math.round(140 * scale);      // # blobs scales with size
+    for (let i=0;i<n;i++){
+      const u = rng(i+1), v = rng(i+37), r = rng(i+71);
+      const x = (u*0.70+0.15) * w;          // keep near the cone center
+      const y = (v*0.80+0.15) * h;
+      const s = (r*0.6+0.4) * radius * scale;
+      const g = c.createRadialGradient(x, y, 0, x, y, s);
+      g.addColorStop(0.00, "rgba(255,210,120,0.45)");
+      g.addColorStop(0.50, "rgba(255,130,40,0.18)");
+      g.addColorStop(1.00, "rgba(180,40,20,0.00)");
+      c.fillStyle = g;
+      c.beginPath(); c.arc(x, y, s, 0, Math.PI*2); c.fill();
+    }
+    c.restore();
+  }
+
   const SIZES = [48, 72, 96];
   for (const size of SIZES){
-    const w = size, h = Math.round(size * 1.35);
+    const w = size, h = Math.round(size * 1.40);
     const off = document.createElement('canvas');
     off.width = w; off.height = h;
     const c = off.getContext('2d');
@@ -1239,7 +1261,7 @@ const FLAME_PLUMES = {}; // keyed by size (48, 72, 96)
       c.fillRect(0,0,w,h);
     }
 
-    // ⚪ white-hot core (kept subtle so oranges/reds dominate)
+    // white-hot core
     {
       const g = c.createRadialGradient(w/2, h*0.28, 1, w/2, h*0.40, h*0.30);
       g.addColorStop(0.00, "rgba(255,255,255,0.78)");
@@ -1249,7 +1271,7 @@ const FLAME_PLUMES = {}; // keyed by size (48, 72, 96)
       c.ellipse(w/2, h*0.37, w*0.26, h*0.26, 0, 0, Math.PI*2); c.fill();
     }
 
-    // 🟠 orange shell (brighter + fuller)
+    // orange shell
     {
       const g = c.createRadialGradient(w/2, h*0.30, 2, w/2, h*0.52, h*0.66);
       g.addColorStop(0.00, "rgba(255,200,90,0.95)");
@@ -1259,7 +1281,7 @@ const FLAME_PLUMES = {}; // keyed by size (48, 72, 96)
       c.ellipse(w/2, h*0.56, w*0.52, h*0.62, 0, 0, Math.PI*2); c.fill();
     }
 
-    // 🔴 deep-red belly (new) – gives that third hot layer
+    // deep-red belly
     {
       const g = c.createRadialGradient(w/2, h*0.70, 2, w/2, h*0.88, h*0.62);
       g.addColorStop(0.00, "rgba(255,85,20,0.55)");
@@ -1269,49 +1291,7 @@ const FLAME_PLUMES = {}; // keyed by size (48, 72, 96)
       c.ellipse(w/2, h*0.76, w*0.54, h*0.60, 0, 0, Math.PI*2); c.fill();
     }
 
-function paintNoise(c, w, h, radius, alpha, scale, seed){
-  // fast “bubbly” noise: many soft dots; no perlin needed
-  const rng = (a)=> (Math.sin(a*12.9898 + seed*78.233)*43758.5453)%1;
-  c.save();
-  c.globalCompositeOperation = "lighter";
-  c.globalAlpha = alpha;
-  const n = Math.round(140 * scale);      // # blobs scales with size
-  for (let i=0;i<n;i++){
-    const u = rng(i+1), v = rng(i+37), r = rng(i+71);
-    const x = (u*0.70+0.15) * w;          // keep near the cone center
-    const y = (v*0.80+0.15) * h;
-    const s = (r*0.6+0.4) * radius * scale;
-    const g = c.createRadialGradient(x, y, 0, x, y, s);
-    // slightly warm—adds mottling without turning gray
-    g.addColorStop(0.00, "rgba(255,210,120,0.45)");
-    g.addColorStop(0.50, "rgba(255,130,40,0.18)");
-    g.addColorStop(1.00, "rgba(180,40,20,0.00)");
-    c.fillStyle = g;
-    c.beginPath(); c.arc(x, y, s, 0, Math.PI*2); c.fill();
-  }
-  c.restore();
-}
-
-(function buildFlamePlumes(){
-  const SIZES = [48,72,96];
-  for (const size of SIZES){
-    const w = size, h = Math.round(size*1.40);
-    const off = document.createElement('canvas');
-    off.width=w; off.height=h;
-    const c = off.getContext('2d');
-
-    // … your existing white core / orange shell / deep red fringe here …
-
-    // 🔶 add baked detail (three “octaves” of bubbly noise)
-    paintNoise(c, w, h, h*0.18, 0.30, 1.00, 0.13);  // coarse
-    paintNoise(c, w, h, h*0.10, 0.22, 0.66, 0.57);  // medium
-    paintNoise(c, w, h, h*0.06, 0.18, 0.42, 0.91);  // fine
-
-    FLAME_PLUMES[size] = off;
-  }
-})();
-
-    // 🌋 ember core (new) – darker red right at the tail end
+    // ember core at the tail
     {
       const g = c.createRadialGradient(w/2, h*0.86, 1, w/2, h*0.96, h*0.40);
       g.addColorStop(0.00, "rgba(170,20,18,0.55)");
@@ -1321,10 +1301,14 @@ function paintNoise(c, w, h, radius, alpha, scale, seed){
       c.ellipse(w/2, h*0.90, w*0.42, h*0.46, 0, 0, Math.PI*2); c.fill();
     }
 
+    // baked mottled detail (3 octaves)
+    paintNoise(c, w, h, h*0.18, 0.30, 1.00, 0.13);
+    paintNoise(c, w, h, h*0.10, 0.22, 0.66, 0.57);
+    paintNoise(c, w, h, h*0.06, 0.18, 0.42, 0.91);
+
     FLAME_PLUMES[size] = off;
   }
-})();
-
+})(); // ← one close, matching one open
   // Reserve vertical space for bottom UI so the player can't sit under it
   let uiBottom = 140;
   function measureUIBottom(){
