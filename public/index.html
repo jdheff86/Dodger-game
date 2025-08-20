@@ -2549,7 +2549,7 @@ if (t.kind === "flame") {
   if (t.kind === "smoke") {
     const k = t.age / t.life;
     const scale = (t.size || 8) * (1.0 + 0.9 * k);
-    const haze = 0.8 - 0.4 * k;
+    const haze = 0.7 - 0.32 * k;
 
     const spr = t.sprite || SMOKE_SPRITES[0];
     const w = spr.size * scale / 48;
