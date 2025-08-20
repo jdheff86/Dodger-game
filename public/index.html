@@ -1269,6 +1269,48 @@ const FLAME_PLUMES = {}; // keyed by size (48, 72, 96)
       c.ellipse(w/2, h*0.76, w*0.54, h*0.60, 0, 0, Math.PI*2); c.fill();
     }
 
+function paintNoise(c, w, h, radius, alpha, scale, seed){
+  // fast “bubbly” noise: many soft dots; no perlin needed
+  const rng = (a)=> (Math.sin(a*12.9898 + seed*78.233)*43758.5453)%1;
+  c.save();
+  c.globalCompositeOperation = "lighter";
+  c.globalAlpha = alpha;
+  const n = Math.round(140 * scale);      // # blobs scales with size
+  for (let i=0;i<n;i++){
+    const u = rng(i+1), v = rng(i+37), r = rng(i+71);
+    const x = (u*0.70+0.15) * w;          // keep near the cone center
+    const y = (v*0.80+0.15) * h;
+    const s = (r*0.6+0.4) * radius * scale;
+    const g = c.createRadialGradient(x, y, 0, x, y, s);
+    // slightly warm—adds mottling without turning gray
+    g.addColorStop(0.00, "rgba(255,210,120,0.45)");
+    g.addColorStop(0.50, "rgba(255,130,40,0.18)");
+    g.addColorStop(1.00, "rgba(180,40,20,0.00)");
+    c.fillStyle = g;
+    c.beginPath(); c.arc(x, y, s, 0, Math.PI*2); c.fill();
+  }
+  c.restore();
+}
+
+(function buildFlamePlumes(){
+  const SIZES = [48,72,96];
+  for (const size of SIZES){
+    const w = size, h = Math.round(size*1.40);
+    const off = document.createElement('canvas');
+    off.width=w; off.height=h;
+    const c = off.getContext('2d');
+
+    // … your existing white core / orange shell / deep red fringe here …
+
+    // 🔶 add baked detail (three “octaves” of bubbly noise)
+    paintNoise(c, w, h, h*0.18, 0.30, 1.00, 0.13);  // coarse
+    paintNoise(c, w, h, h*0.10, 0.22, 0.66, 0.57);  // medium
+    paintNoise(c, w, h, h*0.06, 0.18, 0.42, 0.91);  // fine
+
+    FLAME_PLUMES[size] = off;
+  }
+})();
+
     // 🌋 ember core (new) – darker red right at the tail end
     {
       const g = c.createRadialGradient(w/2, h*0.86, 1, w/2, h*0.96, h*0.40);
@@ -2511,28 +2553,42 @@ for (const t of trail) {
   ctx.globalAlpha = a;
 
 if (t.kind === "flame") {
-  const k = Math.min(1, t.age / t.life);       // 0 near cube → 1 downstream
+  // age 0 → near nozzle, 1 → far downstream
+  const k = Math.min(1, t.age / t.life);
   const base = (t.size || 12);
-  // widen with age → cone; keep height mostly consistent
-  const w = base * (0.45 + (t.widen || 1.6) * k);
-  const h = base * (1.05 + 0.25 * k);
 
-  // pick a pre-baked plume by the larger side
-  const target = (Math.max(w,h) < 56) ? 48 : (Math.max(w,h) < 84) ? 72 : 96;
-  const img = FLAME_PLUMES[target];
+  // tighter at the top, widens into a cone
+  const w = base * (0.40 + (t.widen || 1.9) * k);
+  const h = base * (1.10 + 0.30 * k);
 
-  // slight shimmer
-  const jitterY = (Math.random() - 0.5) * (w * 0.06);
+  // pick a pre-baked sprite size
+  const maxSide = Math.max(w, h);
+  const target  = (maxSide < 56) ? 48 : (maxSide < 84) ? 72 : 96;
+  const img     = FLAME_PLUMES[target];
+
+  // brightness & flicker (hotter near nozzle)
+  t.seed = t.seed ?? Math.random();                // give flame a stable seed
+  const bright = 0.45 + 0.55 * (1 - k);            // brighter when young
+  const flick  = 0.85 + 0.15 * Math.sin(t.seed*7 + performance.now()*0.008*(t.flicker || 8));
+  const alpha  = bright * flick;
 
   const prev = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = (1 - k) * 0.95;            // fade with age
-  ctx.drawImage(img, t.x - w/2, t.y + jitterY - h/2, w, h);
+
+  // main draw
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(img, t.x - w/2, t.y - h/2, w, h);
+
+  // subtle downward smear for depth / motion
+  ctx.globalAlpha = alpha * 0.33;
+  ctx.drawImage(img, t.x - w/2, (t.y + h*0.06) - h/2, w, h);
+
+  // restore canvas state
   ctx.globalCompositeOperation = prev;
   ctx.globalAlpha = 1;
 
   ctx.restore();
-  continue;
+  continue;           // don't fall through to other kinds
 }
 
   if (t.kind === "sparkle") {
@@ -2549,7 +2605,7 @@ if (t.kind === "flame") {
   if (t.kind === "smoke") {
     const k = t.age / t.life;
     const scale = (t.size || 8) * (1.0 + 0.9 * k);
-    const haze = 0.7 - 0.32 * k;
+    const haze = 0.8 - 0.4 * k;
 
     const spr = t.sprite || SMOKE_SPRITES[0];
     const w = spr.size * scale / 48;
