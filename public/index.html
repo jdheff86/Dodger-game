@@ -1897,18 +1897,20 @@ function spawnFlameParticles(cx, cy){
     const ang   = base + (Math.random()-0.5)*spread*2;
     const speed = 220 + Math.random()*220;
 
-    trail.push({
-      kind : "flame",
-      x    : cx + (Math.random()-0.5)*0.6,
-      y    : cy + 1 + (Math.random()-0.5)*0.6,
-      vx   : Math.cos(ang)*speed,
-      vy   : Math.sin(ang)*speed,
-      age  : 0,
-      life : 0.42 + Math.random()*0.22,  // lives a bit longer
-      size : 14 + Math.random()*6,
-      grow : 1.25 + Math.random()*0.20,
-      flicker: 6 + Math.random()*8
-    });
+    // spawnFlameParticles(...)
+trail.push({
+  kind : "flame",
+  x    : cx + (Math.random()-0.5)*0.6,
+  y    : cy + 1 + (Math.random()-0.5)*0.6,
+  vx   : Math.cos(ang)*speed,
+  vy   : Math.sin(ang)*speed,
+  age  : 0,
+  life : 0.42 + Math.random()*0.22,
+  size : 10 + Math.random()*4,          // was 14–20 → start tighter
+  grow : 1.30 + Math.random()*0.20,     // a touch more growth
+  widen: 1.5 + Math.random()*0.5,       // NEW: per-particle cone factor
+  flicker: 6 + Math.random()*8
+});
   }
   // tiny hot specks
   if (Math.random() < 0.20){
@@ -2491,21 +2493,22 @@ for (const t of trail) {
   ctx.globalAlpha = a;
 
 if (t.kind === "flame") {
-  const a = Math.max(0, 1 - (t.age / t.life));
-  const s = (t.size || 12) * (0.75 + 0.25 * a);
+  const k = Math.min(1, t.age / t.life);       // 0 near cube → 1 downstream
+  const base = (t.size || 12);
+  // widen with age → cone; keep height mostly consistent
+  const w = base * (0.45 + (t.widen || 1.6) * k);
+  const h = base * (1.05 + 0.25 * k);
 
-  // pick atlas sprite once; no array .find() per frame
-  const target = (s < 56) ? 48 : (s < 84) ? 72 : 96;
+  // pick a pre-baked plume by the larger side
+  const target = (Math.max(w,h) < 56) ? 48 : (Math.max(w,h) < 84) ? 72 : 96;
   const img = FLAME_PLUMES[target];
 
-  // slight vertical jitter so it shimmers
-  const w = s, h = s * 1.35;
+  // slight shimmer
   const jitterY = (Math.random() - 0.5) * (w * 0.06);
 
-  // additive blend only (no shadowBlur → much cheaper on iOS)
   const prev = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = a * 0.95;
+  ctx.globalAlpha = (1 - k) * 0.95;            // fade with age
   ctx.drawImage(img, t.x - w/2, t.y + jitterY - h/2, w, h);
   ctx.globalCompositeOperation = prev;
   ctx.globalAlpha = 1;
