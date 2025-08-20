@@ -1982,35 +1982,38 @@ function spawnSparkleParticles(cx, cy){
 }
 
 // === THICK, TIGHT SMOKE EMITTER ===
-function spawnSmokeParticles(cx, cy){
-  const base   = Math.PI / 2;   // down
-  const spread = 0.08;          // tighter cone near the cube
-  const count  = 7;             // 6–8 = nice dense plume
+function spawnSmokeParticles(cx, cy, whip = 0, pvx = 0){
+  const base = 5, extra = Math.round(6 * whip);
+  const count = base + extra;                     // more puffs when whipping
 
   for (let i = 0; i < count; i++){
-    const ang   = base + (Math.random() - 0.5) * spread * 2;
-    const speed = 90 + Math.random() * 110;
+    const spread = 0.06 + 0.10 * whip;           // tighter when still, wider when whipping
+    const ang    = Math.PI/2 + (Math.random()-0.5) * spread * 2;
+    const speed  = 80 + Math.random()*110 + 60*whip;
 
-    // larger right at the cube + lives a bit longer
-    const s0   = 6.0 + Math.random() * 3.5;
-    const life = 1.15 + Math.random() * 0.55;
+    const s0     = 7.5 + Math.random()*3.5 + 2*whip;   // bigger when whipping
+    const life   = 1.1 + Math.random()*0.5 + 0.4*whip; // linger a bit more
 
-    // pick a cached sprite (random tone / resolution)
-    const sprite = SMOKE_SPRITES[(Math.random() * SMOKE_SPRITES.length) | 0];
+    const sprite = SMOKE_SPRITES[(Math.random()*SMOKE_SPRITES.length)|0];
 
     trail.push({
       kind: "smoke",
-      x: cx + (Math.random() - 0.5) * 0.9,
-      y: cy + 1 + (Math.random() - 0.5) * 0.9,
-      vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,
+      x: cx + (Math.random()-0.5)*(0.9 + 1.6*whip),
+      y: cy + 1 + (Math.random()-0.5)*(0.9 + 1.0*whip),
+
+      // inherit player sideways motion so plume bends with the tail
+      vx: Math.cos(ang)*speed + pvx * 0.45,
+      vy: Math.sin(ang)*speed,
+
       age: 0,
       life,
       size: s0,
-      grow: 1.22 + Math.random() * 0.28,   // expands down the plume
-      cone: (Math.random() - 0.5) * 16,    // integrator widens with age
-      sprite,                              
-      seed: Math.random()
+      grow: 1.22 + Math.random()*0.22,
+      cone: (Math.random()-0.5) * (16 + 24*whip),
+
+      sprite,
+      seed: Math.random(),
+      swirl: 14 + 26*whip         // stronger curl when whipping
     });
   }
 }
@@ -2250,7 +2253,7 @@ function togglePause(){
     state.shrinkCharges--; shrinkCountEl.textContent = state.shrinkCharges;
     state.effects.shrinkUntil = Math.max(state.effects.shrinkUntil, state.time) + 6;
   }
-
+let _prevVX = 0; // for whip calc
   function update(dt){
   state.time += dt;
   state.score += dt*10;
@@ -2269,24 +2272,51 @@ function togglePause(){
   targetVX += state.input.swipeVX;
   p.vx += (targetVX - p.vx) * Math.min(1, dt*10);
   p.x += p.vx * dt;
+  // how hard the tail is whipping this frame (0..1)
+const speedX = Math.abs(p.vx);
+const accelX = Math.abs(p.vx - _prevVX) / Math.max(0.016, dt);
+const whip = Math.min(1,
+  (speedX / 420) * 0.5 +     // moving sideways bends smoke
+  (accelX / 1200)            // sudden turns add extra flare
+);
+_prevVX = p.vx;
 
   const pw = p.w * p.scale, ph = p.h * p.scale;
 
   // Apply equipped trail (spawn particles at player center)
   // Emit from bottom-center of the player
-const emitX = p.x + pw/2, emitY = p.y + ph - 2;
+const emitX = p.x + pw/2, emitY = p.y + ph + 1;
+
 switch (cosmetics.equipped.trail) {
-  case "trail.sparkle":
-    spawnSparkleParticles(emitX, emitY);
-    break;
-  case "trail.smoke":
-    spawnSmokeParticles(emitX, emitY);
-    break;
-    // in update(), where you emit the equipped trail:
-case "trail.flame":
-const emitY = p.y + ph + 1; // was ph - 2
-  spawnFlameParticles(emitX, emitY);
-  if (Math.random() < 0.8) spawnMicroSmoke(emitX, emitY + 4);
+  case "trail.flame":
+  {
+    // STEP 0 - emit smoke BEFORE update
+    if (Math.random() < 0.7) {
+      const emitY = p.y + ph + 1;  // your offset
+      spawnSmoke(p.x, emitY);
+    }
+
+    // STEP 1 - update physics
+    p.vy += g * dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+
+    // STEP 2 - size, fade, life decay
+    p.life -= dt;
+    p.size *= 0.98;
+
+    // STEP 3 - remove if dead
+    if (p.life <= 0) {
+      particles.splice(i, 1);
+      continue;
+    }
+
+    // STEP 4 - draw
+    ctx.fillStyle = "orange";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
   break;
 }
 
