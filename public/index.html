@@ -1229,52 +1229,54 @@ const FLAME_PLUMES = {}; // keyed by size (48, 72, 96)
     const c = off.getContext('2d');
 
     // vertical feather
-    const lg = c.createLinearGradient(w*0.5, 0, w*0.5, h);
-    lg.addColorStop(0.00, "rgba(255,120,40,0.00)");
-    lg.addColorStop(0.18, "rgba(255,160,60,0.10)");
-    lg.addColorStop(0.55, "rgba(255,110,30,0.22)");
-    lg.addColorStop(1.00, "rgba(160,25,18,0.00)");
-    c.fillStyle = lg;
-    c.fillRect(0,0,w,h);
-
-    // 🔵 stronger blue cone near the nozzle (slightly lower & wider)
     {
-      const g = c.createRadialGradient(w/2, h*0.22, 1, w/2, h*0.34, h*0.34);
-      g.addColorStop(0.00, "rgba(190,250,255,1.00)");
-      g.addColorStop(0.35, "rgba(90,190,255,0.95)");
-      g.addColorStop(1.00, "rgba(40,115,255,0.00)");
-      c.fillStyle = g; c.beginPath();
-      c.ellipse(w/2, h*0.34, w*0.36, h*0.36, 0, 0, Math.PI*2); c.fill();
+      const lg = c.createLinearGradient(w*0.5, 0, w*0.5, h);
+      lg.addColorStop(0.00, "rgba(255,130,40,0.00)");
+      lg.addColorStop(0.18, "rgba(255,150,50,0.10)");
+      lg.addColorStop(0.55, "rgba(255,110,30,0.22)");
+      lg.addColorStop(1.00, "rgba(160,25,18,0.00)");
+      c.fillStyle = lg;
+      c.fillRect(0,0,w,h);
     }
 
-    // ⚪ white-hot core (dialed back so orange dominates)
+    // ⚪ white-hot core (kept subtle so oranges/reds dominate)
     {
       const g = c.createRadialGradient(w/2, h*0.28, 1, w/2, h*0.40, h*0.30);
-      g.addColorStop(0.00, "rgba(255,255,255,0.90)");
-      g.addColorStop(0.35, "rgba(255,250,210,0.75)");
-      g.addColorStop(1.00, "rgba(255,245,170,0.00)");
+      g.addColorStop(0.00, "rgba(255,255,255,0.78)");
+      g.addColorStop(0.35, "rgba(255,245,200,0.60)");
+      g.addColorStop(1.00, "rgba(255,235,150,0.00)");
       c.fillStyle = g; c.beginPath();
       c.ellipse(w/2, h*0.37, w*0.26, h*0.26, 0, 0, Math.PI*2); c.fill();
     }
 
-    // 🟠 orange shell (a bit larger + higher opacity so it overpowers the white)
+    // 🟠 orange shell (brighter + fuller)
     {
       const g = c.createRadialGradient(w/2, h*0.30, 2, w/2, h*0.52, h*0.66);
       g.addColorStop(0.00, "rgba(255,200,90,0.95)");
-      g.addColorStop(0.45, "rgba(255,145,40,0.78)");
+      g.addColorStop(0.45, "rgba(255,145,40,0.84)");
       g.addColorStop(1.00, "rgba(255,95,22,0.00)");
       c.fillStyle = g; c.beginPath();
       c.ellipse(w/2, h*0.56, w*0.52, h*0.62, 0, 0, Math.PI*2); c.fill();
     }
 
-    // ember fringe unchanged
+    // 🔴 deep-red belly (new) – gives that third hot layer
     {
-      const g = c.createRadialGradient(w/2, h*0.75, 2, w/2, h*0.85, h*0.60);
-      g.addColorStop(0.00, "rgba(255,95,25,0.50)");
-      g.addColorStop(0.50, "rgba(220,40,20,0.40)");
+      const g = c.createRadialGradient(w/2, h*0.70, 2, w/2, h*0.88, h*0.62);
+      g.addColorStop(0.00, "rgba(255,85,20,0.55)");
+      g.addColorStop(0.40, "rgba(220,40,20,0.50)");
       g.addColorStop(1.00, "rgba(150,18,18,0.00)");
       c.fillStyle = g; c.beginPath();
-      c.ellipse(w/2, h*0.78, w*0.50, h*0.55, 0, 0, Math.PI*2); c.fill();
+      c.ellipse(w/2, h*0.76, w*0.54, h*0.60, 0, 0, Math.PI*2); c.fill();
+    }
+
+    // 🌋 ember core (new) – darker red right at the tail end
+    {
+      const g = c.createRadialGradient(w/2, h*0.86, 1, w/2, h*0.96, h*0.40);
+      g.addColorStop(0.00, "rgba(170,20,18,0.55)");
+      g.addColorStop(0.50, "rgba(120,15,15,0.35)");
+      g.addColorStop(1.00, "rgba(80,10,10,0.00)");
+      c.fillStyle = g; c.beginPath();
+      c.ellipse(w/2, h*0.90, w*0.42, h*0.46, 0, 0, Math.PI*2); c.fill();
     }
 
     FLAME_PLUMES[size] = off;
@@ -1983,37 +1985,37 @@ function spawnSparkleParticles(cx, cy){
 
 // === THICK, TIGHT SMOKE EMITTER ===
 function spawnSmokeParticles(cx, cy, whip = 0, pvx = 0){
-  const base = 5, extra = Math.round(6 * whip);
-  const count = base + extra;                     // more puffs when whipping
+  const base  = 4;                              // was 5
+  const extra = Math.round(5 * whip);           // was 6 * whip
+  const count = base + extra;
 
   for (let i = 0; i < count; i++){
-    const spread = 0.06 + 0.10 * whip;           // tighter when still, wider when whipping
+    const spread = 0.06 + 0.09 * whip;          // slightly tighter
     const ang    = Math.PI/2 + (Math.random()-0.5) * spread * 2;
-    const speed  = 80 + Math.random()*110 + 60*whip;
+    const speed  = 80 + Math.random()*100 + 50*whip;
 
-    const s0     = 7.5 + Math.random()*3.5 + 2*whip;   // bigger when whipping
-    const life   = 1.1 + Math.random()*0.5 + 0.4*whip; // linger a bit more
+    const s0     = 7.0 + Math.random()*3.0 + 1.6*whip;
+    const life   = 1.0 + Math.random()*0.45 + 0.3*whip;
 
     const sprite = SMOKE_SPRITES[(Math.random()*SMOKE_SPRITES.length)|0];
 
     trail.push({
       kind: "smoke",
-      x: cx + (Math.random()-0.5)*(0.9 + 1.6*whip),
-      y: cy + 1 + (Math.random()-0.5)*(0.9 + 1.0*whip),
+      x: cx + (Math.random()-0.5)*(0.8 + 1.2*whip),
+      y: cy + 1 + (Math.random()-0.5)*(0.7 + 0.8*whip),
 
-      // inherit player sideways motion so plume bends with the tail
-      vx: Math.cos(ang)*speed + pvx * 0.45,
+      vx: Math.cos(ang)*speed + pvx * 0.36,     // was 0.45 (≈20% less bend)
       vy: Math.sin(ang)*speed,
 
       age: 0,
       life,
       size: s0,
-      grow: 1.22 + Math.random()*0.22,
-      cone: (Math.random()-0.5) * (16 + 24*whip),
+      grow: 1.18 + Math.random()*0.18,          // a hair slower growth
+      cone: (Math.random()-0.5) * (14 + 20*whip),
 
       sprite,
       seed: Math.random(),
-      swirl: 14 + 26*whip         // stronger curl when whipping
+      swirl: 12 + 22*whip                        // was 14 + 26*whip
     });
   }
 }
