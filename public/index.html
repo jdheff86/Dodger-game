@@ -1516,7 +1516,6 @@ function tryStartOrResume(e){
   e.preventDefault();
 
   // If the tap/click started on the Start button, let ONLY the button handler run.
-  if (e.target.closest("#startBtn")) return;
 
   // Don’t resume if any UI is open or the tap was inside HUD/menu
   if (document.body.classList.contains("ui-lock")) return;
