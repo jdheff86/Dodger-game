@@ -1542,11 +1542,7 @@ function tryStartOrResume(e){
 }
 overlay.addEventListener("pointerdown", tryStartOrResume);
 // Safety: if logged out, make the Start button always open Account.
-// (Works even if the game script fails to load.)
-startBtn.addEventListener("pointerdown", (e)=>{
-  e.preventDefault();
-  if (!auth.currentUser) openModal(document.getElementById("authModal"));
-});
+
 const buyAmmo    = document.getElementById("buyAmmo");
 const buyShrink  = document.getElementById("buyShrink");
 const buyLife    = document.getElementById("buyLife");
