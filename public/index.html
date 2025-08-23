@@ -1894,28 +1894,26 @@ const trail = [];
 // --- particle emitters (top-level) ---
 // denser & detailed exhaust with a tight cone that widens downstream
 // fewer, longer-lived particles; they stretch into each other
-function spawnFlameParticles(cx, cy) {
-  const base = Math.PI / 2;   // straight down
-  const spread = 0.12;        // a bit wider
-  const count = 2 + (Math.random() * 2 | 0); // 2–3 per frame
+function spawnFlameParticles(cx, cy){
+  const base = Math.PI / 2, spread = 0.20; // wider cone
+  const count = 5 + (Math.random() * 4 | 0); // 5–8 particles per frame
 
-  for (let i = 0; i < count; i++) {
-    const ang = base + (Math.random() - 0.5) * spread * 2;
-    const speed = 200 + Math.random() * 180;
+  for (let i=0; i<count; i++){
+    const ang = base + (Math.random()-0.5) * spread * 2;
+    const speed = 200 + Math.random() * 200;
 
     trail.push({
       kind: "flame",
-      x: cx + (Math.random() - 0.5) * 0.5,
-      y: cy + 1 + (Math.random() - 0.5) * 0.5,
-      vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,
+      x : cx + (Math.random()-0.5)*1.2,   // a little jitter
+      y : cy + 1 + (Math.random()-0.5)*1.2,
+      vx: Math.cos(ang)*speed,
+      vy: Math.sin(ang)*speed,
       age: 0,
-      life: 0.28 + Math.random() * 0.18,    // shorter life = less white core
-      size: 6 + Math.random() * 3,          // smaller base size
-      grow: 1.4 + Math.random() * 0.3,      // expands more
-      widen: 1.2 + Math.random() * 0.4,
-      flicker: 5 + Math.random() * 7,
-      heat: Math.random(),                  // NEW: controls color ramp
+      life: 0.65 + Math.random()*0.35,    // ~0.65–1s (longer lasting)
+      size: 14 + Math.random()*8,         // much larger particles
+      grow: 1.25 + Math.random()*0.25,
+      widen: 2.0 + Math.random()*0.5,     // spreads outward
+      flicker: 6 + Math.random()*8
     });
   }
 }
