@@ -1081,9 +1081,7 @@ function closeModal(m){
   document.body.classList.remove("ui-lock");
   window.blockResume?.();              // brief shield so the close tap can't resume
 }
-// expose to non-module game code
-window.openModal  = openModal;
-window.closeModal = closeModal;
+
   document.querySelectorAll(".modal").forEach(m=>{
     m.addEventListener("pointerdown", (e)=>{ if(e.target === m) closeModal(m); }, {passive:true});
   });
@@ -1219,98 +1217,73 @@ const SMOKE_SPRITES = [];
 })();
 
 // --- Prebaked flame plumes (1 image per size; core+blue+shell+ember) ---
-// --- Prebaked flame plumes (1 image per size; core + shell + deep red + ember) ---
 const FLAME_PLUMES = {}; // keyed by size (48, 72, 96)
 
+// --- Prebaked flame plumes (1 image per size; core+blue+shell+ember) ---
+// --- Prebaked flame plumes (orange-dominant) ---
 (function buildFlamePlumes(){
-  function paintNoise(c, w, h, radius, alpha, scale, seed){
-    // fast “bubbly” noise: many soft dots; no perlin needed
-    const rng = (a)=> (Math.sin(a*12.9898 + seed*78.233)*43758.5453)%1;
-    c.save();
-    c.globalCompositeOperation = "lighter";
-    c.globalAlpha = alpha;
-    const n = Math.round(140 * scale);      // # blobs scales with size
-    for (let i=0;i<n;i++){
-      const u = rng(i+1), v = rng(i+37), r = rng(i+71);
-      const x = (u*0.70+0.15) * w;          // keep near the cone center
-      const y = (v*0.80+0.15) * h;
-      const s = (r*0.6+0.4) * radius * scale;
-      const g = c.createRadialGradient(x, y, 0, x, y, s);
-      g.addColorStop(0.00, "rgba(255,210,120,0.45)");
-      g.addColorStop(0.50, "rgba(255,130,40,0.18)");
-      g.addColorStop(1.00, "rgba(180,40,20,0.00)");
-      c.fillStyle = g;
-      c.beginPath(); c.arc(x, y, s, 0, Math.PI*2); c.fill();
-    }
-    c.restore();
-  }
-
   const SIZES = [48, 72, 96];
   for (const size of SIZES){
-    const w = size, h = Math.round(size * 1.40);
+    const w = size, h = Math.round(size * 1.35);
     const off = document.createElement('canvas');
     off.width = w; off.height = h;
     const c = off.getContext('2d');
 
-    // vertical feather
+    // vertical feather (slightly warmer)
     {
       const lg = c.createLinearGradient(w*0.5, 0, w*0.5, h);
-      lg.addColorStop(0.00, "rgba(255,130,40,0.00)");
-      lg.addColorStop(0.18, "rgba(255,150,50,0.10)");
-      lg.addColorStop(0.55, "rgba(255,110,30,0.22)");
-      lg.addColorStop(1.00, "rgba(160,25,18,0.00)");
+      lg.addColorStop(0.00, "rgba(255,150,60,0.00)");
+      lg.addColorStop(0.20, "rgba(255,150,60,0.10)");
+      lg.addColorStop(0.55, "rgba(255,120,40,0.22)");
+      lg.addColorStop(1.00, "rgba(180,40,20,0.00)");
       c.fillStyle = lg;
       c.fillRect(0,0,w,h);
     }
 
-    // white-hot core
+    // ⚪ white-hot core — dialed way down & tighter
     {
-      const g = c.createRadialGradient(w/2, h*0.28, 1, w/2, h*0.40, h*0.30);
-      g.addColorStop(0.00, "rgba(255,255,255,0.78)");
-      g.addColorStop(0.35, "rgba(255,245,200,0.60)");
-      g.addColorStop(1.00, "rgba(255,235,150,0.00)");
+      const g = c.createRadialGradient(w/2, h*0.30, 1, w/2, h*0.40, h*0.26);
+      g.addColorStop(0.00, "rgba(255,255,255,0.35)"); // was ~0.78
+      g.addColorStop(0.35, "rgba(255,240,180,0.20)"); // was ~0.60
+      g.addColorStop(1.00, "rgba(255,230,150,0.00)");
       c.fillStyle = g; c.beginPath();
-      c.ellipse(w/2, h*0.37, w*0.26, h*0.26, 0, 0, Math.PI*2); c.fill();
+      c.ellipse(w/2, h*0.37, w*0.22, h*0.22, 0, 0, Math.PI*2); c.fill();
     }
 
-    // orange shell
+    // 🟠 orange shell — brighter, larger, starts earlier
     {
-      const g = c.createRadialGradient(w/2, h*0.30, 2, w/2, h*0.52, h*0.66);
-      g.addColorStop(0.00, "rgba(255,200,90,0.95)");
-      g.addColorStop(0.45, "rgba(255,145,40,0.84)");
+      const g = c.createRadialGradient(w/2, h*0.28, 2, w/2, h*0.50, h*0.72);
+      g.addColorStop(0.00, "rgba(255,205,95,1.00)");   // brighter
+      g.addColorStop(0.45, "rgba(255,150,45,0.96)");   // stronger orange
       g.addColorStop(1.00, "rgba(255,95,22,0.00)");
       c.fillStyle = g; c.beginPath();
-      c.ellipse(w/2, h*0.56, w*0.52, h*0.62, 0, 0, Math.PI*2); c.fill();
+      c.ellipse(w/2, h*0.54, w*0.58, h*0.70, 0, 0, Math.PI*2); c.fill();
     }
 
-    // deep-red belly
+    // 🔴 deep-red belly — boosted to keep warmth downstream
     {
-      const g = c.createRadialGradient(w/2, h*0.70, 2, w/2, h*0.88, h*0.62);
-      g.addColorStop(0.00, "rgba(255,85,20,0.55)");
-      g.addColorStop(0.40, "rgba(220,40,20,0.50)");
-      g.addColorStop(1.00, "rgba(150,18,18,0.00)");
+      const g = c.createRadialGradient(w/2, h*0.72, 2, w/2, h*0.90, h*0.66);
+      g.addColorStop(0.00, "rgba(255,90,24,0.70)");
+      g.addColorStop(0.40, "rgba(220,45,22,0.60)");
+      g.addColorStop(1.00, "rgba(140,18,18,0.00)");
       c.fillStyle = g; c.beginPath();
-      c.ellipse(w/2, h*0.76, w*0.54, h*0.60, 0, 0, Math.PI*2); c.fill();
+      c.ellipse(w/2, h*0.78, w*0.56, h*0.64, 0, 0, Math.PI*2); c.fill();
     }
 
-    // ember core at the tail
+    // 🌋 ember core — subtle, keeps the tail hot without adding white
     {
-      const g = c.createRadialGradient(w/2, h*0.86, 1, w/2, h*0.96, h*0.40);
-      g.addColorStop(0.00, "rgba(170,20,18,0.55)");
-      g.addColorStop(0.50, "rgba(120,15,15,0.35)");
+      const g = c.createRadialGradient(w/2, h*0.88, 1, w/2, h*0.98, h*0.42);
+      g.addColorStop(0.00, "rgba(180,28,18,0.45)");
+      g.addColorStop(0.55, "rgba(120,18,15,0.30)");
       g.addColorStop(1.00, "rgba(80,10,10,0.00)");
       c.fillStyle = g; c.beginPath();
-      c.ellipse(w/2, h*0.90, w*0.42, h*0.46, 0, 0, Math.PI*2); c.fill();
+      c.ellipse(w/2, h*0.92, w*0.44, h*0.48, 0, 0, Math.PI*2); c.fill();
     }
-
-    // baked mottled detail (3 octaves)
-    paintNoise(c, w, h, h*0.18, 0.30, 1.00, 0.13);
-    paintNoise(c, w, h, h*0.10, 0.22, 0.66, 0.57);
-    paintNoise(c, w, h, h*0.06, 0.18, 0.42, 0.91);
 
     FLAME_PLUMES[size] = off;
   }
-})(); // ← one close, matching one open
+})();
+
   // Reserve vertical space for bottom UI so the player can't sit under it
   let uiBottom = 140;
   function measureUIBottom(){
@@ -1518,6 +1491,7 @@ function tryStartOrResume(e){
   e.preventDefault();
 
   // If the tap/click started on the Start button, let ONLY the button handler run.
+  if (e.target.closest("#startBtn")) return;
 
   // Don’t resume if any UI is open or the tap was inside HUD/menu
   if (document.body.classList.contains("ui-lock")) return;
@@ -1536,26 +1510,18 @@ function tryStartOrResume(e){
 
   // Otherwise, start a fresh run (auth-gated)
   if (!window.firebase.auth.currentUser){
-    window.openModal
-  ? window.openModal(document.getElementById("authModal"))
-  : (document.getElementById("authModal").style.display = "flex",
-     document.body.classList.add("ui-lock"));
+    openModal(document.getElementById("authModal"));
     return;
   }
   startGame();
 }
-overlay.addEventListener("pointerdown", (e)=>{
-  // If the tap was on the Start/Sign in button, let that button’s handler run only.
-  if (e.target.closest("#startBtn")) return;
-  tryStartOrResume(e);
-});
-// iOS safety: also listen to regular click for the overlay background
-overlay.addEventListener("click", (e)=>{
-  if (e.target.closest("#startBtn")) return;
-  tryStartOrResume(e);
-});
+overlay.addEventListener("pointerdown", tryStartOrResume);
 // Safety: if logged out, make the Start button always open Account.
-
+// (Works even if the game script fails to load.)
+startBtn.addEventListener("pointerdown", (e)=>{
+  e.preventDefault();
+  if (!auth.currentUser) openModal(document.getElementById("authModal"));
+});
 const buyAmmo    = document.getElementById("buyAmmo");
 const buyShrink  = document.getElementById("buyShrink");
 const buyLife    = document.getElementById("buyLife");
@@ -2141,7 +2107,7 @@ window.addEventListener("pointerup", ()=>{
     startGame();
   }
   startBtn.addEventListener("pointerdown", handleStart);
-  startBtn.addEventListener("click", handleStart);
+  
 
   pauseBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); togglePause(); });
 
@@ -2546,42 +2512,28 @@ for (const t of trail) {
   ctx.globalAlpha = a;
 
 if (t.kind === "flame") {
-  // age 0 → near nozzle, 1 → far downstream
-  const k = Math.min(1, t.age / t.life);
+  const k = Math.min(1, t.age / t.life);       // 0 near cube → 1 downstream
   const base = (t.size || 12);
+  // widen with age → cone; keep height mostly consistent
+  const w = base * (0.45 + (t.widen || 1.6) * k);
+  const h = base * (1.05 + 0.25 * k);
 
-  // tighter at the top, widens into a cone
-  const w = base * (0.40 + (t.widen || 1.9) * k);
-  const h = base * (1.10 + 0.30 * k);
+  // pick a pre-baked plume by the larger side
+  const target = (Math.max(w,h) < 56) ? 48 : (Math.max(w,h) < 84) ? 72 : 96;
+  const img = FLAME_PLUMES[target];
 
-  // pick a pre-baked sprite size
-  const maxSide = Math.max(w, h);
-  const target  = (maxSide < 56) ? 48 : (maxSide < 84) ? 72 : 96;
-  const img     = FLAME_PLUMES[target];
-
-  // brightness & flicker (hotter near nozzle)
-  t.seed = t.seed ?? Math.random();                // give flame a stable seed
-  const bright = 0.45 + 0.55 * (1 - k);            // brighter when young
-  const flick  = 0.85 + 0.15 * Math.sin(t.seed*7 + performance.now()*0.008*(t.flicker || 8));
-  const alpha  = bright * flick;
+  // slight shimmer
+  const jitterY = (Math.random() - 0.5) * (w * 0.06);
 
   const prev = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = "lighter";
-
-  // main draw
-  ctx.globalAlpha = alpha;
-  ctx.drawImage(img, t.x - w/2, t.y - h/2, w, h);
-
-  // subtle downward smear for depth / motion
-  ctx.globalAlpha = alpha * 0.33;
-  ctx.drawImage(img, t.x - w/2, (t.y + h*0.06) - h/2, w, h);
-
-  // restore canvas state
+  ctx.globalAlpha = (1 - k) * 0.95;            // fade with age
+  ctx.drawImage(img, t.x - w/2, t.y + jitterY - h/2, w, h);
   ctx.globalCompositeOperation = prev;
   ctx.globalAlpha = 1;
 
   ctx.restore();
-  continue;           // don't fall through to other kinds
+  continue;
 }
 
   if (t.kind === "sparkle") {
@@ -2598,7 +2550,7 @@ if (t.kind === "flame") {
   if (t.kind === "smoke") {
     const k = t.age / t.life;
     const scale = (t.size || 8) * (1.0 + 0.9 * k);
-    const haze = 0.8 - 0.4 * k;
+    const haze = 0.7 - 0.32 * k;
 
     const spr = t.sprite || SMOKE_SPRITES[0];
     const w = spr.size * scale / 48;
