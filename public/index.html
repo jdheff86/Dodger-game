@@ -1544,7 +1544,16 @@ function tryStartOrResume(e){
   }
   startGame();
 }
-overlay.addEventListener("pointerdown", tryStartOrResume);
+overlay.addEventListener("pointerdown", (e)=>{
+  // If the tap was on the Start/Sign in button, let that button’s handler run only.
+  if (e.target.closest("#startBtn")) return;
+  tryStartOrResume(e);
+});
+// iOS safety: also listen to regular click for the overlay background
+overlay.addEventListener("click", (e)=>{
+  if (e.target.closest("#startBtn")) return;
+  tryStartOrResume(e);
+});
 // Safety: if logged out, make the Start button always open Account.
 
 const buyAmmo    = document.getElementById("buyAmmo");
@@ -2132,7 +2141,7 @@ window.addEventListener("pointerup", ()=>{
     startGame();
   }
   startBtn.addEventListener("pointerdown", handleStart);
-  
+  startBtn.addEventListener("click", handleStart);
 
   pauseBtn.addEventListener("pointerdown", e=>{ e.preventDefault(); togglePause(); });
 
