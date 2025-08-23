@@ -1081,7 +1081,9 @@ function closeModal(m){
   document.body.classList.remove("ui-lock");
   window.blockResume?.();              // brief shield so the close tap can't resume
 }
-
+// expose to non-module game code
+window.openModal  = openModal;
+window.closeModal = closeModal;
   document.querySelectorAll(".modal").forEach(m=>{
     m.addEventListener("pointerdown", (e)=>{ if(e.target === m) closeModal(m); }, {passive:true});
   });
@@ -1534,7 +1536,10 @@ function tryStartOrResume(e){
 
   // Otherwise, start a fresh run (auth-gated)
   if (!window.firebase.auth.currentUser){
-    openModal(document.getElementById("authModal"));
+    window.openModal
+  ? window.openModal(document.getElementById("authModal"))
+  : (document.getElementById("authModal").style.display = "flex",
+     document.body.classList.add("ui-lock"));
     return;
   }
   startGame();
