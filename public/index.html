@@ -1891,29 +1891,74 @@ menuPopup.addEventListener("pointerdown", (e)=>{
   coins:[]
 };
 const trail = [];
+
+// === Helpers for flame color interpolation ===
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function colorAt(stages, t) {
+  t = Math.max(0, Math.min(1, t)); // clamp to [0..1]
+  for (let i = 0; i < stages.length - 1; i++) {
+    const A = stages[i], B = stages[i + 1];
+    if (t >= A.stop && t <= B.stop) {
+      const u = (t - A.stop) / (B.stop - A.stop || 1);
+      const r = Math.round(lerp(A.r, B.r, u));
+      const g = Math.round(lerp(A.g, B.g, u));
+      const b = Math.round(lerp(A.b, B.b, u));
+      return `rgb(${r},${g},${b})`;
+    }
+  }
+  const L = stages[stages.length - 1];
+  return `rgb(${L.r},${L.g},${L.b})`;
+}
 // --- particle emitters (top-level) ---
 // denser & detailed exhaust with a tight cone that widens downstream
 // fewer, longer-lived particles; they stretch into each other
 function spawnFlameParticles(cx, cy){
-  const base = Math.PI / 2, spread = 0.20; // wider cone
-  const count = 5 + (Math.random() * 4 | 0); // 5–8 particles per frame
+  const base   = Math.PI/2, spread = 0.10;
+  const count  = 2 + (Math.random()*1|0); // 2–3 per frame
 
-  for (let i=0; i<count; i++){
-    const ang = base + (Math.random()-0.5) * spread * 2;
-    const speed = 200 + Math.random() * 200;
+  for (let i = 0; i < count; i++){
+    const ang   = base + (Math.random()-0.5)*spread*2;
+    const speed = 220 + Math.random()*220;
 
+    // 🔥 Color-staged flame particle
     trail.push({
-      kind: "flame",
-      x : cx + (Math.random()-0.5)*1.2,   // a little jitter
-      y : cy + 1 + (Math.random()-0.5)*1.2,
+      kind   : "flame",
+      x      : cx + (Math.random()-0.5)*0.6,
+      y      : cy + 1 + (Math.random()-0.5)*0.6,
+      vx     : Math.cos(ang)*speed,
+      vy     : Math.sin(ang)*speed,
+      age    : 0,
+      life   : 0.42 + Math.random()*0.22,
+      size   : 12 + Math.random()*6,
+      grow   : 1.30 + Math.random()*0.20,
+      widen  : 1.6 + Math.random()*0.4,
+      flicker: 6 + Math.random()*6,
+
+      // ✨ key: no white stop; just red→orange→yellow
+      colorStages: [
+        { stop: 0.00, r:255, g: 80, b:  0 },  // deep red-orange (core)
+        { stop: 0.45, r:255, g:140, b:  0 },  // bright orange
+        { stop: 0.90, r:255, g:200, b: 50 }   // yellow (tip)
+      ]
+    });
+  }
+
+  // (optional) hot specks – leave off if you want a perfectly smooth cone
+  if (Math.random() < 0.18){
+    const ang   = base + (Math.random()-0.5)*spread*2;
+    const speed = 260 + Math.random()*220;
+    trail.push({
+      kind:"sparkle",
+      x: cx, y: cy,
       vx: Math.cos(ang)*speed,
       vy: Math.sin(ang)*speed,
-      age: 0,
-      life: 0.65 + Math.random()*0.35,    // ~0.65–1s (longer lasting)
-      size: 14 + Math.random()*8,         // much larger particles
-      grow: 1.25 + Math.random()*0.25,
-      widen: 2.0 + Math.random()*0.5,     // spreads outward
-      flicker: 6 + Math.random()*8
+      age:0,
+      life:0.20 + Math.random()*0.22,
+      size:2 + Math.random()*2,
+      twinkle: 10 + Math.random()*6
     });
   }
 }
@@ -2501,31 +2546,53 @@ for (const t of trail) {
   ctx.globalAlpha = a;
 
 if (t.kind === "flame") {
-  const k = Math.min(1, t.age / t.life);       // 0 near cube → 1 downstream
+  const k = Math.min(1, t.age / t.life);        // age 0..1
   const base = (t.size || 12);
-  // widen with age → cone; keep height mostly consistent
-  const w = base * (0.45 + (t.widen || 1.6) * k);
-  const h = base * (1.05 + 0.25 * k);
 
-  // pick a pre-baked plume by the larger side
-  const target = (Math.max(w,h) < 56) ? 48 : (Math.max(w,h) < 84) ? 72 : 96;
-  const img = FLAME_PLUMES[target];
+  // nice cone: wider as it ages, slightly taller than wide
+  const w = base * (0.6 + (t.widen || 1.6) * k);
+  const h = base * (1.2 + 0.4 * k);
 
-  // slight shimmer
-  const jitterY = (Math.random() - 0.5) * (w * 0.06);
+  // subtle vertical jitter to avoid banding
+  const jitterY = (Math.random() - 0.5) * (w * 0.05);
 
-  const prev = ctx.globalCompositeOperation;
-ctx.globalCompositeOperation = "lighter";
-// Safari tends to wash out → lower alpha
-ctx.globalAlpha = 0.55 * (1 - k);   // was 0.95
-ctx.drawImage(img, t.x - w/2, t.y + jitterY - h/2, w, h);
-ctx.globalCompositeOperation = prev;
-ctx.globalAlpha = 1;
+  // 🔶 draw with two layered radial gradients: orange core + yellow shell
+  const cx = t.x, cy = t.y + jitterY;
+
+  // core (red/orange)
+  {
+    const rg = ctx.createRadialGradient(cx, cy - h*0.15, 1, cx, cy, Math.max(w,h)*0.55);
+    rg.addColorStop(0.00, colorAt(t.colorStages, Math.max(0.00, k - 0.15)));
+    rg.addColorStop(0.70, colorAt(t.colorStages, Math.min(0.85, k + 0.10)));
+    rg.addColorStop(1.00, "rgba(0,0,0,0)");
+    const prev = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = (1 - k) * 0.95;           // fades out downstream
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, w*0.55, h*0.65, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalCompositeOperation = prev;
+  }
+
+  // halo (yellow fringe)
+  {
+    const rg = ctx.createRadialGradient(cx, cy, 1, cx, cy, Math.max(w,h)*0.80);
+    rg.addColorStop(0.00, colorAt(t.colorStages, Math.min(1, k + 0.20)));
+    rg.addColorStop(1.00, "rgba(0,0,0,0)");
+    const prev = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.55 * (1 - k);
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + h*0.05, w*0.80, h*0.90, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalCompositeOperation = prev;
+  }
 
   ctx.restore();
   continue;
 }
-
   if (t.kind === "sparkle") {
     ctx.shadowBlur = 0;
     ctx.fillStyle = `rgba(255, 255, 180, ${a})`;
