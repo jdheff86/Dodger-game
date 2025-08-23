@@ -1240,35 +1240,37 @@ const FLAME_PLUMES = {}; // keyed by size (48, 72, 96)
       c.fillRect(0,0,w,h);
     }
 
-    // ⚪ white-hot core — dialed way down & tighter
-    {
-      const g = c.createRadialGradient(w/2, h*0.30, 1, w/2, h*0.40, h*0.26);
-      g.addColorStop(0.00, "rgba(255,255,255,0.35)"); // was ~0.78
-      g.addColorStop(0.35, "rgba(255,240,180,0.20)"); // was ~0.60
-      g.addColorStop(1.00, "rgba(255,230,150,0.00)");
-      c.fillStyle = g; c.beginPath();
-      c.ellipse(w/2, h*0.37, w*0.22, h*0.22, 0, 0, Math.PI*2); c.fill();
-    }
+    // // --- warm yellow core (small + subtle)
+{
+  const g = c.createRadialGradient(w/2, h*0.30, 1, w/2, h*0.44, h*0.26);
+  // smaller, dimmer, more yellow than white
+  g.addColorStop(0.00, "rgba(255,230,140,0.35)");
+  g.addColorStop(0.35, "rgba(255,210,110,0.25)");
+  g.addColorStop(1.00, "rgba(255,200,90,0.00)");
+  c.fillStyle = g; c.beginPath();
+  c.ellipse(w/2, h*0.38, w*0.22, h*0.22, 0, 0, Math.PI*2); c.fill();
+}
 
-    // 🟠 orange shell — brighter, larger, starts earlier
-    {
-      const g = c.createRadialGradient(w/2, h*0.28, 2, w/2, h*0.50, h*0.72);
-      g.addColorStop(0.00, "rgba(255,205,95,1.00)");   // brighter
-      g.addColorStop(0.45, "rgba(255,150,45,0.96)");   // stronger orange
-      g.addColorStop(1.00, "rgba(255,95,22,0.00)");
-      c.fillStyle = g; c.beginPath();
-      c.ellipse(w/2, h*0.54, w*0.58, h*0.70, 0, 0, Math.PI*2); c.fill();
-    }
+// --- orange body (dominant)
+{
+  const g = c.createRadialGradient(w/2, h*0.38, 2, w/2, h*0.60, h*0.72);
+  g.addColorStop(0.00, "rgba(255,185,60,0.98)");
+  g.addColorStop(0.35, "rgba(255,140,35,0.96)");
+  g.addColorStop(0.80, "rgba(240,95,22,0.70)");
+  g.addColorStop(1.00, "rgba(240,95,22,0.00)");
+  c.fillStyle = g; c.beginPath();
+  c.ellipse(w/2, h*0.58, w*0.58, h*0.70, 0, 0, Math.PI*2); c.fill();
+}
 
-    // 🔴 deep-red belly — boosted to keep warmth downstream
-    {
-      const g = c.createRadialGradient(w/2, h*0.72, 2, w/2, h*0.90, h*0.66);
-      g.addColorStop(0.00, "rgba(255,90,24,0.70)");
-      g.addColorStop(0.40, "rgba(220,45,22,0.60)");
-      g.addColorStop(1.00, "rgba(140,18,18,0.00)");
-      c.fillStyle = g; c.beginPath();
-      c.ellipse(w/2, h*0.78, w*0.56, h*0.64, 0, 0, Math.PI*2); c.fill();
-    }
+// --- deep red base (hot belly)
+{
+  const g = c.createRadialGradient(w/2, h*0.80, 2, w/2, h*0.98, h*0.66);
+  g.addColorStop(0.00, "rgba(220,45,18,0.70)");
+  g.addColorStop(0.45, "rgba(170,30,15,0.55)");
+  g.addColorStop(1.00, "rgba(120,20,10,0.00)");
+  c.fillStyle = g; c.beginPath();
+  c.ellipse(w/2, h*0.86, w*0.56, h*0.66, 0, 0, Math.PI*2); c.fill();
+}
 
     // 🌋 ember core — subtle, keeps the tail hot without adding white
     {
@@ -1894,7 +1896,7 @@ const trail = [];
 // fewer, longer-lived particles; they stretch into each other
 function spawnFlameParticles(cx, cy){
   const base = Math.PI/2, spread = 0.10;
-  const count = 2 + (Math.random()*1|0); // 2–3 per frame (not 6–8)
+  const count = 1 + (Math.random()*1|0); // 2–3 per frame (not 6–8)
 
   for (let i=0; i<count; i++){
     const ang   = base + (Math.random()-0.5)*spread*2;
@@ -2504,6 +2506,9 @@ for (let i = trail.length - 1; i >= 0; i--) {
     // --- draw flame trail particles ---
 // ── Particle rendering (flame | sparkle | smoke) ─────────────────────────
 // ── Particle rendering (flame | sparkle | smoke) ─────────────────────────
+// Enable high quality scaling for all subsequent drawImage calls this frame
+ctx.imageSmoothingEnabled = true;
+ctx.imageSmoothingQuality = "high";
 for (const t of trail) {
   const a = Math.max(0, 1 - (t.age / t.life));
   const s = (t.size || 8) * (0.72 + 0.28 * a);
@@ -2526,11 +2531,12 @@ if (t.kind === "flame") {
   const jitterY = (Math.random() - 0.5) * (w * 0.06);
 
   const prev = ctx.globalCompositeOperation;
-  ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = (1 - k) * 0.95;            // fade with age
-  ctx.drawImage(img, t.x - w/2, t.y + jitterY - h/2, w, h);
-  ctx.globalCompositeOperation = prev;
-  ctx.globalAlpha = 1;
+ctx.globalCompositeOperation = "lighter";
+// Safari tends to wash out → lower alpha
+ctx.globalAlpha = 0.55 * (1 - k);   // was 0.95
+ctx.drawImage(img, t.x - w/2, t.y + jitterY - h/2, w, h);
+ctx.globalCompositeOperation = prev;
+ctx.globalAlpha = 1;
 
   ctx.restore();
   continue;
