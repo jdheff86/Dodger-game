@@ -1970,29 +1970,29 @@ const SPARKLE_BASE_PER_FRAME = 6;     // dense
 const SPARKLE_BURST_CHANCE   = 0.18;  // occasional extra pop
 const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10° cone
 
+// ✨ Sparkle-only trail
 function spawnSparkleParticles(cx, cy){
-  // Emit a dense fan pointing downward with slight spread
-  const base = Math.PI / 2;                   // down
-  const spread = SPARKLE_CONE_RADIANS;
+  const base   = Math.PI / 2;   // straight down
+  const spread = 0.25;          // narrow cone
+  const count  = 1 + (Math.random()*2|0); // 1–2 per frame
 
-  const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*2)|0);
-  for (let i = 0; i < n; i++){
-    const ang   = base + (Math.random()-0.5) * spread * 2;
-    const speed = 220 + Math.random()*260;    // fast = long streak
+  for (let i = 0; i < count; i++){
+    const ang   = base + (Math.random()-0.5) * spread;
+    const speed = 80 + Math.random() * 120;  // slower than flame, keeps close
+
     trail.push({
-      kind: "sparkle",
-      x: cx + (Math.random()-0.5)*1.2,
-      y: cy + (Math.random()-0.5)*1.2,
-      vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,
-      age: 0,
-      life: 0.18 + Math.random()*0.20,        // short-lived
-      size: 2.2 + Math.random()*2.6,
-      twinkle: 9 + Math.random()*7,           // twinkle frequency
-      // how streaky this particle is (0..1)
-      streak: 0.65 + Math.random()*0.30
+      kind   : "sparkle",
+      x      : cx,
+      y      : cy,
+      vx     : Math.cos(ang) * speed * 0.2,  // keep horizontal tight
+      vy     : Math.sin(ang) * speed,        // mostly downward
+      age    : 0,
+      life   : 0.25 + Math.random()*0.15,    // short bursts
+      size   : 3 + Math.random()*2,
+      twinkle: 6 + Math.random()*4
     });
   }
+}
 
   // Occasional mini-burst for extra sparkle
   if (Math.random() < SPARKLE_BURST_CHANCE){
@@ -2583,80 +2583,19 @@ if (t.kind === "flame") {
   continue;
 }
 
-  if (t.kind === "sparkle") {
-  // Additive blend for bright glints
-  const prevOp = ctx.globalCompositeOperation;
-  ctx.globalCompositeOperation = "lighter";
+if (t.kind === "sparkle") {
+  const k = t.age / t.life;
+  const fade = 1 - k;
 
-  // Twinkle (0.75..1.0)
-  const tw = 0.75 + 0.25 * Math.abs(Math.sin(t.age * (t.twinkle || 10)));
+  const rg = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, t.size);
+  rg.addColorStop(0.0, `rgba(255,215,64,${0.9*fade})`);   // golden core
+  rg.addColorStop(0.5, `rgba(255,160,32,${0.6*fade})`);   // warm orange
+  rg.addColorStop(1.0, `rgba(255,160,32,0)`);             // fade out
 
-  // Compute a streak length based on speed + remaining life
-  const speed = Math.hypot(t.vx, t.vy);
-  const baseLen = Math.min(42, speed * 0.06);
-  const len = baseLen * (0.35 + 0.65 * (1 - t.age / t.life)) * (t.streak || 0.7);
-
-  // Direction of motion
-  const angle = Math.atan2(t.vy, t.vx);
-
-  // 1) Draw the glowing head (small warm core)
-  {
-    const r = (t.size || 3) * (0.7 + 0.6 * tw);
-    const rg = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r);
-    rg.addColorStop(0.00, `rgba(255,255,230,${0.85*a})`); // soft white core
-    rg.addColorStop(0.45, `rgba(255,230,150,${0.75*a})`); // warm gold
-    rg.addColorStop(1.00, `rgba(255,210,120,0)`);         // fade
-    ctx.fillStyle = rg;
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, r, 0, Math.PI*2);
-    ctx.fill();
-  }
-
-  // 2) Draw the tail as a skinny rounded strip behind the head
-  {
-    const w = Math.max(1.0, (t.size || 2) * 0.55 * tw); // thin
-    ctx.save();
-    ctx.translate(t.x, t.y);
-    ctx.rotate(angle + Math.PI); // point tail opposite motion
-
-    const lg = ctx.createLinearGradient(0, 0, 0, len);
-    // yellow near head → orange → transparent ember
-    lg.addColorStop(0.00, `rgba(255,235,150,${0.85*a})`);
-    lg.addColorStop(0.45, `rgba(255,200,110,${0.55*a})`);
-    lg.addColorStop(1.00, `rgba(255,140,60,0)`);
-
-    ctx.fillStyle = lg;
-    const rr = w; // rounded ends
-    ctx.beginPath();
-    // rounded-rect strip (0..len) centered on X
-    const x0 = -w*0.5, y0 = 0, ww = w, hh = len;
-    ctx.moveTo(x0+rr, y0);
-    ctx.arcTo(x0+ww, y0, x0+ww, y0+rr, rr);
-    ctx.arcTo(x0+ww, y0+hh, x0+ww-rr, y0+hh, rr);
-    ctx.arcTo(x0, y0+hh, x0, y0+hh-rr, rr);
-    ctx.arcTo(x0, y0, x0+rr, y0, rr);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.restore();
-  }
-
-  // 3) Tiny cross-flare for extra sparkle
-  if (tw > 0.95) {
-    ctx.save();
-    ctx.translate(t.x, t.y);
-    ctx.globalAlpha = 0.55 * a;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(-4, 0); ctx.lineTo(4, 0);
-    ctx.moveTo(0,-4);  ctx.lineTo(0, 4);
-    ctx.strokeStyle = "rgba(255,240,200,0.9)";
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  ctx.globalCompositeOperation = prevOp;
-  ctx.restore();
+  ctx.fillStyle = rg;
+  ctx.beginPath();
+  ctx.arc(t.x, t.y, t.size, 0, Math.PI*2);
+  ctx.fill();
   continue;
 }
 
