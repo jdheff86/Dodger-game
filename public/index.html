@@ -2546,52 +2546,77 @@ for (const t of trail) {
   ctx.save();
   ctx.globalAlpha = a;
 
-if (t.kind === "flame") {
-  const k = Math.min(1, t.age / t.life);        // 0..1
+if if (t.kind === "flame") {
+  const k = Math.min(1, t.age / t.life);            // 0..1 age
   const base = (t.size || 12);
 
-  // same shape/size as your good build
-  const w = base * (0.6 + (t.widen || 1.6) * k);
-  const h = base * (1.2 + 0.4 * k);
-  const jitterY = (Math.random() - 0.5) * (w * 0.05);
+  // geometry: tighter cone; grows with age
+  const w = base * (0.55 + (t.widen || 1.5) * k);
+  const h = base * (1.10 + 0.45 * k);
+  const cx = t.x;
+  const cy = t.y + (Math.random() - 0.5) * (w * 0.04); // tiny jitter
+  const prevOp = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = "lighter";
 
-  const cx = t.x, cy = t.y + jitterY;
-
-  // --- inner body (red/orange) ---
+  // 1) OUTER SHELL — red/orange rim (defines cone edge)
   {
-    const rg = ctx.createRadialGradient(cx, cy - h*0.15, 1, cx, cy, Math.max(w,h)*0.56);
-    rg.addColorStop(0.00, "rgba(198,26,18,0.92)");   // deep red-orange
-    rg.addColorStop(0.55, "rgba(255,105,24,0.94)");  // bright orange
-    rg.addColorStop(1.00, "rgba(255,105,24,0.00)");
-    const prev = ctx.globalCompositeOperation;
-    const prevA = ctx.globalAlpha;
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = Math.min(0.88, (1 - k) * 0.95);  // cap to avoid whitening
-    ctx.fillStyle = rg;
+    const R = Math.max(w, h) * 0.95;
+    const g = ctx.createRadialGradient(cx, cy + h*0.10, 1, cx, cy + h*0.10, R);
+    // mostly transparent center → orange-red rim
+    g.addColorStop(0.00, "rgba(255,120,20,0.00)");
+    g.addColorStop(0.50, "rgba(255,120,20,0.10)");
+    g.addColorStop(0.85, "rgba(220,60,20,0.28)");
+    g.addColorStop(1.00, "rgba(200,45,20,0.00)");
+    ctx.globalAlpha = 0.70 * (1 - k);
+    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.ellipse(cx, cy, w*0.54, h*0.64, 0, 0, Math.PI*2);
+    ctx.ellipse(cx, cy + h*0.08, w*0.95, h*1.05, 0, 0, Math.PI*2);
     ctx.fill();
-    ctx.globalCompositeOperation = prev;
-    ctx.globalAlpha = prevA;
   }
 
-  // --- outer halo (yellow fringe) ---
+  // 2) ORANGE BODY — the dominant mid layer
   {
-    const rg = ctx.createRadialGradient(cx, cy, 1, cx, cy, Math.max(w,h)*0.82);
-    rg.addColorStop(0.00, "rgba(255,207,56,0.85)");   // yellow
-    rg.addColorStop(1.00, "rgba(255,207,56,0.00)");
-    const prev = ctx.globalCompositeOperation;
-    const prevA = ctx.globalAlpha;
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = Math.min(0.50, 0.55 * (1 - k)); // softer halo, still bright
-    ctx.fillStyle = rg;
+    const R = Math.max(w, h) * 0.70;
+    const g = ctx.createRadialGradient(cx, cy, 1, cx, cy, R);
+    g.addColorStop(0.00, "rgba(255,165,40,0.95)");
+    g.addColorStop(0.55, "rgba(255,135,30,0.92)");
+    g.addColorStop(1.00, "rgba(240,95,22,0.00)");
+    ctx.globalAlpha = 0.85 * (1 - k);
+    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.ellipse(cx, cy + h*0.05, w*0.80, h*0.90, 0, 0, Math.PI*2);
+    ctx.ellipse(cx, cy + h*0.04, w*0.75, h*0.90, 0, 0, Math.PI*2);
     ctx.fill();
-    ctx.globalCompositeOperation = prev;
-    ctx.globalAlpha = prevA;
   }
 
+  // 3) YELLOW CORE — compact/bright near cube (keep small so it doesn’t dominate)
+  {
+    const R = Math.max(w, h) * 0.42;
+    const g = ctx.createRadialGradient(cx, cy - h*0.12, 1, cx, cy - h*0.12, R);
+    g.addColorStop(0.00, "rgba(255,220,90,0.70)");
+    g.addColorStop(0.45, "rgba(255,205,70,0.55)");
+    g.addColorStop(1.00, "rgba(255,200,60,0.00)");
+    ctx.globalAlpha = 0.58 * (1 - k);           // ↓ toned down vs before
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - h*0.06, w*0.38, h*0.58, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // 4) DEEP RED BELLY — at the base for that hot booster look
+  {
+    const R = Math.max(w, h) * 0.65;
+    const g = ctx.createRadialGradient(cx, cy + h*0.40, 1, cx, cy + h*0.40, R);
+    g.addColorStop(0.00, "rgba(210,40,18,0.55)");
+    g.addColorStop(0.55, "rgba(160,30,15,0.42)");
+    g.addColorStop(1.00, "rgba(120,20,10,0.00)");
+    ctx.globalAlpha = 0.60 * (1 - k);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + h*0.42, w*0.70, h*0.90, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  ctx.globalCompositeOperation = prevOp;
   ctx.restore();
   continue;
 }
