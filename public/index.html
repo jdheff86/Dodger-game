@@ -1938,11 +1938,12 @@ function spawnFlameParticles(cx, cy){
       flicker: 6 + Math.random()*6,
 
       // ✨ key: no white stop; just red→orange→yellow
-      colorStages: [
-        { stop: 0.00, r:255, g: 80, b:  0 },  // deep red-orange (core)
-        { stop: 0.45, r:255, g:140, b:  0 },  // bright orange
-        { stop: 0.90, r:255, g:200, b: 50 }   // yellow (tip)
-      ]
+      // ✨ key: exact gradient — deep red-orange → bright orange → yellow (no white)
+colorStages: [
+  { stop: 0.00, r:198, g: 26, b: 18 }, // #C61A12 deep red-orange
+  { stop: 0.45, r:255, g:105, b: 24 }, // #FF6918 bright orange
+  { stop: 0.90, r:255, g:207, b: 56 }  // #FFCF38 yellow tip
+]
     });
   }
 
@@ -2546,56 +2547,58 @@ for (const t of trail) {
   ctx.globalAlpha = a;
 
 if (t.kind === "flame") {
-  const k = Math.min(1, t.age / t.life);        // age 0..1
+  const k = Math.min(1, t.age / t.life);        // 0..1
   const base = (t.size || 12);
 
-  // nice cone: wider as it ages, slightly taller than wide
+  // same shape/size as your good build
   const w = base * (0.6 + (t.widen || 1.6) * k);
   const h = base * (1.2 + 0.4 * k);
-
-  // subtle vertical jitter to avoid banding
   const jitterY = (Math.random() - 0.5) * (w * 0.05);
 
-  // 🔶 draw with two layered radial gradients: orange core + yellow shell
   const cx = t.x, cy = t.y + jitterY;
 
-  // core (red/orange)
+  // --- inner body (red/orange) ---
   {
-    const rg = ctx.createRadialGradient(cx, cy - h*0.15, 1, cx, cy, Math.max(w,h)*0.55);
-    rg.addColorStop(0.00, colorAt(t.colorStages, Math.max(0.00, k - 0.15)));
-    rg.addColorStop(0.70, colorAt(t.colorStages, Math.min(0.85, k + 0.10)));
-    rg.addColorStop(1.00, "rgba(0,0,0,0)");
+    const rg = ctx.createRadialGradient(cx, cy - h*0.15, 1, cx, cy, Math.max(w,h)*0.56);
+    rg.addColorStop(0.00, "rgba(198,26,18,0.92)");   // deep red-orange
+    rg.addColorStop(0.55, "rgba(255,105,24,0.94)");  // bright orange
+    rg.addColorStop(1.00, "rgba(255,105,24,0.00)");
     const prev = ctx.globalCompositeOperation;
+    const prevA = ctx.globalAlpha;
     ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = (1 - k) * 0.95;           // fades out downstream
+    ctx.globalAlpha = Math.min(0.88, (1 - k) * 0.95);  // cap to avoid whitening
     ctx.fillStyle = rg;
     ctx.beginPath();
-    ctx.ellipse(cx, cy, w*0.55, h*0.65, 0, 0, Math.PI*2);
+    ctx.ellipse(cx, cy, w*0.54, h*0.64, 0, 0, Math.PI*2);
     ctx.fill();
     ctx.globalCompositeOperation = prev;
+    ctx.globalAlpha = prevA;
   }
 
-  // halo (yellow fringe)
+  // --- outer halo (yellow fringe) ---
   {
-    const rg = ctx.createRadialGradient(cx, cy, 1, cx, cy, Math.max(w,h)*0.80);
-    rg.addColorStop(0.00, colorAt(t.colorStages, Math.min(1, k + 0.20)));
-    rg.addColorStop(1.00, "rgba(0,0,0,0)");
+    const rg = ctx.createRadialGradient(cx, cy, 1, cx, cy, Math.max(w,h)*0.82);
+    rg.addColorStop(0.00, "rgba(255,207,56,0.85)");   // yellow
+    rg.addColorStop(1.00, "rgba(255,207,56,0.00)");
     const prev = ctx.globalCompositeOperation;
+    const prevA = ctx.globalAlpha;
     ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = 0.55 * (1 - k);
+    ctx.globalAlpha = Math.min(0.50, 0.55 * (1 - k)); // softer halo, still bright
     ctx.fillStyle = rg;
     ctx.beginPath();
     ctx.ellipse(cx, cy + h*0.05, w*0.80, h*0.90, 0, 0, Math.PI*2);
     ctx.fill();
     ctx.globalCompositeOperation = prev;
+    ctx.globalAlpha = prevA;
   }
 
   ctx.restore();
   continue;
 }
+
   if (t.kind === "sparkle") {
     ctx.shadowBlur = 0;
-    ctx.fillStyle = `rgba(255, 255, 180, ${a})`;
+    ctx.fillStyle = `rgba(255, 220, 120, ${a})`;
     ctx.beginPath();
     ctx.arc(t.x, t.y, s * 0.5, 0, Math.PI * 2);
     ctx.fill();
