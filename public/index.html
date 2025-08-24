@@ -2547,76 +2547,57 @@ for (const t of trail) {
   ctx.globalAlpha = a;
 
 if (t.kind === "flame") {
-  const k = Math.min(1, t.age / t.life);            // 0..1 age
+  const k = Math.min(1, t.age / t.life);      // 0..1
   const base = (t.size || 12);
 
-  // geometry: tighter cone; grows with age
-  const w = base * (0.55 + (t.widen || 1.5) * k);
-  const h = base * (1.10 + 0.45 * k);
-  const cx = t.x;
-  const cy = t.y + (Math.random() - 0.5) * (w * 0.04); // tiny jitter
-  const prevOp = ctx.globalCompositeOperation;
-  ctx.globalCompositeOperation = "lighter";
+  // same good shape you liked
+  const w = base * (0.6 + (t.widen || 1.6) * k);
+  const h = base * (1.2 + 0.4 * k);
+  const jitterY = (Math.random() - 0.5) * (w * 0.05);
+  const cx = t.x, cy = t.y + jitterY;
 
-  // 1) OUTER SHELL — red/orange rim (defines cone edge)
+  // ── 1) ORANGE BODY (dominant mass) ─────────────────────────────
   {
-    const R = Math.max(w, h) * 0.95;
-    const g = ctx.createRadialGradient(cx, cy + h*0.10, 1, cx, cy + h*0.10, R);
-    // mostly transparent center → orange-red rim
-    g.addColorStop(0.00, "rgba(255,120,20,0.00)");
-    g.addColorStop(0.50, "rgba(255,120,20,0.10)");
-    g.addColorStop(0.85, "rgba(220,60,20,0.28)");
-    g.addColorStop(1.00, "rgba(200,45,20,0.00)");
+    const rg = ctx.createRadialGradient(cx, cy + h*0.05, 1, cx, cy, Math.max(w,h)*0.66);
+    rg.addColorStop(0.00, "rgba(255,140,32,1.0)");   // orange
+    rg.addColorStop(0.80, "rgba(255,140,32,0.0)");
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.90 * (1 - k);
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, w*0.62, h*0.78, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // ── 2) RED RIM (outer trim & tail depth) ───────────────────────
+  // multiply darkens/tints the edges without turning them yellow
+  {
+    const rg = ctx.createRadialGradient(cx, cy + h*0.20, 1, cx, cy, Math.max(w,h)*0.98);
+    rg.addColorStop(0.25, "rgba(210,40,15,0.90)");   // deep red-orange
+    rg.addColorStop(0.75, "rgba(210,40,15,0.15)");
+    rg.addColorStop(1.00, "rgba(210,40,15,0.00)");
+    ctx.globalCompositeOperation = "multiply";
     ctx.globalAlpha = 0.70 * (1 - k);
-    ctx.fillStyle = g;
+    ctx.fillStyle = rg;
     ctx.beginPath();
-    ctx.ellipse(cx, cy + h*0.08, w*0.95, h*1.05, 0, 0, Math.PI*2);
+    ctx.ellipse(cx, cy + h*0.08, w*0.92, h*1.05, 0, 0, Math.PI*2);
     ctx.fill();
   }
 
-  // 2) ORANGE BODY — the dominant mid layer
+  // ── 3) YELLOW CORE (tight, near the nozzle) ────────────────────
+  // small + lighter, so it reads hot without flooding the body
   {
-    const R = Math.max(w, h) * 0.70;
-    const g = ctx.createRadialGradient(cx, cy, 1, cx, cy, R);
-    g.addColorStop(0.00, "rgba(255,165,40,0.95)");
-    g.addColorStop(0.55, "rgba(255,135,30,0.92)");
-    g.addColorStop(1.00, "rgba(240,95,22,0.00)");
-    ctx.globalAlpha = 0.85 * (1 - k);
-    ctx.fillStyle = g;
+    const rg = ctx.createRadialGradient(cx, cy - h*0.12, 1, cx, cy, Math.max(w,h)*0.40);
+    rg.addColorStop(0.00, "rgba(255,220,60,1.0)");
+    rg.addColorStop(1.00, "rgba(255,220,60,0.0)");
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.42 * (1 - k);              // softer than before
+    ctx.fillStyle = rg;
     ctx.beginPath();
-    ctx.ellipse(cx, cy + h*0.04, w*0.75, h*0.90, 0, 0, Math.PI*2);
+    ctx.ellipse(cx, cy, w*0.36, h*0.48, 0, 0, Math.PI*2);
     ctx.fill();
   }
 
-  // 3) YELLOW CORE — compact/bright near cube (keep small so it doesn’t dominate)
-  {
-    const R = Math.max(w, h) * 0.42;
-    const g = ctx.createRadialGradient(cx, cy - h*0.12, 1, cx, cy - h*0.12, R);
-    g.addColorStop(0.00, "rgba(255,220,90,0.70)");
-    g.addColorStop(0.45, "rgba(255,205,70,0.55)");
-    g.addColorStop(1.00, "rgba(255,200,60,0.00)");
-    ctx.globalAlpha = 0.58 * (1 - k);           // ↓ toned down vs before
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy - h*0.06, w*0.38, h*0.58, 0, 0, Math.PI*2);
-    ctx.fill();
-  }
-
-  // 4) DEEP RED BELLY — at the base for that hot booster look
-  {
-    const R = Math.max(w, h) * 0.65;
-    const g = ctx.createRadialGradient(cx, cy + h*0.40, 1, cx, cy + h*0.40, R);
-    g.addColorStop(0.00, "rgba(210,40,18,0.55)");
-    g.addColorStop(0.55, "rgba(160,30,15,0.42)");
-    g.addColorStop(1.00, "rgba(120,20,10,0.00)");
-    ctx.globalAlpha = 0.60 * (1 - k);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy + h*0.42, w*0.70, h*0.90, 0, 0, Math.PI*2);
-    ctx.fill();
-  }
-
-  ctx.globalCompositeOperation = prevOp;
   ctx.restore();
   continue;
 }
