@@ -1915,21 +1915,22 @@ function colorAt(stages, t) {
 // --- particle emitters (top-level) ---
 // denser & detailed exhaust with a tight cone that widens downstream
 // fewer, longer-lived particles; they stretch into each other
+// 🔥 Flame emitter — NO sparkles
 function spawnFlameParticles(cx, cy){
-  const base   = Math.PI/2, spread = 0.10;
+  const base   = Math.PI / 2;   // straight down
+  const spread = 0.10;          // tight cone
   const count  = 2 + (Math.random()*1|0); // 2–3 per frame
 
   for (let i = 0; i < count; i++){
-    const ang   = base + (Math.random()-0.5)*spread*2;
-    const speed = 220 + Math.random()*220;
+    const ang   = base + (Math.random()-0.5) * spread * 2;
+    const speed = 220 + Math.random() * 220;
 
-    // 🔥 Color-staged flame particle
     trail.push({
       kind   : "flame",
       x      : cx + (Math.random()-0.5)*0.6,
       y      : cy + 1 + (Math.random()-0.5)*0.6,
-      vx     : Math.cos(ang)*speed,
-      vy     : Math.sin(ang)*speed,
+      vx     : Math.cos(ang) * speed,
+      vy     : Math.sin(ang) * speed,
       age    : 0,
       life   : 0.42 + Math.random()*0.22,
       size   : 12 + Math.random()*6,
@@ -1937,29 +1938,12 @@ function spawnFlameParticles(cx, cy){
       widen  : 1.6 + Math.random()*0.4,
       flicker: 6 + Math.random()*6,
 
-      // ✨ key: no white stop; just red→orange→yellow
-      // ✨ key: exact gradient — deep red-orange → bright orange → yellow (no white)
-colorStages: [
-  { stop: 0.00, r:198, g: 26, b: 18 }, // #C61A12 deep red-orange
-  { stop: 0.45, r:255, g:105, b: 24 }, // #FF6918 bright orange
-  { stop: 0.90, r:255, g:207, b: 56 }  // #FFCF38 yellow tip
-]
-    });
-  }
-
-  // (optional) hot specks – leave off if you want a perfectly smooth cone
-  if (Math.random() < 0.18){
-    const ang   = base + (Math.random()-0.5)*spread*2;
-    const speed = 260 + Math.random()*220;
-    trail.push({
-      kind:"sparkle",
-      x: cx, y: cy,
-      vx: Math.cos(ang)*speed,
-      vy: Math.sin(ang)*speed,
-      age:0,
-      life:0.20 + Math.random()*0.22,
-      size:2 + Math.random()*2,
-      twinkle: 10 + Math.random()*6
+      // (kept for reference; renderer uses its own gradient)
+      colorStages: [
+        { stop: 0.00, r:198, g: 26, b: 18 }, // deep red-orange
+        { stop: 0.45, r:255, g:105, b: 24 }, // bright orange
+        { stop: 0.90, r:255, g:207, b: 56 }  // yellow tip
+      ]
     });
   }
 }
