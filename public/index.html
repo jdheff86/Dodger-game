@@ -1971,27 +1971,31 @@ const SPARKLE_BURST_CHANCE   = 0.18;  // occasional extra pop
 const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10° cone
 
 // ✨ Sparkle-only trail
-// ✨ DENSE golden sparkle tail (diamond stars, short-lived)
+// ✨ DENSE golden sparkle tail (diamond stars, short-
+// ✨ Gold diamond sparkles — tight cone, moderate density
 function spawnSparkleParticles(cx, cy){
-  const base   = Math.PI / 2;   // mostly downward
-  const spread = 0.18;          // narrow cone (keeps them in the trail)
-  const count  = 3 + (Math.random()*2|0); // 3–4 per frame for density
+  const base   = Math.PI / 2;          // mostly downward
+  const spread = 0.14;                  // narrow cone
+  const count  = 2 + (Math.random()*1|0); // 2–3 per frame
 
   for (let i = 0; i < count; i++){
     const ang   = base + (Math.random()-0.5) * spread;
-    const speed = 140 + Math.random() * 160;
+    const speed = 140 + Math.random() * 120;
+
+    // ring-buffer guard
+    if (trail.length >= TRAIL_MAX) trail.splice(0, trail.length - TRAIL_MAX + 1);
 
     trail.push({
       kind   : "sparkle",
       x      : cx,
       y      : cy,
-      vx     : Math.cos(ang) * speed * 0.22, // tight horizontal drift
-      vy     : Math.sin(ang) * speed,        // longer vertical pull
+      vx     : Math.cos(ang) * speed * 0.20, // very small horizontal drift
+      vy     : Math.sin(ang) * speed * 0.90, // mostly vertical pull
       age    : 0,
-      life   : 0.32 + Math.random()*0.18,    // short bursts
-      size   : 6 + Math.random()*4,          // noticeably bigger than before
-      spin   : Math.random() * Math.PI,      // start rotation
-      spinSpeed: (Math.random()<0.5?-1:1) * (2 + Math.random()*3), // slow twinkle
+      life   : 0.36 + Math.random()*0.20,    // short, twinkly
+      size   : 7 + Math.random()*3,          // slightly larger overall
+      spin   : Math.random() * Math.PI,
+      spinSpeed: (Math.random()<0.5?-1:1) * (1.6 + Math.random()*2.0)
     });
   }
 }
@@ -2492,8 +2496,13 @@ for (let i = trail.length - 1; i >= 0; i--) {
     t.vx += (Math.random() - 0.5) * 2.0; // tiny jitter
 
   } else if (t.kind === "sparkle") {
-    // nothing special for physics
-  }
+  // gentle damping + soft upward curl is already applied globally
+  const cap = 220;
+  if (t.vx >  cap) t.vx =  cap;
+  if (t.vx < -cap) t.vx = -cap;
+  if (t.vy >  cap) t.vy =  cap;
+  // no need to clamp negative vy too much; the global curl moves it up
+}
 
   // kill when done
   if (t.age >= t.life) {
@@ -2607,6 +2616,7 @@ if (t.kind === "sparkle") {
   ctx.globalAlpha = 0.95 * fade;
   drawDiamondSparkle(ctx, t.size);
   ctx.restore();
+  ctx.restore()
   continue;
 }
 
