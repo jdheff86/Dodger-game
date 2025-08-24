@@ -1970,29 +1970,24 @@ const SPARKLE_BASE_PER_FRAME = 6;     // dense
 const SPARKLE_BURST_CHANCE   = 0.18;  // occasional extra pop
 const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10° cone
 
-function spawnSparkleParticles(cx, cy){
-  // Emit a dense fan pointing downward with slight spread
-  const base = Math.PI / 2;                   // down
-  const spread = SPARKLE_CONE_RADIANS;
+function spawnSparkleParticles(cx, cy) {
+  // spawn 3–5 sparkles every frame
+  const count = 3 + (Math.random() * 2 | 0);
 
-  const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*2)|0);
-  for (let i = 0; i < n; i++){
-    const ang   = base + (Math.random()-0.5) * spread * 2;
-    const speed = 220 + Math.random()*260;    // fast = long streak
+  for (let i = 0; i < count; i++) {
     trail.push({
       kind: "sparkle",
-      x: cx + (Math.random()-0.5)*1.2,
-      y: cy + (Math.random()-0.5)*1.2,
-      vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,
+      x: cx + (Math.random() - 0.5) * 0.4,   // small horizontal jitter
+      y: cy + (Math.random() - 0.5) * 0.4,   // small vertical jitter
+      vx: (Math.random() - 0.5) * 30,        // little side drift
+      vy: 60 + Math.random() * 40,           // downward speed
       age: 0,
-      life: 0.18 + Math.random()*0.20,        // short-lived
-      size: 2.2 + Math.random()*2.6,
-      twinkle: 9 + Math.random()*7,           // twinkle frequency
-      // how streaky this particle is (0..1)
-      streak: 0.65 + Math.random()*0.30
+      life: 0.3 + Math.random() * 0.4,       // longer-lived
+      size: 3 + Math.random() * 3,           // larger sparkles
+      twinkle: 8 + Math.random() * 6
     });
   }
+}
 
   // Occasional mini-burst for extra sparkle
   if (Math.random() < SPARKLE_BURST_CHANCE){
