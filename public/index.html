@@ -1981,38 +1981,53 @@ function spawnMicroSmoke(cx, cy){
     sprite: spr,
     seed: Math.random()
   });
-}
+}// Sparkle tuning (dense cone + streaky tails)
+const SPARKLE_BASE_PER_FRAME = 6;     // dense
+const SPARKLE_BURST_CHANCE   = 0.18;  // occasional extra pop
+const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10° cone
 
 function spawnSparkleParticles(cx, cy){
-  const base = Math.PI/2, spread = Math.PI/14;
-  for (let i = 0; i < 3; i++){
-    const ang = base + (Math.random()-0.5)*spread*2;
-    const speed = 180 + Math.random()*200;
+  // Emit a dense fan pointing downward with slight spread
+  const base = Math.PI / 2;                   // down
+  const spread = SPARKLE_CONE_RADIANS;
+
+  const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*2)|0);
+  for (let i = 0; i < n; i++){
+    const ang   = base + (Math.random()-0.5) * spread * 2;
+    const speed = 220 + Math.random()*260;    // fast = long streak
     trail.push({
-      kind:"sparkle",
-      x: cx + (Math.random()-0.5)*2,
-      y: cy + (Math.random()-0.5)*2,
-      vx: Math.cos(ang)*speed,
-      vy: Math.sin(ang)*speed,
-      age:0,
-      life:0.22 + Math.random()*0.26,
-      size:3 + Math.random()*2.5,
-      twinkle: 8 + Math.random()*6
+      kind: "sparkle",
+      x: cx + (Math.random()-0.5)*1.2,
+      y: cy + (Math.random()-0.5)*1.2,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      age: 0,
+      life: 0.18 + Math.random()*0.20,        // short-lived
+      size: 2.2 + Math.random()*2.6,
+      twinkle: 9 + Math.random()*7,           // twinkle frequency
+      // how streaky this particle is (0..1)
+      streak: 0.65 + Math.random()*0.30
     });
   }
-  if (Math.random() < 0.2){
-    const ang = base + (Math.random()-0.5)*spread*2;
-    const speed = 200 + Math.random()*220;
-    trail.push({
-      kind:"sparkle",
-      x: cx, y: cy,
-      vx: Math.cos(ang)*speed,
-      vy: Math.sin(ang)*speed,
-      age:0,
-      life:0.26 + Math.random()*0.28,
-      size:5 + Math.random()*3.5,
-      twinkle: 6 + Math.random()*5
-    });
+
+  // Occasional mini-burst for extra sparkle
+  if (Math.random() < SPARKLE_BURST_CHANCE){
+    const burst = 6 + (Math.random()*4|0);
+    for (let i = 0; i < burst; i++){
+      const ang   = base + (Math.random()-0.5) * spread * 2;
+      const speed = 260 + Math.random()*280;
+      trail.push({
+        kind:"sparkle",
+        x: cx, y: cy,
+        vx: Math.cos(ang)*speed,
+        vy: Math.sin(ang)*speed,
+        age:0,
+        life:0.16 + Math.random()*0.18,
+        size:2.0 + Math.random()*2.0,
+        twinkle: 10 + Math.random()*8,
+        streak: 0.85
+      });
+    }
   }
 }
 
@@ -2585,15 +2600,81 @@ if (t.kind === "flame") {
 }
 
   if (t.kind === "sparkle") {
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = `rgba(255, 220, 120, ${a})`;
+  // Additive blend for bright glints
+  const prevOp = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = "lighter";
+
+  // Twinkle (0.75..1.0)
+  const tw = 0.75 + 0.25 * Math.abs(Math.sin(t.age * (t.twinkle || 10)));
+
+  // Compute a streak length based on speed + remaining life
+  const speed = Math.hypot(t.vx, t.vy);
+  const baseLen = Math.min(42, speed * 0.06);
+  const len = baseLen * (0.35 + 0.65 * (1 - t.age / t.life)) * (t.streak || 0.7);
+
+  // Direction of motion
+  const angle = Math.atan2(t.vy, t.vx);
+
+  // 1) Draw the glowing head (small warm core)
+  {
+    const r = (t.size || 3) * (0.7 + 0.6 * tw);
+    const rg = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r);
+    rg.addColorStop(0.00, `rgba(255,255,230,${0.85*a})`); // soft white core
+    rg.addColorStop(0.45, `rgba(255,230,150,${0.75*a})`); // warm gold
+    rg.addColorStop(1.00, `rgba(255,210,120,0)`);         // fade
+    ctx.fillStyle = rg;
     ctx.beginPath();
-    ctx.arc(t.x, t.y, s * 0.5, 0, Math.PI * 2);
+    ctx.arc(t.x, t.y, r, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // 2) Draw the tail as a skinny rounded strip behind the head
+  {
+    const w = Math.max(1.0, (t.size || 2) * 0.55 * tw); // thin
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.rotate(angle + Math.PI); // point tail opposite motion
+
+    const lg = ctx.createLinearGradient(0, 0, 0, len);
+    // yellow near head → orange → transparent ember
+    lg.addColorStop(0.00, `rgba(255,235,150,${0.85*a})`);
+    lg.addColorStop(0.45, `rgba(255,200,110,${0.55*a})`);
+    lg.addColorStop(1.00, `rgba(255,140,60,0)`);
+
+    ctx.fillStyle = lg;
+    const rr = w; // rounded ends
+    ctx.beginPath();
+    // rounded-rect strip (0..len) centered on X
+    const x0 = -w*0.5, y0 = 0, ww = w, hh = len;
+    ctx.moveTo(x0+rr, y0);
+    ctx.arcTo(x0+ww, y0, x0+ww, y0+rr, rr);
+    ctx.arcTo(x0+ww, y0+hh, x0+ww-rr, y0+hh, rr);
+    ctx.arcTo(x0, y0+hh, x0, y0+hh-rr, rr);
+    ctx.arcTo(x0, y0, x0+rr, y0, rr);
+    ctx.closePath();
     ctx.fill();
 
     ctx.restore();
-    continue;            // ← prevent fallthrough
   }
+
+  // 3) Tiny cross-flare for extra sparkle
+  if (tw > 0.95) {
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.globalAlpha = 0.55 * a;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-4, 0); ctx.lineTo(4, 0);
+    ctx.moveTo(0,-4);  ctx.lineTo(0, 4);
+    ctx.strokeStyle = "rgba(255,240,200,0.9)";
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.globalCompositeOperation = prevOp;
+  ctx.restore();
+  continue;
+}
 
   if (t.kind === "smoke") {
     const k = t.age / t.life;
