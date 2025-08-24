@@ -2547,56 +2547,38 @@ for (const t of trail) {
   ctx.globalAlpha = a;
 
 if (t.kind === "flame") {
-  const k = Math.min(1, t.age / t.life);      // 0..1
+  const k = Math.min(1, t.age / t.life);        // 0..1 age factor
   const base = (t.size || 12);
 
-  // same good shape you liked
+  // --- Shape / size (same as the good build you liked) ---
   const w = base * (0.6 + (t.widen || 1.6) * k);
   const h = base * (1.2 + 0.4 * k);
   const jitterY = (Math.random() - 0.5) * (w * 0.05);
+
   const cx = t.x, cy = t.y + jitterY;
 
-  // ── 1) ORANGE BODY (dominant mass) ─────────────────────────────
-  {
-    const rg = ctx.createRadialGradient(cx, cy + h*0.05, 1, cx, cy, Math.max(w,h)*0.66);
-    rg.addColorStop(0.00, "rgba(255,140,32,1.0)");   // orange
-    rg.addColorStop(0.80, "rgba(255,140,32,0.0)");
-    ctx.globalCompositeOperation = "source-over";
-    ctx.globalAlpha = 0.90 * (1 - k);
-    ctx.fillStyle = rg;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, w*0.62, h*0.78, 0, 0, Math.PI*2);
-    ctx.fill();
-  }
+  // --- Flame gradient (red → orange → yellow) ---
+  const rg = ctx.createRadialGradient(
+    cx, cy - h*0.15, 1,           // inner
+    cx, cy, Math.max(w, h) * 0.85 // outer
+  );
+  rg.addColorStop(0.00, "rgba(255, 220, 100, 0.95)"); // yellow core
+  rg.addColorStop(0.40, "rgba(255, 165, 50, 0.92)");  // orange mid
+  rg.addColorStop(0.80, "rgba(230, 70, 20, 0.85)");   // deep red-orange outer
+  rg.addColorStop(1.00, "rgba(230, 70, 20, 0.0)");    // transparent fade
 
-  // ── 2) RED RIM (outer trim & tail depth) ───────────────────────
-  // multiply darkens/tints the edges without turning them yellow
-  {
-    const rg = ctx.createRadialGradient(cx, cy + h*0.20, 1, cx, cy, Math.max(w,h)*0.98);
-    rg.addColorStop(0.25, "rgba(210,40,15,0.90)");   // deep red-orange
-    rg.addColorStop(0.75, "rgba(210,40,15,0.15)");
-    rg.addColorStop(1.00, "rgba(210,40,15,0.00)");
-    ctx.globalCompositeOperation = "multiply";
-    ctx.globalAlpha = 0.70 * (1 - k);
-    ctx.fillStyle = rg;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy + h*0.08, w*0.92, h*1.05, 0, 0, Math.PI*2);
-    ctx.fill();
-  }
+  const prev = ctx.globalCompositeOperation;
+  const prevA = ctx.globalAlpha;
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = Math.min(0.9, (1 - k) * 0.95);
 
-  // ── 3) YELLOW CORE (tight, near the nozzle) ────────────────────
-  // small + lighter, so it reads hot without flooding the body
-  {
-    const rg = ctx.createRadialGradient(cx, cy - h*0.12, 1, cx, cy, Math.max(w,h)*0.40);
-    rg.addColorStop(0.00, "rgba(255,220,60,1.0)");
-    rg.addColorStop(1.00, "rgba(255,220,60,0.0)");
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = 0.42 * (1 - k);              // softer than before
-    ctx.fillStyle = rg;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, w*0.36, h*0.48, 0, 0, Math.PI*2);
-    ctx.fill();
-  }
+  ctx.fillStyle = rg;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, w * 0.75, h * 0.95, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalCompositeOperation = prev;
+  ctx.globalAlpha = prevA;
 
   ctx.restore();
   continue;
