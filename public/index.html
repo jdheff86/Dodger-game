@@ -1912,6 +1912,9 @@ function colorAt(stages, t) {
   const L = stages[stages.length - 1];
   return `rgb(${L.r},${L.g},${L.b})`;
 }
+
+// Cap total trail particles (all kinds combined)
+const TRAIL_MAX = 700; // 600–900 is a good range for mid phones
 // --- particle emitters (top-level) ---
 // denser & detailed exhaust with a tight cone that widens downstream
 // fewer, longer-lived particles; they stretch into each other
@@ -1973,29 +1976,22 @@ const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10° cone
 // ✨ Sparkle-only trail
 // ✨ DENSE golden sparkle tail (diamond stars, short-
 // ✨ Gold diamond sparkles — tight cone, moderate density
-function spawnSparkleParticles(cx, cy){
-  const base   = Math.PI / 2;          // mostly downward
-  const spread = 0.14;                  // narrow cone
-  const count  = 2 + (Math.random()*1|0); // 2–3 per frame
-
-  for (let i = 0; i < count; i++){
-    const ang   = base + (Math.random()-0.5) * spread;
-    const speed = 140 + Math.random() * 120;
-
-    // ring-buffer guard
-    if (trail.length >= TRAIL_MAX) trail.splice(0, trail.length - TRAIL_MAX + 1);
+function spawnSparkleParticles(cx, cy) {
+  const count = 2 + Math.floor(Math.random() * 2); // 2–3 sparkles per frame
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.random() - 0.5) * 0.6;   // narrow spread
+    const speed = 40 + Math.random() * 60;
 
     trail.push({
-      kind   : "sparkle",
-      x      : cx,
-      y      : cy,
-      vx     : Math.cos(ang) * speed * 0.20, // very small horizontal drift
-      vy     : Math.sin(ang) * speed * 0.90, // mostly vertical pull
-      age    : 0,
-      life   : 0.36 + Math.random()*0.20,    // short, twinkly
-      size   : 7 + Math.random()*3,          // slightly larger overall
-      spin   : Math.random() * Math.PI,
-      spinSpeed: (Math.random()<0.5?-1:1) * (1.6 + Math.random()*2.0)
+      kind: "sparkle",
+      x: cx,
+      y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed + 30, // downward bias
+      age: 0,
+      life: 0.25 + Math.random() * 0.15, // short-lived
+      size: 2 + Math.random() * 2,
+      twinkle: 8 + Math.random() * 6
     });
   }
 }
@@ -2275,6 +2271,7 @@ function togglePause(){
   }
 let _prevVX = 0; // for whip calc
   function update(dt){
+    
   state.time += dt;
   state.score += dt*10;
   scoreEl.textContent = Math.floor(state.score);
@@ -2596,27 +2593,18 @@ if (t.kind === "flame") {
 }
 
 if (t.kind === "sparkle") {
-  const k    = t.age / t.life;
-  const fade = 1 - k;
+  const k = t.age / t.life;
+  const alpha = 1 - k; // fades out smoothly
 
-  ctx.save();
-  ctx.translate(t.x, t.y);
+  ctx.fillStyle = `rgba(255,215,80,${alpha})`; // warm gold-yellow
+  ctx.beginPath();
+  ctx.ellipse(t.x, t.y, t.size, t.size * 0.6, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-  // slow spin for twinkle
-  ctx.rotate(t.spin + t.spinSpeed * t.age);
-
-  // faint ghost slightly behind velocity → gives tail length
-  ctx.save();
-  ctx.globalAlpha = 0.35 * fade;
-  ctx.translate(-t.vx * 0.04, -t.vy * 0.04);
-  drawDiamondSparkle(ctx, t.size * 0.9);
-  ctx.restore();
-
-  // main sparkle
-  ctx.globalAlpha = 0.95 * fade;
-  drawDiamondSparkle(ctx, t.size);
-  ctx.restore();
-  ctx.restore()
+  // optional starburst twinkle
+  if (Math.random() < 0.2) {
+    ctx.fillRect(t.x - 1, t.y, 2, 1);
+  }
   continue;
 }
 
