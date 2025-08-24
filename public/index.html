@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+qqq<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -1994,26 +1994,7 @@ function spawnSparkleParticles(cx, cy){
   }
 }
 
-  // Occasional mini-burst for extra sparkle
-  if (Math.random() < SPARKLE_BURST_CHANCE){
-    const burst = 6 + (Math.random()*4|0);
-    for (let i = 0; i < burst; i++){
-      const ang   = base + (Math.random()-0.5) * spread * 2;
-      const speed = 260 + Math.random()*280;
-      trail.push({
-        kind:"sparkle",
-        x: cx, y: cy,
-        vx: Math.cos(ang)*speed,
-        vy: Math.sin(ang)*speed,
-        age:0,
-        life:0.16 + Math.random()*0.18,
-        size:2.0 + Math.random()*2.0,
-        twinkle: 10 + Math.random()*8,
-        streak: 0.85
-      });
-    }
-  }
-}
+
 
 // === THICK, TIGHT SMOKE EMITTER ===
 function spawnSmokeParticles(cx, cy, whip = 0, pvx = 0){
