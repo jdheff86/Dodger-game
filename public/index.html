@@ -2629,11 +2629,16 @@ if (t.kind === "sparkle") {
   const k       = Math.min(1, t.age / t.life);
   const a       = 1 - k;                                   // master alpha
   const tw      = 0.75 + 0.25 * Math.abs(Math.sin(t.age * (t.twinkle || 10)));
-  const speed   = Math.min(SPARKLE_MAX_SPEED, Math.hypot(t.vx, t.vy));
-  const baseLen = Math.min(34, speed * 0.055);
-  let   len     = baseLen * (0.35 + 0.65 * (1 - k)) * (t.streak || 0.7);
-  if (!isFinite(len) || len <= 0) len = 0;                 // guard
-  len = Math.min(SPARKLE_MAX_TAIL, len);                   // ← cap tail
+  // Clamp sparkle length so it never explodes
+const speed = Math.min(SPARKLE_MAX_SPEED, Math.hypot(t.vx, t.vy));
+const baseLen = Math.min(28, speed * 0.05);   // lowered cap + multiplier
+let len = baseLen * (0.4 + 0.6 * (1 - k)) * (t.streak || 0.7);
+
+// Guard against NaN/Infinity
+if (!isFinite(len) || len < 0) len = 0;
+
+// Final clamp
+len = Math.max(0, Math.min(SPARKLE_MAX_TAIL, len));
   const angle   = Math.atan2(t.vy, t.vx);
 
   // ---- 0) SOFT SHEATH (glow that matches the tail shape)
