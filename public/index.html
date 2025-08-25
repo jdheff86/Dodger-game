@@ -2587,8 +2587,7 @@ if (t.kind === "flame") {
   // Additive blend for bright glints
   const prevOp = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = "lighter";
-// Cap additive intensity so dense stacks don’t go to white
-ctx.globalAlpha = Math.min(ctx.globalAlpha || 1, 0.8) * a;
+
   // Twinkle (0.75..1.0)
   const tw = 0.75 + 0.25 * Math.abs(Math.sin(t.age * (t.twinkle || 10)));
 
@@ -2759,4 +2758,4 @@ const w = Math.max(1.0, (t.size || 2) * 0.50 * tw);
 })();
 </script>
 </body>
-</html>
+</html>a xl
