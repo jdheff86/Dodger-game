@@ -1968,54 +1968,55 @@ function spawnMicroSmoke(cx, cy){
 }// Sparkle tuning (dense cone + streaky tails)
 
 // knobs (keep near your other sparkle constants)
-// Sparkle knobs (kept above)
-const SPARKLE_BASE_PER_FRAME = 1;            // 3–5 per frame
-const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10°
-const HERO_SPARK_CHANCE      = 0.05;         // occasional big glint
-const SPARKLE_MAX_TAIL  = 24;   // hard cap (px)
-const SPARKLE_MAX_SPEED = 520;  // just in case
+// Sparkle knobs 
+// ── Sparkle knobs (dense / short cluster) ───────────────────────────────
+const SPARKLE_BASE_PER_FRAME = 8;           // 8–12 per frame (dense)
+const SPARKLE_CONE_RADIANS   = Math.PI/28;  // tighter cone than before
+const HERO_SPARK_CHANCE      = 0.12;        // a few big glints
+
+// caps to prevent long smeary lines
+const SPARKLE_MAX_TAIL  = 26;               // px
+const SPARKLE_MAX_SPEED = 220;              // px/s (keeps cluster tight)
 
 function spawnSparkleParticles(cx, cy){
-  const base   = Math.PI / 2;              // emit downward
+  const base   = Math.PI / 2;               // emit downward
   const spread = SPARKLE_CONE_RADIANS;
 
-  // main emission: 3–5 small/medium sparks
-  const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*2)|0);
+  // 8–12 small/medium sparks per frame (dense)
+  const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*4)|0);
   for (let i = 0; i < n; i++){
     const ang   = base + (Math.random()-0.5) * spread * 2;
-    const speed = 80+ Math.random()*180;
-
-    // GUARDED: strictly positive size/life
-    const size = 1.3 + Math.random()*3.2;          // 1.3–4.5
-    const life = 0.18 + Math.random()*0.20;        // 0.18–0.38
+    const speed = 90 + Math.random()*60;                // tight range
+    const size  = 1.2 + Math.random()*1.4;              // small
+    const life  = 0.11 + Math.random()*0.07;            // short
 
     trail.push({
       kind: "sparkle",
-      x: cx + (Math.random()-0.5)*1.0,
-      y: cy + (Math.random()-0.5)*1.0,
+      x: cx + (Math.random()-0.5)*0.8,
+      y: cy + (Math.random()-0.5)*0.8,
       vx: Math.cos(ang)*speed,
       vy: Math.sin(ang)*speed,
       age: 0,
       life,
       size,
-      twinkle: 9 + Math.random()*7,                // 9–16
-      streak: 0.60 + Math.random()*0.35            // 0.60–0.95
+      twinkle: 9 + Math.random()*6,
+      streak: 0.8
     });
   }
 
   // occasional larger “hero” spark
   if (Math.random() < HERO_SPARK_CHANCE){
     const ang   = base + (Math.random()-0.5) * spread * 2;
-    const speed = 240 + Math.random()*260;
+    const speed = 110 + Math.random()*80;
     trail.push({
       kind: "sparkle",
       x: cx, y: cy,
       vx: Math.cos(ang)*speed,
       vy: Math.sin(ang)*speed,
       age: 0,
-      life: 0.20 + Math.random()*0.18,            // 0.20–0.38
-      size: 4.2 + Math.random()*2.2,              // 4.2–6.4
-      twinkle: 8 + Math.random()*6,               // 8–14
+      life: 0.13 + Math.random()*0.06,
+      size: 4.0 + Math.random()*1.4,     // bigger
+      twinkle: 8 + Math.random()*6,
       streak: 0.85
     });
   }
@@ -2023,7 +2024,7 @@ function spawnSparkleParticles(cx, cy){
 
 
 // Very soft golden haze to create dense look without white blowout
-function spawnGoldHaze(cx, cy){
+//function spawnGoldHaze(cx, cy){
   // 1–2 soft puffs per frame
   const count = 1 + ((Math.random()*2)|0);
   const base  = Math.PI / 2;
@@ -2625,100 +2626,96 @@ if (t.kind === "flame") {
 }
 
 if (t.kind === "sparkle") {
-  // per-particle fade + motion
-  const k       = Math.min(1, t.age / t.life);
-  const a       = 1 - k;                                   // master alpha
-  const tw      = 0.75 + 0.25 * Math.abs(Math.sin(t.age * (t.twinkle || 10)));
-  // Clamp sparkle length so it never explodes
-const speed = Math.min(SPARKLE_MAX_SPEED, Math.hypot(t.vx, t.vy));
-const baseLen = Math.min(28, speed * 0.05);   // lowered cap + multiplier
-let len = baseLen * (0.4 + 0.6 * (1 - k)) * (t.streak || 0.7);
+  const k  = Math.min(1, t.age / t.life);
+  const a  = 1 - k;                                      // master alpha
+  const tw = 0.75 + 0.25 * Math.abs(Math.sin(t.age * (t.twinkle || 10)));
 
-// Guard against NaN/Infinity
-if (!isFinite(len) || len < 0) len = 0;
-
-// Final clamp
-len = Math.max(0, Math.min(SPARKLE_MAX_TAIL, len));
+  // short tail: fixed base length so it doesn’t smear on fast frames
+  const baseLen = 18;                                    // px
+  let   len     = baseLen * (0.55 + 0.45 * (1 - k)) * (t.streak || 0.8);
+  if (!isFinite(len) || len <= 0) len = 0;
+  len = Math.min(SPARKLE_MAX_TAIL, len);
   const angle   = Math.atan2(t.vy, t.vx);
 
-  // ---- 0) SOFT SHEATH (glow that matches the tail shape)
-  // Draw a wider, low-alpha tail first with normal blending
-  const sheathW = Math.max(1.2, (t.size || 2) * 0.9 * tw);
-  const sheathR = sheathW;                // rounded-rect radius
-  const sheathL = len * 1.12;             // a tad longer than the core
+  // save current blend
+  const prevOp = ctx.globalCompositeOperation;
+  const prevA  = ctx.globalAlpha;
 
-  const prevOp0 = ctx.globalCompositeOperation;
-  const prevA0  = ctx.globalAlpha;
+  // ── 0) SOFT SHEATH (very subtle; matches tail shape) ───────────────
+  const sheathW = Math.max(1.1, (t.size || 2) * 0.9 * tw);
+  const sheathR = sheathW;
+  const sheathL = len * 1.12;
 
   ctx.save();
   ctx.translate(t.x, t.y);
   ctx.rotate(angle);
   ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = 0.18 * a;
+  ctx.globalAlpha = 0.10 * a;                             // softer than before
   const sheathGrad = ctx.createLinearGradient(0, 0, -sheathL, 0);
-  sheathGrad.addColorStop(0.00, "rgba(255,200,90,0.55)");
+  sheathGrad.addColorStop(0.00, "rgba(255,210,80,0.55)");
   sheathGrad.addColorStop(0.60, "rgba(240,150,50,0.25)");
   sheathGrad.addColorStop(1.00, "rgba(220,110,30,0.00)");
   ctx.fillStyle = sheathGrad;
 
   (function roundedTail(x0, w, L, rr){
-    const y0 = -w*0.5, ww = L, hh = w;
+    if (!(L > 0.75) || !(w > 0.5)) { ctx.restore(); ctx.globalCompositeOperation = prevOp; ctx.globalAlpha = prevA; return; }
+    const y0=-w*0.5, ww=L, hh=w;
     ctx.beginPath();
-    ctx.moveTo(x0 + rr, y0);
-    ctx.arcTo(x0 + ww, y0,       x0 + ww, y0 + hh, rr);
-    ctx.arcTo(x0 + ww, y0 + hh,  x0 + ww - rr, y0 + hh, rr);
-    ctx.arcTo(x0,      y0 + hh,  x0,      y0 + hh - rr, rr);
-    ctx.arcTo(x0,      y0,       x0 + rr, y0, rr);
+    ctx.moveTo(x0+rr, y0);
+    ctx.arcTo(x0+ww, y0,      x0+ww, y0+hh, rr);
+    ctx.arcTo(x0+ww, y0+hh,   x0+ww-rr, y0+hh, rr);
+    ctx.arcTo(x0,     y0+hh,  x0,      y0+hh-rr, rr);
+    ctx.arcTo(x0,     y0,     x0+rr,   y0, rr);
     ctx.closePath();
     ctx.fill();
   })(-sheathL, sheathW, sheathL, sheathR);
   ctx.restore();
 
-  ctx.globalCompositeOperation = prevOp0;
-  ctx.globalAlpha = prevA0;
-
-  // ---- 1) HEAD (normal blend so it stays golden, not white)
-  const headAlpha = 0.42 * a;                             // a touch brighter
+  // ── 1) HEAD (golden, normal blend) ─────────────────────────────────
   const r = (t.size || 3) * (0.60 + 0.40 * tw);
   const headGrad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r);
-  headGrad.addColorStop(0.00, `rgba(255,210,80,${headAlpha})`);
-  headGrad.addColorStop(0.45, `rgba(255,170,55,${Math.max(0, headAlpha - 0.10)})`);
+  headGrad.addColorStop(0.00, `rgba(255,210,80,${0.42 * a})`);
+  headGrad.addColorStop(0.45, `rgba(255,170,55,${Math.max(0, 0.32 * a)})`);
   headGrad.addColorStop(1.00,  `rgba(230,120,40,0)`);
-  const prevOp = ctx.globalCompositeOperation;
-  const prevA  = ctx.globalAlpha;
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
   ctx.fillStyle = headGrad;
   ctx.beginPath(); ctx.arc(t.x, t.y, r, 0, Math.PI*2); ctx.fill();
 
-  // ---- 2) CORE TAIL (lighter)
+  // ── 2) CORE TAIL (lighter) ─────────────────────────────────────────
   ctx.globalCompositeOperation = "lighter";
   ctx.save();
   ctx.translate(t.x, t.y);
   ctx.rotate(angle);
   const tailGrad = ctx.createLinearGradient(0, 0, -len, 0);
-  tailGrad.addColorStop(0.00, `rgba(255,200,70,${0.45*a})`);
-  tailGrad.addColorStop(0.45, `rgba(255,160,50,${0.30*a})`);
+  tailGrad.addColorStop(0.00, `rgba(255,200,70,${0.40*a})`);
+  tailGrad.addColorStop(0.45, `rgba(255,160,50,${0.26*a})`);
   tailGrad.addColorStop(1.00,  `rgba(220,110,30,0)`);
   ctx.fillStyle = tailGrad;
 
-  const w  = Math.max(0.9, (t.size || 2) * 0.45 * tw);     // slimmer core
+  const w  = Math.max(0.9, (t.size || 2) * 0.44 * tw);   // slim core
   const rr = w, x0 = -len, y0 = -w*0.5, ww = len, hh = w;
-  ctx.beginPath();
-  ctx.moveTo(x0 + rr, y0);
-  ctx.arcTo(x0 + ww, y0,       x0 + ww, y0 + hh, rr);
-  ctx.arcTo(x0 + ww, y0 + hh,  x0 + ww - rr, y0 + hh, rr);
-  ctx.arcTo(x0,      y0 + hh,  x0,      y0 + hh - rr, rr);
-  ctx.arcTo(x0,      y0,       x0 + rr, y0, rr);
-  ctx.closePath();
-  ctx.fill();
+
+  (function roundedTail(x0, w, L, rr){
+    if (!(L > 0.75) || !(w > 0.5)) return;               // micro guard
+    const y0=-w*0.5, ww=L, hh=w;
+    ctx.beginPath();
+    ctx.moveTo(x0+rr, y0);
+    ctx.arcTo(x0+ww, y0,      x0+ww, y0+hh, rr);
+    ctx.arcTo(x0+ww, y0+hh,   x0+ww-rr, y0+hh, rr);
+    ctx.arcTo(x0,     y0+hh,  x0,      y0+hh-rr, rr);
+    ctx.arcTo(x0,     y0,     x0+rr,   y0, rr);
+    ctx.closePath();
+    ctx.fill();
+  })(x0, w, ww, rr);
+
   ctx.restore();
 
-  // ---- 3) Tiny warm cross-flare (rare)
+  // tiny cross flare (rare)
   if (tw > 0.96) {
     ctx.save();
     ctx.translate(t.x, t.y);
-    ctx.globalAlpha = 0.42 * a;
+    ctx.globalAlpha = 0.40 * a;
     ctx.strokeStyle = "rgba(255,210,120,0.85)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -2728,9 +2725,9 @@ len = Math.max(0, Math.min(SPARKLE_MAX_TAIL, len));
     ctx.restore();
   }
 
+  // restore
   ctx.globalCompositeOperation = prevOp;
   ctx.globalAlpha = prevA;
-  ctx.restore();
   continue;
 }
 
