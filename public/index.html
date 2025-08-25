@@ -2728,8 +2728,8 @@ if (t.kind === "sparkle") {
   // restore
   ctx.globalCompositeOperation = prevOp;
   ctx.globalAlpha = prevA;
-  continue;
   ctx.restore();
+  continue;
 }
 
 if (t.kind === "haze"){
