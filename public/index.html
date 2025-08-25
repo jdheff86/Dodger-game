@@ -1972,6 +1972,8 @@ function spawnMicroSmoke(cx, cy){
 const SPARKLE_BASE_PER_FRAME = 1;            // 3–5 per frame
 const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10°
 const HERO_SPARK_CHANCE      = 0.05;         // occasional big glint
+const SPARKLE_MAX_TAIL  = 24;   // hard cap (px)
+const SPARKLE_MAX_SPEED = 520;  // just in case
 
 function spawnSparkleParticles(cx, cy){
   const base   = Math.PI / 2;              // emit downward
@@ -2623,35 +2625,80 @@ if (t.kind === "flame") {
 }
 
 if (t.kind === "sparkle") {
-  const life    = t.life || 1;
-  const k       = Math.min(1, t.age / life);
-  const a       = 1 - k;                                     // master alpha
+  // per-particle fade + motion
+  const k       = Math.min(1, t.age / t.life);
+  const a       = 1 - k;                                   // master alpha
   const tw      = 0.75 + 0.25 * Math.abs(Math.sin(t.age * (t.twinkle || 10)));
-  const speed   = Math.hypot(t.vx, t.vy);
-  const baseLen = Math.min(40, speed * 0.055);
-  const len     = baseLen * (0.35 + 0.65 * (1 - k)) * (t.streak || 0.7);
+  const speed   = Math.min(SPARKLE_MAX_SPEED, Math.hypot(t.vx, t.vy));
+  const baseLen = Math.min(34, speed * 0.055);
+  let   len     = baseLen * (0.35 + 0.65 * (1 - k)) * (t.streak || 0.7);
+  if (!isFinite(len) || len <= 0) len = 0;                 // guard
+  len = Math.min(SPARKLE_MAX_TAIL, len);                   // ← cap tail
   const angle   = Math.atan2(t.vy, t.vx);
 
-  const prevOp = ctx.globalCompositeOperation;
-  const prevA  = ctx.globalAlpha;
+  // ---- 0) SOFT SHEATH (glow that matches the tail shape)
+  // Draw a wider, low-alpha tail first with normal blending
+  const sheathW = Math.max(1.2, (t.size || 2) * 0.9 * tw);
+  const sheathR = sheathW;                // rounded-rect radius
+  const sheathL = len * 1.12;             // a tad longer than the core
 
-  // ---- 0) SHAPED GLOW (underlay, matches streak shape) ----
+  const prevOp0 = ctx.globalCompositeOperation;
+  const prevA0  = ctx.globalAlpha;
+
   ctx.save();
   ctx.translate(t.x, t.y);
   ctx.rotate(angle);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 0.18 * a;
+  const sheathGrad = ctx.createLinearGradient(0, 0, -sheathL, 0);
+  sheathGrad.addColorStop(0.00, "rgba(255,200,90,0.55)");
+  sheathGrad.addColorStop(0.60, "rgba(240,150,50,0.25)");
+  sheathGrad.addColorStop(1.00, "rgba(220,110,30,0.00)");
+  ctx.fillStyle = sheathGrad;
+
+  (function roundedTail(x0, w, L, rr){
+    const y0 = -w*0.5, ww = L, hh = w;
+    ctx.beginPath();
+    ctx.moveTo(x0 + rr, y0);
+    ctx.arcTo(x0 + ww, y0,       x0 + ww, y0 + hh, rr);
+    ctx.arcTo(x0 + ww, y0 + hh,  x0 + ww - rr, y0 + hh, rr);
+    ctx.arcTo(x0,      y0 + hh,  x0,      y0 + hh - rr, rr);
+    ctx.arcTo(x0,      y0,       x0 + rr, y0, rr);
+    ctx.closePath();
+    ctx.fill();
+  })(-sheathL, sheathW, sheathL, sheathR);
+  ctx.restore();
+
+  ctx.globalCompositeOperation = prevOp0;
+  ctx.globalAlpha = prevA0;
+
+  // ---- 1) HEAD (normal blend so it stays golden, not white)
+  const headAlpha = 0.42 * a;                             // a touch brighter
+  const r = (t.size || 3) * (0.60 + 0.40 * tw);
+  const headGrad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r);
+  headGrad.addColorStop(0.00, `rgba(255,210,80,${headAlpha})`);
+  headGrad.addColorStop(0.45, `rgba(255,170,55,${Math.max(0, headAlpha - 0.10)})`);
+  headGrad.addColorStop(1.00,  `rgba(230,120,40,0)`);
+  const prevOp = ctx.globalCompositeOperation;
+  const prevA  = ctx.globalAlpha;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = headGrad;
+  ctx.beginPath(); ctx.arc(t.x, t.y, r, 0, Math.PI*2); ctx.fill();
+
+  // ---- 2) CORE TAIL (lighter)
   ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = 0.25 * a;
+  ctx.save();
+  ctx.translate(t.x, t.y);
+  ctx.rotate(angle);
+  const tailGrad = ctx.createLinearGradient(0, 0, -len, 0);
+  tailGrad.addColorStop(0.00, `rgba(255,200,70,${0.45*a})`);
+  tailGrad.addColorStop(0.45, `rgba(255,160,50,${0.30*a})`);
+  tailGrad.addColorStop(1.00,  `rgba(220,110,30,0)`);
+  ctx.fillStyle = tailGrad;
 
-  const glowLen = len * 1.15;                                 // a touch longer than tail
-  const glowW   = Math.max(1.2, (t.size || 2) * (0.9 + 0.6*tw)); // width tied to size/twinkle
-  const g = ctx.createLinearGradient(0, 0, -glowLen, 0);
-  g.addColorStop(0.00, "rgba(255,190,60,0.85)");
-  g.addColorStop(0.35, "rgba(255,150,50,0.35)");
-  g.addColorStop(1.00, "rgba(230,110,30,0.00)");
-  ctx.fillStyle = g;
-
-  const rr = glowW;
-  const x0 = -glowLen, y0 = -glowW*0.5, ww = glowLen, hh = glowW;
+  const w  = Math.max(0.9, (t.size || 2) * 0.45 * tw);     // slimmer core
+  const rr = w, x0 = -len, y0 = -w*0.5, ww = len, hh = w;
   ctx.beginPath();
   ctx.moveTo(x0 + rr, y0);
   ctx.arcTo(x0 + ww, y0,       x0 + ww, y0 + hh, rr);
@@ -2662,51 +2709,11 @@ if (t.kind === "sparkle") {
   ctx.fill();
   ctx.restore();
 
-  // ---- 1) HEAD (normal blend so it stays golden, not white)
-  const headAlpha = 0.35 * a;                                 // tweak 0.30–0.45
-  const r = (t.size || 3) * (0.55 + 0.45 * tw);
-  const headGrad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r);
-  headGrad.addColorStop(0.00, `rgba(255,200,70,${headAlpha})`);
-  headGrad.addColorStop(0.45, `rgba(255,170,55,${Math.max(0, headAlpha - 0.10)})`);
-  headGrad.addColorStop(1.00,  `rgba(230,120,40,0)`);
-
-  ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = headGrad;
-  ctx.beginPath();
-  ctx.arc(t.x, t.y, r, 0, Math.PI*2);
-  ctx.fill();
-
-  // ---- 2) TAIL (lighter, slim + warm)
-  ctx.globalCompositeOperation = "lighter";
-  ctx.save();
-  ctx.translate(t.x, t.y);
-  ctx.rotate(angle);
-
-  const tailGrad = ctx.createLinearGradient(0, 0, -len, 0);
-  tailGrad.addColorStop(0.00, `rgba(255,200,70,${0.45*a})`);
-  tailGrad.addColorStop(0.45, `rgba(255,160,50,${0.30*a})`);
-  tailGrad.addColorStop(1.00,  `rgba(220,110,30,0)`);
-  ctx.fillStyle = tailGrad;
-
-  const w  = Math.max(0.9, (t.size || 2) * 0.45 * tw);
-  const rr2 = w, x02 = -len, y02 = -w*0.5, ww2 = len, hh2 = w;
-
-  ctx.beginPath();
-  ctx.moveTo(x02 + rr2, y02);
-  ctx.arcTo(x02 + ww2, y02,       x02 + ww2, y02 + hh2, rr2);
-  ctx.arcTo(x02 + ww2, y02 + hh2, x02 + ww2 - rr2, y02 + hh2, rr2);
-  ctx.arcTo(x02,       y02 + hh2, x02,       y02 + hh2 - rr2, rr2);
-  ctx.arcTo(x02,       y02,       x02 + rr2, y02, rr2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-
-  // ---- 3) Tiny cross flare (rare)
+  // ---- 3) Tiny warm cross-flare (rare)
   if (tw > 0.96) {
     ctx.save();
     ctx.translate(t.x, t.y);
-    ctx.globalAlpha = 0.45 * a;
+    ctx.globalAlpha = 0.42 * a;
     ctx.strokeStyle = "rgba(255,210,120,0.85)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -2716,10 +2723,8 @@ if (t.kind === "sparkle") {
     ctx.restore();
   }
 
-  // restore globals for next particle
   ctx.globalCompositeOperation = prevOp;
   ctx.globalAlpha = prevA;
-  ctx.restore();
   continue;
 }
 
