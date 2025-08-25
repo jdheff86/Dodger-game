@@ -1970,25 +1970,31 @@ function spawnMicroSmoke(cx, cy){
 // knobs (keep near your other sparkle constants)
 // Sparkle knobs 
 // ── Sparkle knobs (dense / short cluster) ───────────────────────────────
-const SPARKLE_BASE_PER_FRAME = 8;           // 8–12 per frame (dense)
-const SPARKLE_CONE_RADIANS   = Math.PI/28;  // tighter cone than before
-const HERO_SPARK_CHANCE      = 0.12;        // a few big glints
+// Sparkle preset: dense + floaty
+const SPARKLE_BASE_PER_FRAME = 5;          // was 1 → much denser
+const SPARKLE_CONE_RADIANS   = Math.PI/22; // tight cone (~8–9°)
+const HERO_SPARK_CHANCE      = 0.08;       // a little more “hero” flares
 
-// caps to prevent long smeary lines
-const SPARKLE_MAX_TAIL  = 26;               // px
-const SPARKLE_MAX_SPEED = 220;              // px/s (keeps cluster tight)
+// motion/phys
+const SPARKLE_SPEED_MIN  = 60;             // slower = jelly
+const SPARKLE_SPEED_MAX  = 120;
+const SPARKLE_LIFE_MIN   = 0.55;           // linger longer
+const SPARKLE_LIFE_MAX   = 0.90;
+const SPARKLE_DRAG       = 2.6;            // per-second drag (applied in integrator)
+const SPARKLE_BUOYANCY   = -10;            // slight upward pull (negative = up)
+const SPARKLE_DOWNDRIFT  = 30;             // gentle downward bias (keeps the cone under player)
+const SPARKLE_MAX_TAIL   = 36;             // a bit longer
+const SPARKLE_MAX_SPEED  = 420;            // keep from streaking
 
 function spawnSparkleParticles(cx, cy){
   const base   = Math.PI / 2;               // emit downward
   const spread = SPARKLE_CONE_RADIANS;
 
-  // 8–12 small/medium sparks per frame (dense)
-  const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*4)|0);
+  // main emission
+  const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*2)|0);  // 5–6 avg
   for (let i = 0; i < n; i++){
     const ang   = base + (Math.random()-0.5) * spread * 2;
-    const speed = 90 + Math.random()*60;                // tight range
-    const size  = 2.7 + Math.random()*4.2;              // small
-    const life  = 0.35 + Math.random()*0.25;            // short
+    const speed = SPARKLE_SPEED_MIN + Math.random()*(SPARKLE_SPEED_MAX - SPARKLE_SPEED_MIN);
 
     trail.push({
       kind: "sparkle",
@@ -1997,27 +2003,27 @@ function spawnSparkleParticles(cx, cy){
       vx: Math.cos(ang)*speed,
       vy: Math.sin(ang)*speed,
       age: 0,
-      life,
-      size,
-      twinkle: 9 + Math.random()*6,
-      streak: 0.8
+      life: SPARKLE_LIFE_MIN + Math.random()*(SPARKLE_LIFE_MAX - SPARKLE_LIFE_MIN),
+      size: 2.0 + Math.random()*3.6,       // 2.0–5.6px
+      twinkle: 9 + Math.random()*7,
+      streak: 0.70 + Math.random()*0.22
     });
   }
 
-  // occasional larger “hero” spark
+  // hero sparkle (occasional larger)
   if (Math.random() < HERO_SPARK_CHANCE){
     const ang   = base + (Math.random()-0.5) * spread * 2;
-    const speed = 110 + Math.random()*80;
+    const speed = 160 + Math.random()*160;  // a bit faster so tail shows
     trail.push({
       kind: "sparkle",
       x: cx, y: cy,
       vx: Math.cos(ang)*speed,
       vy: Math.sin(ang)*speed,
       age: 0,
-      life: 0.13 + Math.random()*0.06,
-      size: 4.0 + Math.random()*1.4,     // bigger
+      life: 0.60 + Math.random()*0.30,
+      size: 4.8 + Math.random()*2.0,
       twinkle: 8 + Math.random()*6,
-      streak: 0.85
+      streak: 0.88
     });
   }
 }
@@ -2549,8 +2555,21 @@ if (!isFinite(t.life) || t.life <= 0 || !isFinite(t.x) || !isFinite(t.y)) {
     t.vx += (Math.random() - 0.5) * 2.0; // tiny jitter
 
   } else if (t.kind === "sparkle") {
-    // nothing special for physics
+  // Jelly feel: strong drag + tiny buoyancy + gentle down drift
+  // Drag (per-second): v -= v * k * dt  → stable across frame rates
+  t.vx -= t.vx * SPARKLE_DRAG * dt;
+  t.vy -= t.vy * SPARKLE_DRAG * dt;
+
+  // Bias: a touch downward so the column forms, but a hint of lift to “float”
+  t.vy += (SPARKLE_DOWNDRIFT + SPARKLE_BUOYANCY) * dt;
+
+  // keep under control
+  const sp = Math.hypot(t.vx, t.vy);
+  if (sp > SPARKLE_MAX_SPEED){
+    const s = SPARKLE_MAX_SPEED / (sp || 1);
+    t.vx *= s; t.vy *= s;
   }
+}
 
   // kill when done
   if (t.age >= t.life) {
@@ -2728,8 +2747,8 @@ if (t.kind === "sparkle") {
   // restore
   ctx.globalCompositeOperation = prevOp;
   ctx.globalAlpha = prevA;
-  ctx.restore();
   continue;
+  ctx.restore();
 }
 
 if (t.kind === "haze"){
