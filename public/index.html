@@ -1968,39 +1968,40 @@ function spawnMicroSmoke(cx, cy){
 }// Sparkle tuning (dense cone + streaky tails)
 
 // knobs (keep near your other sparkle constants)
-const SPARKLE_BASE_PER_FRAME = 3;       // base count per frame (3–5)
-const SPARKLE_CONE_RADIANS   = Math.PI / 18;   // ~10°
-const HERO_SPARK_CHANCE      = 0.12;    // chance to spawn a bigger "hero" spark
+// Sparkle knobs (kept above)
+const SPARKLE_BASE_PER_FRAME = 3;            // 3–5 per frame
+const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10°
+const HERO_SPARK_CHANCE      = 0.12;         // occasional big glint
 
 function spawnSparkleParticles(cx, cy){
-  const base   = Math.PI / 2;              // down
+  const base   = Math.PI / 2;              // emit downward
   const spread = SPARKLE_CONE_RADIANS;
 
-  // main emission (3–5)
+  // main emission: 3–5 small/medium sparks
   const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*2)|0);
   for (let i = 0; i < n; i++){
     const ang   = base + (Math.random()-0.5) * spread * 2;
     const speed = 220 + Math.random()*260;
 
-    // small→medium with wider size spread
-    const size = 1.3 + Math.random()*3.2;
-    const life = 0.18 + Math.random()*0.20;
+    // GUARDED: strictly positive size/life
+    const size = 1.3 + Math.random()*3.2;          // 1.3–4.5
+    const life = 0.18 + Math.random()*0.20;        // 0.18–0.38
 
     trail.push({
       kind: "sparkle",
-      x: cx + (Math.random()-0.5)*1.1,
-      y: cy + (Math.random()-0.5)*1.1,
+      x: cx + (Math.random()-0.5)*1.0,
+      y: cy + (Math.random()-0.5)*1.0,
       vx: Math.cos(ang)*speed,
       vy: Math.sin(ang)*speed,
       age: 0,
       life,
       size,
-      twinkle: 9 + Math.random()*7,
-      streak: 0.60 + Math.random()*0.35
+      twinkle: 9 + Math.random()*7,                // 9–16
+      streak: 0.60 + Math.random()*0.35            // 0.60–0.95
     });
   }
 
-  // occasional larger "hero" spark to match the mock
+  // occasional larger “hero” spark
   if (Math.random() < HERO_SPARK_CHANCE){
     const ang   = base + (Math.random()-0.5) * spread * 2;
     const speed = 240 + Math.random()*260;
@@ -2010,9 +2011,9 @@ function spawnSparkleParticles(cx, cy){
       vx: Math.cos(ang)*speed,
       vy: Math.sin(ang)*speed,
       age: 0,
-      life: 0.20 + Math.random()*0.18,
-      size: 4.2 + Math.random()*2.2,   // noticeably bigger glints
-      twinkle: 8 + Math.random()*6,
+      life: 0.20 + Math.random()*0.18,            // 0.20–0.38
+      size: 4.2 + Math.random()*2.2,              // 4.2–6.4
+      twinkle: 8 + Math.random()*6,               // 8–14
       streak: 0.85
     });
   }
@@ -2512,6 +2513,11 @@ switch (cosmetics.equipped.trail) {
 // --- Trail particles: integrate + cull ---
 for (let i = trail.length - 1; i >= 0; i--) {
   const t = trail[i];
+  // kill obviously bad particles
+if (!isFinite(t.life) || t.life <= 0 || !isFinite(t.x) || !isFinite(t.y)) {
+  trail.splice(i, 1);
+  continue;
+}
   t.age += dt;
 
   // base motion
@@ -2569,6 +2575,9 @@ for (let i = trail.length - 1; i >= 0; i--) {
 ctx.imageSmoothingEnabled = true;
 ctx.imageSmoothingQuality = "high";
 for (const t of trail) {
+  if (!isFinite(t.x) || !isFinite(t.y) || !isFinite(t.life) || t.life <= 0) { continue; }
+const life = t.life || 1;        // protect against 0
+const alphaBase = Math.max(0, 1 - (t.age / life));  // use this instead of recomputing with raw t.life
   const a = Math.max(0, 1 - (t.age / t.life));
   const s = (t.size || 8) * (0.72 + 0.28 * a);
 
