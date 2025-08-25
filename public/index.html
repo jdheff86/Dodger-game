@@ -1967,29 +1967,34 @@ function spawnMicroSmoke(cx, cy){
   });
 }// Sparkle tuning (dense cone + streaky tails)
 const SPARKLE_BASE_PER_FRAME = 3;     // dense
-const SPARKLE_BURST_CHANCE   = 0.12;  // occasional extra pop
-const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10° cone
+const SPARKLE_BURST_CHANCE   = 0.1;  // occasional extra pop
+const SPARKLE_CONE_RADIANS   = Math.PI / 22; // ~10° cone
+
+// knobs (keep near your other sparkle constants)
+const SPARKLE_BASE_PER_FRAME = 3;       // base count per frame (3–5)
+const SPARKLE_CONE_RADIANS   = Math.PI / 18;   // ~10°
+const HERO_SPARK_CHANCE      = 0.12;    // chance to spawn a bigger "hero" spark
 
 function spawnSparkleParticles(cx, cy){
-  const base = Math.PI / 2;
+  const base   = Math.PI / 2;              // down
   const spread = SPARKLE_CONE_RADIANS;
 
-  // main emission
-  const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*2)|0); // 3–5
+  // main emission (3–5)
+  const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*2)|0);
   for (let i = 0; i < n; i++){
     const ang   = base + (Math.random()-0.5) * spread * 2;
     const speed = 220 + Math.random()*260;
 
-    // small→medium with some variability
-    const size  = 1.3 + Math.random()*3.2;        // wider range
-    const life  = 0.18 + Math.random()*0.20;
+    // small→medium with wider size spread
+    const size = 1.3 + Math.random()*3.2;
+    const life = 0.18 + Math.random()*0.20;
 
     trail.push({
       kind: "sparkle",
       x: cx + (Math.random()-0.5)*1.1,
       y: cy + (Math.random()-0.5)*1.1,
-      vx: Math.cos(ang) * speed,
-      vy: Math.sin(ang) * speed,
+      vx: Math.cos(ang)*speed,
+      vy: Math.sin(ang)*speed,
       age: 0,
       life,
       size,
@@ -1998,8 +2003,8 @@ function spawnSparkleParticles(cx, cy){
     });
   }
 
-  // rare larger “hero” sparks to match your mock
-  if (Math.random() < 0.12){
+  // occasional larger "hero" spark to match the mock
+  if (Math.random() < HERO_SPARK_CHANCE){
     const ang   = base + (Math.random()-0.5) * spread * 2;
     const speed = 240 + Math.random()*260;
     trail.push({
@@ -2009,7 +2014,7 @@ function spawnSparkleParticles(cx, cy){
       vy: Math.sin(ang)*speed,
       age: 0,
       life: 0.20 + Math.random()*0.18,
-      size: 4.2 + Math.random()*2.2,    // noticeably bigger
+      size: 4.2 + Math.random()*2.2,   // noticeably bigger glints
       twinkle: 8 + Math.random()*6,
       streak: 0.85
     });
@@ -2611,33 +2616,34 @@ if (t.kind === "flame") {
 }
 
 if (t.kind === "sparkle") {
-  const tw = 0.75 + 0.25 * Math.abs(Math.sin(t.age * (t.twinkle || 10)));
-  const speed = Math.hypot(t.vx, t.vy);
+  // per-particle fade + motion
+  const k       = Math.min(1, t.age / t.life);
+  const a       = 1 - k;                                   // master alpha
+  const tw      = 0.75 + 0.25 * Math.abs(Math.sin(t.age * (t.twinkle || 10)));
+  const speed   = Math.hypot(t.vx, t.vy);
   const baseLen = Math.min(40, speed * 0.055);
-  const len = baseLen * (0.35 + 0.65 * (1 - t.age / t.life)) * (t.streak || 0.7);
-  const angle = Math.atan2(t.vy, t.vx);
+  const len     = baseLen * (0.35 + 0.65 * (1 - k)) * (t.streak || 0.7);
+  const angle   = Math.atan2(t.vy, t.vx);
 
-  // ---- 1) GOLDEN HEAD (normal blend) ----
-  // prevents white hotspots when many overlap
-  const headAlpha = 0.55 * a;               // slightly dimmer core
-  const r = (t.size || 3) * (0.55 + 0.40 * tw);
-
+  // ---- 1) HEAD (normal blend so it stays golden, not white)
+  const headAlpha = 0.35 * a;                               // <— tune 0.30–0.45
+  const r = (t.size || 3) * (0.55 + 0.45 * tw);
   const headGrad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r);
   headGrad.addColorStop(0.00, `rgba(255,200,70,${headAlpha})`);
-  headGrad.addColorStop(0.45, `rgba(255,170,55,${Math.max(0, headAlpha-0.12)})`);
-  headGrad.addColorStop(1.00, `rgba(230,120,40,0)`);
+  headGrad.addColorStop(0.45, `rgba(255,170,55,${Math.max(0, headAlpha - 0.10)})`);
+  headGrad.addColorStop(1.00,  `rgba(230,120,40,0)`);
 
   const prevOp = ctx.globalCompositeOperation;
   const prevA  = ctx.globalAlpha;
 
-  ctx.globalCompositeOperation = "source-over";  // ⬅️ key change
+  ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
   ctx.fillStyle = headGrad;
   ctx.beginPath();
   ctx.arc(t.x, t.y, r, 0, Math.PI*2);
   ctx.fill();
 
-  // ---- 2) TAIL (additive, but slimmer & warmer) ----
+  // ---- 2) TAIL (lighter, but slimmer + warmer)
   ctx.globalCompositeOperation = "lighter";
   ctx.save();
   ctx.translate(t.x, t.y);
@@ -2645,29 +2651,29 @@ if (t.kind === "sparkle") {
 
   const tailGrad = ctx.createLinearGradient(0, 0, -len, 0);
   tailGrad.addColorStop(0.00, `rgba(255,200,70,${0.45*a})`);
-  tailGrad.addColorStop(0.45, `rgba(255,160,50,${0.32*a})`);
-  tailGrad.addColorStop(1.00, `rgba(220,110,30,0)`);
+  tailGrad.addColorStop(0.45, `rgba(255,160,50,${0.30*a})`);
+  tailGrad.addColorStop(1.00,  `rgba(220,110,30,0)`);
   ctx.fillStyle = tailGrad;
 
-  const w = Math.max(0.9, (t.size || 2) * 0.45 * tw); // slimmer to reduce stacking
-  const rr = w, x0 = -len, y0 = -w * 0.5, ww = len, hh = w;
+  const w  = Math.max(0.9, (t.size || 2) * 0.45 * tw);  // slimmer tail = less stacking
+  const rr = w, x0 = -len, y0 = -w*0.5, ww = len, hh = w;
 
   ctx.beginPath();
   ctx.moveTo(x0 + rr, y0);
-  ctx.arcTo(x0 + ww, y0,          x0 + ww, y0 + hh, rr);
-  ctx.arcTo(x0 + ww, y0 + hh,     x0 + ww - rr, y0 + hh, rr);
-  ctx.arcTo(x0,      y0 + hh,     x0,      y0 + hh - rr, rr);
-  ctx.arcTo(x0,      y0,          x0 + rr, y0, rr);
+  ctx.arcTo(x0 + ww, y0,       x0 + ww, y0 + hh, rr);
+  ctx.arcTo(x0 + ww, y0 + hh,  x0 + ww - rr, y0 + hh, rr);
+  ctx.arcTo(x0,      y0 + hh,  x0,      y0 + hh - rr, rr);
+  ctx.arcTo(x0,      y0,       x0 + rr, y0, rr);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
 
-  // ---- 3) Warm cross-flare (small + non-white) ----
+  // ---- 3) Tiny warm cross-flare (rare)
   if (tw > 0.96) {
     ctx.save();
     ctx.translate(t.x, t.y);
     ctx.globalAlpha = 0.45 * a;
-    ctx.strokeStyle = "rgba(255,210,120,0.85)";  // warm, not white
+    ctx.strokeStyle = "rgba(255,210,120,0.85)";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(-3.5, 0); ctx.lineTo(3.5, 0);
@@ -2678,8 +2684,7 @@ if (t.kind === "sparkle") {
 
   ctx.globalCompositeOperation = prevOp;
   ctx.globalAlpha = prevA;
-  ctx.restore();
-  continue;
+  continue; // (inside your particle loop)
 }
 
 if (t.kind === "haze"){
