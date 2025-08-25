@@ -1969,7 +1969,7 @@ function spawnMicroSmoke(cx, cy){
 
 // knobs (keep near your other sparkle constants)
 // Sparkle knobs (kept above)
-const SPARKLE_BASE_PER_FRAME = 2;            // 3–5 per frame
+const SPARKLE_BASE_PER_FRAME = 1;            // 3–5 per frame
 const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10°
 const HERO_SPARK_CHANCE      = 0.12;         // occasional big glint
 
@@ -1981,7 +1981,7 @@ function spawnSparkleParticles(cx, cy){
   const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*2)|0);
   for (let i = 0; i < n; i++){
     const ang   = base + (Math.random()-0.5) * spread * 2;
-    const speed = 220 + Math.random()*260;
+    const speed = 160 + Math.random()*1800;
 
     // GUARDED: strictly positive size/life
     const size = 1.3 + Math.random()*3.2;          // 1.3–4.5
