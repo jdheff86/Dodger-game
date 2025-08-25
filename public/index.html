@@ -1966,52 +1966,78 @@ function spawnMicroSmoke(cx, cy){
     seed: Math.random()
   });
 }// Sparkle tuning (dense cone + streaky tails)
-const SPARKLE_BASE_PER_FRAME = 6;     // dense
-const SPARKLE_BURST_CHANCE   = 0.18;  // occasional extra pop
+const SPARKLE_BASE_PER_FRAME = 3;     // dense
+const SPARKLE_BURST_CHANCE   = 0.12;  // occasional extra pop
 const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10° cone
 
 function spawnSparkleParticles(cx, cy){
-  // Emit a dense fan pointing downward with slight spread
-  const base = Math.PI / 2;                   // down
+  const base = Math.PI / 2;
   const spread = SPARKLE_CONE_RADIANS;
 
-  const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*2)|0);
+  // main emission
+  const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*2)|0); // 3–5
   for (let i = 0; i < n; i++){
     const ang   = base + (Math.random()-0.5) * spread * 2;
-    const speed = 220 + Math.random()*260;    // fast = long streak
+    const speed = 220 + Math.random()*260;
+
+    // small→medium with some variability
+    const size  = 1.3 + Math.random()*3.2;        // wider range
+    const life  = 0.18 + Math.random()*0.20;
+
     trail.push({
       kind: "sparkle",
+      x: cx + (Math.random()-0.5)*1.1,
+      y: cy + (Math.random()-0.5)*1.1,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      age: 0,
+      life,
+      size,
+      twinkle: 9 + Math.random()*7,
+      streak: 0.60 + Math.random()*0.35
+    });
+  }
+
+  // rare larger “hero” sparks to match your mock
+  if (Math.random() < 0.12){
+    const ang   = base + (Math.random()-0.5) * spread * 2;
+    const speed = 240 + Math.random()*260;
+    trail.push({
+      kind: "sparkle",
+      x: cx, y: cy,
+      vx: Math.cos(ang)*speed,
+      vy: Math.sin(ang)*speed,
+      age: 0,
+      life: 0.20 + Math.random()*0.18,
+      size: 4.2 + Math.random()*2.2,    // noticeably bigger
+      twinkle: 8 + Math.random()*6,
+      streak: 0.85
+    });
+  }
+}
+
+// Very soft golden haze to create dense look without white blowout
+function spawnGoldHaze(cx, cy){
+  // 1–2 soft puffs per frame
+  const count = 1 + ((Math.random()*2)|0);
+  const base  = Math.PI / 2;
+  const spread = Math.PI / 22;          // tight cone
+
+  for (let i = 0; i < count; i++){
+    const ang   = base + (Math.random()-0.5) * spread * 2;
+    const speed = 90 + Math.random()*80;
+
+    trail.push({
+      kind: "haze",
       x: cx + (Math.random()-0.5)*1.2,
       y: cy + (Math.random()-0.5)*1.2,
       vx: Math.cos(ang) * speed,
       vy: Math.sin(ang) * speed,
       age: 0,
-      life: 0.18 + Math.random()*0.20,        // short-lived
-      size: 2.2 + Math.random()*2.6,
-      twinkle: 9 + Math.random()*7,           // twinkle frequency
-      // how streaky this particle is (0..1)
-      streak: 0.65 + Math.random()*0.30
+      life: 0.55 + Math.random()*0.35,   // lingers a bit
+      size: 18 + Math.random()*10,       // big + soft
+      grow: 1.10 + Math.random()*0.10,   // slow growth
     });
-  }
-
-  // Occasional mini-burst for extra sparkle
-  if (Math.random() < SPARKLE_BURST_CHANCE){
-    const burst = 6 + (Math.random()*4|0);
-    for (let i = 0; i < burst; i++){
-      const ang   = base + (Math.random()-0.5) * spread * 2;
-      const speed = 260 + Math.random()*280;
-      trail.push({
-        kind:"sparkle",
-        x: cx, y: cy,
-        vx: Math.cos(ang)*speed,
-        vy: Math.sin(ang)*speed,
-        age:0,
-        life:0.16 + Math.random()*0.18,
-        size:2.0 + Math.random()*2.0,
-        twinkle: 10 + Math.random()*8,
-        streak: 0.85
-      });
-    }
   }
 }
 
@@ -2331,8 +2357,9 @@ switch (cosmetics.equipped.trail) {
     break;
 
   case "trail.sparkle":
-    spawnSparkleParticles(emitX, emitY);
-    break;
+  spawnGoldHaze(emitX, emitY);          // ← new
+  spawnSparkleParticles(emitX, emitY);
+  break;
 
   case "trail.smoke":
     spawnSmokeParticles(emitX, emitY + 4, whip, p.vx);
@@ -2650,6 +2677,31 @@ if (t.kind === "sparkle") {
   }
 
   ctx.globalCompositeOperation = prevOp;
+  ctx.globalAlpha = prevA;
+  ctx.restore();
+  continue;
+}
+
+if (t.kind === "haze"){
+  const k = Math.min(1, t.age / t.life);
+  const r = (t.size || 18) * (1.0 + 0.6 * k);
+
+  // normal blend keeps it gold (not pure white)
+  const prev = ctx.globalCompositeOperation;
+  const prevA = ctx.globalAlpha;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = (0.28 * (1 - k)); // soft and fades out
+
+  const rg = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r);
+  rg.addColorStop(0.00, "rgba(255,210,90,0.55)");
+  rg.addColorStop(0.40, "rgba(255,170,60,0.35)");
+  rg.addColorStop(1.00, "rgba(230,120,40,0)");
+  ctx.fillStyle = rg;
+  ctx.beginPath();
+  ctx.arc(t.x, t.y, r, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.globalCompositeOperation = prev;
   ctx.globalAlpha = prevA;
   ctx.restore();
   continue;
