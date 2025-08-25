@@ -1966,9 +1966,6 @@ function spawnMicroSmoke(cx, cy){
     seed: Math.random()
   });
 }// Sparkle tuning (dense cone + streaky tails)
-const SPARKLE_BASE_PER_FRAME = 3;     // dense
-const SPARKLE_BURST_CHANCE   = 0.1;  // occasional extra pop
-const SPARKLE_CONE_RADIANS   = Math.PI / 22; // ~10° cone
 
 // knobs (keep near your other sparkle constants)
 const SPARKLE_BASE_PER_FRAME = 3;       // base count per frame (3–5)
@@ -2020,6 +2017,7 @@ function spawnSparkleParticles(cx, cy){
     });
   }
 }
+
 
 // Very soft golden haze to create dense look without white blowout
 function spawnGoldHaze(cx, cy){
@@ -2801,4 +2799,4 @@ if (t.kind === "haze"){
 })();
 </script>
 </body>
-</html>a xl
+</html>
