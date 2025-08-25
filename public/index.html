@@ -2725,6 +2725,7 @@ if (t.kind === "sparkle") {
 
   ctx.globalCompositeOperation = prevOp;
   ctx.globalAlpha = prevA;
+  ctx.restore();
   continue;
 }
 
