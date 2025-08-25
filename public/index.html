@@ -1970,41 +1970,36 @@ const SPARKLE_BASE_PER_FRAME = 6;     // dense
 const SPARKLE_BURST_CHANCE   = 0.18;  // occasional extra pop
 const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10° cone
 
-// Sparkle tuning (dense cone + streaky tails)
-const SPARKLE_BASE_PER_FRAME = 6;      // base density
-const SPARKLE_BURST_CHANCE   = 0.18;   // occasional extra pop
-const SPARKLE_CONE_RADIANS   = Math.PI / 18; // ~10°
-
 function spawnSparkleParticles(cx, cy){
-  const base   = Math.PI / 2;                 // point down
+  // Emit a dense fan pointing downward with slight spread
+  const base = Math.PI / 2;                   // down
   const spread = SPARKLE_CONE_RADIANS;
 
-  // ← this is the `count` you asked about
-  const count = SPARKLE_BASE_PER_FRAME + ((Math.random()*2) | 0);
-
-  for (let i = 0; i < count; i++){
+  const n = SPARKLE_BASE_PER_FRAME + ((Math.random()*2)|0);
+  for (let i = 0; i < n; i++){
     const ang   = base + (Math.random()-0.5) * spread * 2;
-    const speed = 320 + Math.random()*260;    // fast => long streaks
+    const speed = 220 + Math.random()*260;    // fast = long streak
     trail.push({
       kind: "sparkle",
-      x: cx + (Math.random()-0.5)*1.0,
-      y: cy + (Math.random()-0.5)*1.0,
+      x: cx + (Math.random()-0.5)*1.2,
+      y: cy + (Math.random()-0.5)*1.2,
       vx: Math.cos(ang) * speed,
       vy: Math.sin(ang) * speed,
       age: 0,
-      life: 0.22 + Math.random()*0.22,
-      size: 3.6 + Math.random()*2.4,          // bigger head
-      twinkle: 9 + Math.random()*7,
-      streak: 0.9                              // extra streakiness
+      life: 0.18 + Math.random()*0.20,        // short-lived
+      size: 2.2 + Math.random()*2.6,
+      twinkle: 9 + Math.random()*7,           // twinkle frequency
+      // how streaky this particle is (0..1)
+      streak: 0.65 + Math.random()*0.30
     });
   }
 
-  // small burst now and then
+  // Occasional mini-burst for extra sparkle
   if (Math.random() < SPARKLE_BURST_CHANCE){
-    const burst = 6 + ((Math.random()*4)|0);
+    const burst = 6 + (Math.random()*4|0);
     for (let i = 0; i < burst; i++){
       const ang   = base + (Math.random()-0.5) * spread * 2;
-      const speed = 360 + Math.random()*300;
+      const speed = 260 + Math.random()*280;
       trail.push({
         kind:"sparkle",
         x: cx, y: cy,
@@ -2012,9 +2007,9 @@ function spawnSparkleParticles(cx, cy){
         vy: Math.sin(ang)*speed,
         age:0,
         life:0.16 + Math.random()*0.18,
-        size:2.8 + Math.random()*2.2,
+        size:2.0 + Math.random()*2.0,
         twinkle: 10 + Math.random()*8,
-        streak: 1.0
+        streak: 0.85
       });
     }
   }
@@ -2336,7 +2331,7 @@ switch (cosmetics.equipped.trail) {
     break;
 
   case "trail.sparkle":
-    
+    spawnSparkleParticles(emitX, emitY);
     break;
 
   case "trail.smoke":
@@ -2649,7 +2644,6 @@ if (t.kind === "flame") {
   ctx.fill();
 
   ctx.restore();
-  continue;
 }
 
   // 3) Tiny cross-flare for extra sparkle
@@ -2760,4 +2754,4 @@ if (t.kind === "flame") {
 })();
 </script>
 </body>
-</html>a xl
+</html>
