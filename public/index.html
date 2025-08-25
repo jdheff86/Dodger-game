@@ -2583,60 +2583,47 @@ if (t.kind === "flame") {
   continue;
 }
 
-  if (t.kind === "sparkle") {
-  // Additive blend for bright glints
-  const prevOp = ctx.globalCompositeOperation;
-  ctx.globalCompositeOperation = "lighter";
-
-  // Twinkle (0.75..1.0)
+if (t.kind === "sparkle") {
   const tw = 0.75 + 0.25 * Math.abs(Math.sin(t.age * (t.twinkle || 10)));
-
-  // Compute a streak length based on speed + remaining life
   const speed = Math.hypot(t.vx, t.vy);
-  const baseLen = Math.min(42, speed * 0.06);
+  const baseLen = Math.min(40, speed * 0.055);
   const len = baseLen * (0.35 + 0.65 * (1 - t.age / t.life)) * (t.streak || 0.7);
-
-  // Direction of motion
   const angle = Math.atan2(t.vy, t.vx);
 
-  // 1) Draw the glowing head (small warm core)
-  // 1) Draw the glowing head (gold, not white)
-{
-  const r = (t.size || 3) * (0.60 + 0.45 * tw);            // a touch smaller core
-  const rg = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r);
-  rg.addColorStop(0.00, `rgba(255,210,90,${0.70*a})`);     // golden core
-  rg.addColorStop(0.45, `rgba(255,180,60,${0.55*a})`);     // amber mid
-  rg.addColorStop(1.00, `rgba(230,130,30,0)`);             // warm fade
-  ctx.fillStyle = rg;
+  // ---- 1) GOLDEN HEAD (normal blend) ----
+  // prevents white hotspots when many overlap
+  const headAlpha = 0.55 * a;               // slightly dimmer core
+  const r = (t.size || 3) * (0.55 + 0.40 * tw);
+
+  const headGrad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r);
+  headGrad.addColorStop(0.00, `rgba(255,200,70,${headAlpha})`);
+  headGrad.addColorStop(0.45, `rgba(255,170,55,${Math.max(0, headAlpha-0.12)})`);
+  headGrad.addColorStop(1.00, `rgba(230,120,40,0)`);
+
+  const prevOp = ctx.globalCompositeOperation;
+  const prevA  = ctx.globalAlpha;
+
+  ctx.globalCompositeOperation = "source-over";  // ⬅️ key change
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = headGrad;
   ctx.beginPath();
   ctx.arc(t.x, t.y, r, 0, Math.PI*2);
   ctx.fill();
-}
 
-  // 2) Draw the tail as a skinny rounded strip behind the head
-  // 2) Tail behind the head (aligned with motion)
-{
-  const w = Math.max(1.0, (t.size || 2) * 0.55 * tw);
-
+  // ---- 2) TAIL (additive, but slimmer & warmer) ----
+  ctx.globalCompositeOperation = "lighter";
   ctx.save();
   ctx.translate(t.x, t.y);
-  ctx.rotate(angle);                  // align +X with velocity
+  ctx.rotate(angle);
 
-  // gradient from head (0) → back (-len)
-  // gradient from head (0) → back (-len), golden and dimmer
-const lg = ctx.createLinearGradient(0, 0, -len, 0);
-lg.addColorStop(0.00, `rgba(255,210,90,${0.60*a})`);
-lg.addColorStop(0.45, `rgba(255,170,60,${0.40*a})`);
-lg.addColorStop(1.00, `rgba(230,120,40,0)`);
-ctx.fillStyle = lg;
+  const tailGrad = ctx.createLinearGradient(0, 0, -len, 0);
+  tailGrad.addColorStop(0.00, `rgba(255,200,70,${0.45*a})`);
+  tailGrad.addColorStop(0.45, `rgba(255,160,50,${0.32*a})`);
+  tailGrad.addColorStop(1.00, `rgba(220,110,30,0)`);
+  ctx.fillStyle = tailGrad;
 
-// slightly slimmer tail to reduce overlap brightness
-const w = Math.max(1.0, (t.size || 2) * 0.50 * tw);
-
-  // rounded strip along -X (behind the motion)
-  const rr = w;                   // corner radius
-  const x0 = -len, y0 = -w * 0.5; // from -len → 0 on X
-  const ww = len,  hh = w;
+  const w = Math.max(0.9, (t.size || 2) * 0.45 * tw); // slimmer to reduce stacking
+  const rr = w, x0 = -len, y0 = -w * 0.5, ww = len, hh = w;
 
   ctx.beginPath();
   ctx.moveTo(x0 + rr, y0);
@@ -2646,25 +2633,24 @@ const w = Math.max(1.0, (t.size || 2) * 0.50 * tw);
   ctx.arcTo(x0,      y0,          x0 + rr, y0, rr);
   ctx.closePath();
   ctx.fill();
-
   ctx.restore();
-}
 
-  // 3) Tiny cross-flare for extra sparkle
-  if (tw > 0.95) {
+  // ---- 3) Warm cross-flare (small + non-white) ----
+  if (tw > 0.96) {
     ctx.save();
     ctx.translate(t.x, t.y);
-    ctx.globalAlpha = 0.55 * a;
+    ctx.globalAlpha = 0.45 * a;
+    ctx.strokeStyle = "rgba(255,210,120,0.85)";  // warm, not white
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(-4, 0); ctx.lineTo(4, 0);
-    ctx.moveTo(0,-4);  ctx.lineTo(0, 4);
-    ctx.strokeStyle = "rgba(255,240,200,0.9)";
+    ctx.moveTo(-3.5, 0); ctx.lineTo(3.5, 0);
+    ctx.moveTo(0, -3.5); ctx.lineTo(0, 3.5);
     ctx.stroke();
     ctx.restore();
   }
 
   ctx.globalCompositeOperation = prevOp;
+  ctx.globalAlpha = prevA;
   ctx.restore();
   continue;
 }
