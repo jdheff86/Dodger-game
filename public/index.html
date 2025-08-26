@@ -2845,11 +2845,12 @@ for (const t of trail) {
     ctx.restore();
     continue;
   }
-
-  // fallback
-  ctx.restore();
   
 }
+// end trail loop —— restore the outer clip
+ctx.restore();
+ctx.globalAlpha = 1;
+ctx.globalCompositeOperation = "source-over";
 
     if (state.effects.shieldUntil > state.time) {
       ctx.save(); ctx.globalAlpha = 0.25 + 0.15*Math.sin(state.time*8); ctx.fillStyle = "#4ade80";
