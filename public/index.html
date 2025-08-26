@@ -1451,11 +1451,7 @@ const overlayTitle = document.querySelector("#overlay .title");
 let showingPaused  = false;
 // Add this near your other top-level flags (e.g., next to `let showingPaused = false;`)
 // ── Sparkle scroll state ──
-const SP_SCROLL = {
-  slots: [],   // each sparkle slot data
-  scroll: 0,   // how far we've scrolled
-  t: 0         // time for wiggle phase
-};
+
 let _starting = false;
 // Prevents accidental resume for ~250ms after closing any UI
 let _resumeBlockUntil = 0;
@@ -1991,14 +1987,20 @@ const SPARKLE_BUOYANCY   = -10;            // slight upward pull (negative = up)
 const SPARKLE_DOWNDRIFT  = 30;             // gentle downward bias (keeps the cone under player)
 const SPARKLE_MAX_TAIL   = 36;             // a bit longer
 const SPARKLE_MAX_SPEED  = 420;            // keep from streaking
+const SP_SCROLL = { slots: [], scroll: 0, t: 0, headX: 0 };  // + headX
+const SP_FOLLOW_LERP = 0.12;  // how quickly the ribbon steers toward player
 // ── Sparkle Scroll Ribbon (dense, floaty) ──────────────────────────────
-const SP_SCROLL_SPEED   = 80;   // vertical “conveyor” speed (px/s)
+const SP_SCROLL_SPEED   = 84;   // vertical “conveyor” speed (px/s)
 const SP_GAP            = 12;   // spacing between sparkles (px)
 const SP_MAX_VISIBLE    = 90;   // enough to fill screen + headroom
 const SP_FOLLOW_VX      = 0.35; // how much they follow player’s vx
-const SP_JITTER_X       = 14;   // small side wiggle amplitude (px)
-const SP_JITTER_FREQ    = 2.4;  // wiggle cycles per second
-
+const SP_JITTER_X       = 6;   // small side wiggle amplitude (px)
+const SP_JITTER_FREQ    = 1.6;  // wiggle cycles per second
+// Conveyor speed tuning
+const SP_SCROLL_BASE     = 80;   // was SP_SCROLL_SPEED
+const SP_SCROLL_VX_GAIN  = 0.12; // px/s added per |vx| px/s
+const SP_SCROLL_MIN      = 60;   // clamp so it never crawls
+const SP_SCROLL_MAX      = 160;  // clamp so it never races
 function spawnSparkleParticles(cx, cy){
   const base   = Math.PI / 2;               // emit downward
   const spread = SPARKLE_CONE_RADIANS;
@@ -2375,7 +2377,16 @@ const emitX = p.x + pw/2, emitY = p.y + ph + 1;
 function updateSparkleScroll(emitX, emitY, inheritVX, dt){
   // time + scroll advance
   SP_SCROLL.t += dt * SP_JITTER_FREQ;
-  SP_SCROLL.scroll += SP_SCROLL_SPEED * dt;
+  // conveyor speed reacts slightly to player |vx|
+const conv =
+  Math.max(
+    SP_SCROLL_MIN,
+    Math.min(
+      SP_SCROLL_MAX,
+      SP_SCROLL_BASE + Math.abs(inheritVX) * SP_SCROLL_VX_GAIN
+    )
+  );
+SP_SCROLL.scroll += conv * dt;
 
   // ensure enough “slots” to fill the column
   const need = Math.min(SP_MAX_VISIBLE, Math.ceil(height / SP_GAP) + 16);
