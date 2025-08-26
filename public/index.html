@@ -2653,11 +2653,6 @@ if (!isFinite(t.life) || t.life <= 0 || !isFinite(t.x) || !isFinite(t.y)) {
     const p = state.player, pw = p.w*p.scale, ph = p.h*p.scale;
     // --- draw flame trail particles ---
 // --- draw flame/sparkle/smoke, but only BELOW the player ---
-const cutoffY = p.y + ph;      // bottom edge of the player
-ctx.save();
-ctx.beginPath();
-ctx.rect(0, cutoffY, width, height - cutoffY); // clip to below player
-ctx.clip();
 // ── Particle rendering (flame | sparkle | smoke) ─────────────────────────
 ctx.imageSmoothingEnabled = true;
 ctx.imageSmoothingQuality = "high";
