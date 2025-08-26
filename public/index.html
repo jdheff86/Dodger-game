@@ -2431,7 +2431,8 @@ switch (cosmetics.equipped.trail) {
 
   case "trail.sparkle":
  spawnGoldHaze(emitX, emitY);          // ← new
-  spawnSparkleParticles(emitX, emitY);
+  //spawnSparkleParticles(emitX, emitY);
+updateSparkleScroll(emitX, emitY, p.vx, dt);
   break;
 
   case "trail.smoke":
