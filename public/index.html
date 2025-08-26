@@ -2729,6 +2729,8 @@ if (t.kind === "sparkle") {
   })(x0, w, ww, rr);
 
   ctx.restore();
+  ctx.globalCompositeOperation = prevOp;
+  ctx.globalAlpha = prevA;
   continue;
 
   // tiny cross flare (rare)
