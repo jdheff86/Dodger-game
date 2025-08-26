@@ -2662,6 +2662,13 @@ ctx.clip();
 ctx.imageSmoothingEnabled = true;
 ctx.imageSmoothingQuality = "high";
 
+// --- TRAIL: draw only below the player --------------------------------
+ctx.save();
+ctx.beginPath();
+const clipTop = p.y + ph + 1;              // just below the blue square
+ctx.rect(0, clipTop, width, height - clipTop);
+ctx.clip();
+
 for (const t of trail) {
   // fast sanity guards
   if (!isFinite(t.x) || !isFinite(t.y) || !isFinite(t.life) || t.life <= 0) continue;
