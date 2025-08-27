@@ -1990,7 +1990,7 @@ const SPARKLE_MAX_SPEED  = 420;            // keep from streaking
 // keep this single definition (remove any duplicate earlier)
 const SP_SCROLL = { slots: [], scroll: 0, t: 0, headX: 0, prevHeadX: 0, vxF: 0 };
 
-const SP_FOLLOW_LERP   = 0.4;
+const SP_FOLLOW_LERP   = 0.48;
 const SP_SCROLL_BASE   = 80;
 const SP_SCROLL_VX_GAIN= 0.12;
 const SP_SCROLL_MIN    = 60;
@@ -2008,6 +2008,9 @@ const SP_TAIL_WAVE_A1 = 0.020; // extra amplitude per px down the tail
 const SP_HAZE_HALF    = 26;    // max left/right spread (px) to “stay inside the haze”
 // px/s clamp so it never races
 const HAZE_LIFE_SCALE = 1.75;  // +75% length
+const SP_COLUMNS        = 3;   // number of side-by-side lanes
+const SP_COLUMN_SPREAD  = 8;   // px between lanes
+
 
 function spawnSparkleParticles(cx, cy){
   const base   = Math.PI / 2;               // emit downward
@@ -2411,7 +2414,6 @@ function updateSparkleScroll(emitX, emitY, inheritVX_unused, dt){
   const need = Math.min(SP_MAX_VISIBLE, Math.ceil(height / SP_GAP) + 16);
   while (SP_SCROLL.slots.length < need){
     const i = SP_SCROLL.slots.length;
-    SP_SCROLL.slots.push({ off: -i * SP_GAP, size: 3.6 + Math.random()*2.6, phase: Math.random()*Math.PI*2 });
     // inside the 'while (SP_SCROLL.slots.length < need) { ... }' block
 SP_SCROLL.slots.push({
   off: -i * SP_GAP,
@@ -2438,36 +2440,48 @@ for (const s of SP_SCROLL.slots){
 
   // distance below the player → larger wave + slightly different phase
   const dy = Math.max(0, y - emitY);
-  const waveAmp = SP_TAIL_WAVE_A0 + dy * SP_TAIL_WAVE_A1;             // grows downstream
+  const waveAmp = SP_TAIL_WAVE_A0 + dy * SP_TAIL_WAVE_A1;
   const wave    = Math.sin(SP_SCROLL.t + s.phase + dy * SP_TAIL_WAVE_K) * waveAmp;
 
-  // target lane for this segment = head + wave (no instantaneous sidestep)
-  const targetX = SP_SCROLL.headX + wave;
-
   // spring toward target (per-second integrator)
+  const targetX = SP_SCROLL.headX + wave;
   s.vx += (targetX - s.px) * SP_TAIL_STIFF * dt;
-  s.vx *= Math.exp(-SP_TAIL_DAMP * dt);  // damping stable across FPS
+  s.vx *= Math.exp(-SP_TAIL_DAMP * dt);
   s.px += s.vx * dt;
 
-  // stay inside the haze column
+  // keep inside haze
   const minX = SP_SCROLL.headX - SP_HAZE_HALF;
   const maxX = SP_SCROLL.headX + SP_HAZE_HALF;
   if (s.px < minX) { s.px = minX; s.vx = 0; }
   if (s.px > maxX) { s.px = maxX; s.vx = 0; }
 
-  // emit the sparkle at its simulated position
-  trail.push({
-    kind:"sparkle",
-    x: s.px, y,
-    vx: 0, vy: 0,
-    age:0, life:1,
-    size:s.size,
-    twinkle:8 + Math.random()*4,
-    streak:0.62 + Math.random()*0.16,
-    phase:s.phase,
-    __scrollSpark:true
-  });
-}
+  // ▲▲▲ one simulated centerline … now emit multiple lanes around it
+  const mid = (SP_COLUMNS - 1) * 0.5;
+  for (let k = 0; k < SP_COLUMNS; k++){
+    const laneOffset = (k - mid) * SP_COLUMN_SPREAD;
+    let xk = s.px + laneOffset;
+
+    // clamp each lane to haze bounds
+    if (xk < minX) xk = minX;
+    if (xk > maxX) xk = maxX;
+
+    // tiny per-lane variance so rows don’t look copy-pasted
+    const sizeJit = (k === mid ? 0 : (Math.random()-0.5)*0.6);
+    const tw      = 8 + Math.random()*4;
+
+    trail.push({
+      kind:"sparkle",
+      x: xk,
+      y,
+      vx: 0, vy: 0,
+      age: 0, life: 1,
+      size: (s.size + sizeJit),
+      twinkle: tw,
+      streak: 0.62 + Math.random()*0.16,
+      phase: s.phase + k * 0.7,   // slight phase offset per lane
+      __scrollSpark: true
+    });
+  }
 }
 
 switch (cosmetics.equipped.trail) {
