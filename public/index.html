@@ -1987,20 +1987,19 @@ const SPARKLE_BUOYANCY   = -10;            // slight upward pull (negative = up)
 const SPARKLE_DOWNDRIFT  = 30;             // gentle downward bias (keeps the cone under player)
 const SPARKLE_MAX_TAIL   = 36;             // a bit longer
 const SPARKLE_MAX_SPEED  = 420;            // keep from streaking
-const SP_SCROLL = { slots: [], scroll: 0, t: 0, headX: 0 };  // + headX
-const SP_FOLLOW_LERP = 0.12;  // how quickly the ribbon steers toward player
-// ── Sparkle Scroll Ribbon (dense, floaty) ──────────────────────────────
-const SP_SCROLL_SPEED   = 84;   // vertical “conveyor” speed (px/s)
-const SP_GAP            = 12;   // spacing between sparkles (px)
-const SP_MAX_VISIBLE    = 90;   // enough to fill screen + headroom
-const SP_FOLLOW_VX      = 0.35; // how much they follow player’s vx
-const SP_JITTER_X       = 6;   // small side wiggle amplitude (px)
-const SP_JITTER_FREQ    = 1.6;  // wiggle cycles per second
-// Conveyor speed tuning
-const SP_SCROLL_BASE     = 80;   // was SP_SCROLL_SPEED
-const SP_SCROLL_VX_GAIN  = 0.12; // px/s added per |vx| px/s
-const SP_SCROLL_MIN      = 60;   // clamp so it never crawls
-const SP_SCROLL_MAX      = 160;  // clamp so it never races
+// keep this single definition (remove any duplicate earlier)
+const SP_SCROLL = { slots: [], scroll: 0, t: 0, headX: 0, prevHeadX: 0, vxF: 0 };
+
+const SP_FOLLOW_LERP   = 0.12;
+const SP_SCROLL_BASE   = 80;
+const SP_SCROLL_VX_GAIN= 0.12;
+const SP_SCROLL_MIN    = 60;
+const SP_SCROLL_MAX    = 160;
+const SP_GAP           = 12;
+const SP_MAX_VISIBLE   = 90;
+const SP_JITTER_X      = 6;
+const SP_JITTER_FREQ   = 1.6;
+// px/s clamp so it never races
 function spawnSparkleParticles(cx, cy){
   const base   = Math.PI / 2;               // emit downward
   const spread = SPARKLE_CONE_RADIANS;
@@ -2374,63 +2373,60 @@ _prevVX = p.vx;
   // Apply equipped trail (spawn particles at player center)
   // Emit from bottom-center of the player
 const emitX = p.x + pw/2, emitY = p.y + ph + 1;
-function updateSparkleScroll(emitX, emitY, inheritVX, dt){
-  // time + scroll advance
-  SP_SCROLL.t += dt * SP_JITTER_FREQ;
-  // conveyor speed reacts slightly to player |vx|
-const conv =
-  Math.max(
-    SP_SCROLL_MIN,
-    Math.min(
-      SP_SCROLL_MAX,
-      SP_SCROLL_BASE + Math.abs(inheritVX) * SP_SCROLL_VX_GAIN
-    )
-  );
-SP_SCROLL.scroll += conv * dt;
 
-  // ensure enough “slots” to fill the column
+function updateSparkleScroll(emitX, emitY, inheritVX_unused, dt){
+  if (!SP_SCROLL.headX) {
+    SP_SCROLL.headX = emitX;
+    SP_SCROLL.prevHeadX = emitX;
+  }
+
+  // time + wiggle phase
+  SP_SCROLL.t += dt * SP_JITTER_FREQ;
+
+  // ribbon head eases toward player (prevents instant sidestep)
+  SP_SCROLL.headX += (emitX - SP_SCROLL.headX) * SP_FOLLOW_LERP;
+
+  // filtered sideways speed (for conveyor reactivity)
+  const instVx = (SP_SCROLL.headX - SP_SCROLL.prevHeadX) / Math.max(0.0001, dt);
+  SP_SCROLL.vxF = SP_SCROLL.vxF * 0.85 + instVx * 0.15;
+  SP_SCROLL.prevHeadX = SP_SCROLL.headX;
+
+  // conveyor speed reacts to |filtered vx|
+  const conv = Math.max(
+    SP_SCROLL_MIN,
+    Math.min(SP_SCROLL_MAX, SP_SCROLL_BASE + Math.abs(SP_SCROLL.vxF) * SP_SCROLL_VX_GAIN)
+  );
+  SP_SCROLL.scroll += conv * dt;
+
+  // ensure enough slots
   const need = Math.min(SP_MAX_VISIBLE, Math.ceil(height / SP_GAP) + 16);
   while (SP_SCROLL.slots.length < need){
     const i = SP_SCROLL.slots.length;
-    SP_SCROLL.slots.push({
-      off: -i * SP_GAP,                         // ordered offsets
-      size: 3.6 + Math.random()*2.6,            // 3.6–6.2px
-      phase: Math.random()*Math.PI*2
-    });
+    SP_SCROLL.slots.push({ off: -i * SP_GAP, size: 3.6 + Math.random()*2.6, phase: Math.random()*Math.PI*2 });
   }
 
-  // for rendering we drop synthetic particles into your existing renderer
-  // first remove old synthetic sparkles from last frame
-  for (let i = trail.length-1; i>=0; i--){
-    if (trail[i].__scrollSpark) trail.splice(i,1);
+  // remove last frame's synthetic particles
+  for (let i = trail.length - 1; i >= 0; i--) {
+    if (trail[i].__scrollSpark) trail.splice(i, 1);
   }
 
-  // draw head→tail; when a slot leaves the screen, wrap it to the head
+  // drop ribbon sparkles using headX (not raw inheritVX)
   const totalLen = SP_GAP * SP_SCROLL.slots.length;
-
   for (const s of SP_SCROLL.slots){
-    // wrap (gives endless scroll feel, no spawning bursts)
     let y = emitY + SP_SCROLL.scroll + s.off;
     while (y > height + 40){ s.off -= totalLen; y -= totalLen; }
 
-    // gentle follow + wiggle
     const wiggle = Math.sin(SP_SCROLL.t + s.phase) * SP_JITTER_X;
-    const x = emitX + inheritVX * SP_FOLLOW_VX * 0.5 + wiggle;
+    const x = SP_SCROLL.headX + wiggle;
 
-    // hand off to your existing sparkle renderer
     trail.push({
-      kind: "sparkle",
-      x, y,
-      vx: 0, vy: 0,
-      age: 0, life: 1,                    // not used meaningfully here
-      size: s.size,
-      twinkle: 8 + Math.random()*4,
-      streak: 0.62 + Math.random()*0.16,
-      phase: s.phase,
-      __scrollSpark: true                 // mark so we can clear next frame
+      kind:"sparkle", x, y, vx:0, vy:0,
+      age:0, life:1, size:s.size, twinkle:8 + Math.random()*4,
+      streak:0.62 + Math.random()*0.16, phase:s.phase, __scrollSpark:true
     });
   }
 }
+
 switch (cosmetics.equipped.trail) {
   case "trail.flame":
     spawnFlameParticles(emitX, emitY);
