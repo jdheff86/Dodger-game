@@ -1893,7 +1893,7 @@ menuPopup.addEventListener("pointerdown", (e)=>{
   coins:[]
 };
 const trail = [];
-
+let tbSparkleAcc = 0; // time-based sparkle accumulator
 // === Helpers for flame color interpolation ===
 function lerp(a, b, t) {
   return a + (b - a) * t;
