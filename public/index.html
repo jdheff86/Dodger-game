@@ -2776,13 +2776,6 @@ t.vy += (SPARKLE_DOWNDRIFT + SPARKLE_BUOYANCY) * dt;
 
 // subtle sinusoidal side wander (position-level; frame-rate independent)
 t.x += Math.sin(t.wphi + t.age * t.wfreq) * (t.wamp * dt);
-
-// keep under control
-const sp = Math.hypot(t.vx, t.vy);
-if (sp > SPARKLE_MAX_SPEED) {
-  const s = SPARKLE_MAX_SPEED / (sp || 1);
-  t.vx *= s; t.vy *= s;
-}
 }
 if (t.kind === "sparkle" && t.y > height + 24) {
   trail.splice(i, 1);
