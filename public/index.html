@@ -2747,7 +2747,10 @@ if (!isFinite(t.life) || t.life <= 0 || !isFinite(t.x) || !isFinite(t.y)) {
     t.vx *= s; t.vy *= s;
   }
 }
-
+if (t.kind === "sparkle" && t.y > height + 24) {
+  trail.splice(i, 1);
+  continue;
+}
   // kill when done
   if (t.age >= t.life) {
     trail.splice(i, 1);
