@@ -2411,6 +2411,32 @@ _prevVX = p.vx;
   // Emit from bottom-center of the player
 const emitX = p.x + pw/2, emitY = p.y + ph + 1;
 
+// --- Time-based sparkles (only when the sparkle trail is equipped) ---
+if (cosmetics.equipped.trail === "trail.sparkle") {
+  // tie to game speed: difficulty + Slow effect
+  const slowActive = state.effects.slowUntil > state.time;
+  const fallSpeed  = (160 * state.difficulty) * (slowActive ? 0.55 : 1); // px/sec
+
+  // 1) accumulate fractional sparkles using real time
+  tbSparkleAcc += TB_SPARKLES_PER_SEC * dt;
+
+  // 2) count current sparkles so we respect the cap
+  let active = 0;
+  for (let i = trail.length - 1; i >= 0 && active < TB_MAX_SPARKLES; i--){
+    if (trail[i].kind === "sparkle") active++;
+  }
+
+  // 3) emit whole-number sparkles while we have time budget and room
+  while (tbSparkleAcc >= 1 && active < TB_MAX_SPARKLES){
+    tbSparkleAcc -= 1;
+    tbSpawnOneSparkle(emitX, emitY, fallSpeed, p.vx);
+    active++;
+  }
+
+  // Avoid runaway accumulation if capped for a while
+  if (active >= TB_MAX_SPARKLES) tbSparkleAcc = Math.min(tbSparkleAcc, 1);
+}
+
 function updateSparkleScroll(emitX, emitY, inheritVX_unused, dt){
   if (!SP_SCROLL.headX) {
     SP_SCROLL.headX = emitX;
@@ -2520,9 +2546,9 @@ switch (cosmetics.equipped.trail) {
     break;
 
   case "trail.sparkle":
- spawnGoldHaze(emitX, emitY);          // ← new
+ //spawnGoldHaze(emitX, emitY);          // ← new
   //spawnSparkleParticles(emitX, emitY);
-updateSparkleScroll(emitX, emitY, p.vx, dt);
+//updateSparkleScroll(emitX, emitY, p.vx, dt);
   break;
 
   case "trail.smoke":
