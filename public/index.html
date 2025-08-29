@@ -2458,11 +2458,6 @@ if (activeSparkles >= TB_MAX_SPARKLES) {
     activeSparkles++;
   }
 }
-
-  while (tbSparkleAcc >= 1) {
-    tbSparkleAcc -= 1;
-    tbSpawnOneSparkle(emitX, emitY, fallSpeed, p.vx); // p.vx gives slight follow
-  }
 }
 
 function updateSparkleScroll(emitX, emitY, inheritVX_unused, dt){
