@@ -1894,6 +1894,55 @@ menuPopup.addEventListener("pointerdown", (e)=>{
 };
 const trail = [];
 
+// ── Sparkles: time-based emitter config (Part 1) ──────────────────────────
+// (safe to add; nothing calls it yet until Part 2)
+
+const TB_SPARKLES_PER_SEC   = 1.0;  // ← “sparkles per second” (start at 1)
+const TB_SPARKLE_LIFE_SEC   = 1.10; // fade/lifetime (sec)
+const TB_SPARKLE_SIZE_MIN   = 2.0;  // size range
+const TB_SPARKLE_SIZE_MAX   = 4.8;
+const TB_SPARKLE_X_JITTER   = 8;    // px random left/right spawn offset
+const TB_SPARKLE_X_DRIFT    = 10;   // px/sec tiny sideways drift while falling
+const TB_SPARKLE_TWINKLE_HZ = 10;   // twinkle frequency used by renderer
+// === Sparkle travel & fade (to bottom) ===
+const TB_SPARKLE_FADE_MARGIN = 0.85; // % of “time to bottom” we keep (0.75–0.95)
+const TB_BOTTOM_FADE_BAND    = 120;  // px: extra fade as they approach bottom edge
+const TB_SIDE_WANDER         = 20;   // px/sec sideways wander amplitude
+const TB_WANDER_FREQ         = 0.6;  // Hz (0.4–1.2 feels good)
+const TB_MAX_SPARKLES = 180; // safety cap (120–240 typical)
+// accumulator for time-based spawns
+let tbSparkleAcc = 0;
+
+/**
+ * Spawn exactly one sparkle at (cx, cy).
+ * `fallSpeed` should be set to your “game speed” when we hook this up.
+ * `inheritVX` can be the player’s vx so sparkles follow a tiny bit.
+ */
+function tbSpawnOneSparkle(emitX, emitY, fallSpeed, inheritVX){
+  // life tuned so most particles naturally reach + fade near the bottom
+  const distanceToBottom = (height - emitY) + 24;                   // px
+  const timeToBottom     = distanceToBottom / Math.max(40, fallSpeed);
+  const life = Math.min(TB_SPARKLE_LIFE_SEC, timeToBottom * TB_SPARKLE_FADE_MARGIN);
+
+  trail.push({
+    kind   : "sparkle",
+    x      : emitX + (Math.random()-0.5) * TB_SPARKLE_X_JITTER,     // small spawn spread
+    y      : emitY,
+    vx     : (inheritVX || 0) * 0.15 + (Math.random()-0.5) * TB_SPARKLE_X_DRIFT,
+    vy     : fallSpeed * (0.92 + Math.random()*0.16),               // a bit of variance
+    age    : 0,
+    life   : life,
+    size   : 2.2 + Math.random()*3.2,
+    twinkle: 8 + Math.random()*6,
+    streak : 0.70 + Math.random()*0.22,
+
+    // sideways wander params
+    wamp   : TB_SIDE_WANDER * (0.6 + Math.random()*0.8),            // px/sec
+    wfreq  : TB_WANDER_FREQ * (0.8 + Math.random()*0.6) * 2*Math.PI,// rad/sec
+    wphi   : Math.random() * Math.PI * 2
+  });
+}
+
 // === Helpers for flame color interpolation ===
 function lerp(a, b, t) {
   return a + (b - a) * t;
@@ -2386,6 +2435,36 @@ _prevVX = p.vx;
   // Emit from bottom-center of the player
 const emitX = p.x + pw/2, emitY = p.y + ph + 1;
 
+// ── Time-based sparkles (uses TB_SPARKLES_PER_SEC from Part 1) ──
+if (cosmetics.equipped.trail === "trail.sparkle") {
+  // match “speed of the game”: scale with difficulty and “Slow” effect
+  const slowActive = state.effects.slowUntil > state.time;
+  const fallSpeed =
+    (160 * state.difficulty) * (slowActive ? 0.55 : 1); // px/sec downward
+
+  tbSparkleAcc += TB_SPARKLES_PER_SEC * dt; // accumulate by time
+// don’t exceed the cap currently on screen
+let activeSparkles = 0;
+for (let i = trail.length - 1; i >= 0 && activeSparkles < TB_MAX_SPARKLES; i--) {
+  if (trail[i].kind === "sparkle") activeSparkles++;
+}
+if (activeSparkles >= TB_MAX_SPARKLES) {
+  // still advance accumulator so the rate stays accurate, we just skip spawns this frame
+  tbSparkleAcc = Math.min(tbSparkleAcc, 1); // prevent runaway accumulation
+} else {
+  while (tbSparkleAcc >= 1 && activeSparkles < TB_MAX_SPARKLES) {
+    tbSparkleAcc -= 1;
+    tbSpawnOneSparkle(emitX, emitY, fallSpeed, p.vx);
+    activeSparkles++;
+  }
+}
+
+  while (tbSparkleAcc >= 1) {
+    tbSparkleAcc -= 1;
+    tbSpawnOneSparkle(emitX, emitY, fallSpeed, p.vx); // p.vx gives slight follow
+  }
+}
+
 function updateSparkleScroll(emitX, emitY, inheritVX_unused, dt){
   if (!SP_SCROLL.headX) {
     SP_SCROLL.headX = emitX;
@@ -2495,9 +2574,10 @@ switch (cosmetics.equipped.trail) {
     break;
 
   case "trail.sparkle":
- spawnGoldHaze(emitX, emitY);          // ← new
+ //spawnGoldHaze(emitX, emitY);          // ← new
   //spawnSparkleParticles(emitX, emitY);
-updateSparkleScroll(emitX, emitY, p.vx, dt);
+//updateSparkleScroll(emitX, emitY, p.vx, dt);
+//legacy disabled
   break;
 
   case "trail.smoke":
@@ -2695,8 +2775,23 @@ if (!isFinite(t.life) || t.life <= 0 || !isFinite(t.x) || !isFinite(t.y)) {
     const s = SPARKLE_MAX_SPEED / (sp || 1);
     t.vx *= s; t.vy *= s;
   }
-}
+  // Bias: a touch downward so the column forms, but not perfectly rigid
+t.vy += (SPARKLE_DOWNDRIFT + SPARKLE_BUOYANCY) * dt;
 
+// subtle sinusoidal side wander (position-level; frame-rate independent)
+t.x += Math.sin(t.wphi + t.age * t.wfreq) * (t.wamp * dt);
+
+// keep under control
+const sp = Math.hypot(t.vx, t.vy);
+if (sp > SPARKLE_MAX_SPEED) {
+  const s = SPARKLE_MAX_SPEED / (sp || 1);
+  t.vx *= s; t.vy *= s;
+}
+}
+if (t.kind === "sparkle" && t.y > height + 24) {
+  trail.splice(i, 1);
+  continue;
+}
   // kill when done
   if (t.age >= t.life) {
     trail.splice(i, 1);
@@ -2773,6 +2868,8 @@ for (const t of trail) {
   if (t.kind === "sparkle") {
     const k  = Math.min(1, t.age / life);
     const a2 = 1 - k;                                  // local alpha
+// extra fade as we approach the bottom of the screen
+const bottomFade = Math.max(0, Math.min(1, (height - t.y) / TB_BOTTOM_FADE_BAND));
     const tw = 0.75 + 0.25 * Math.abs(Math.sin(t.age * (t.twinkle || 10)));
 
     const baseLen = 18;
@@ -2794,7 +2891,7 @@ for (const t of trail) {
       ctx.translate(t.x, t.y);
       ctx.rotate(angle);
       ctx.globalCompositeOperation = "source-over";
-      ctx.globalAlpha = 0.10 * a2;
+      ctx.globalAlpha = 0.10 * a2 * bottomFade ;
 
       const sheathGrad = ctx.createLinearGradient(0, 0, -sheathL, 0);
       sheathGrad.addColorStop(0.00, "rgba(255,210,80,0.55)");
@@ -2818,8 +2915,8 @@ for (const t of trail) {
     {
       const r = (t.size || 3) * (0.60 + 0.40 * tw);
       const headGrad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r);
-      headGrad.addColorStop(0.00, `rgba(255,210,80,${0.42 * a2})`);
-      headGrad.addColorStop(0.45, `rgba(255,170,55,${Math.max(0, 0.32 * a2)})`);
+      headGrad.addColorStop(0.00, `rgba(255,210,80,${0.42 * a2* bottomFade})`);
+      headGrad.addColorStop(0.45, `rgba(255,170,55,${Math.max(0, 0.32 * a2* bottomFade)})`);
       headGrad.addColorStop(1.00, `rgba(230,120,40,0)`);
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
@@ -2835,8 +2932,8 @@ for (const t of trail) {
       ctx.rotate(angle);
 
       const tailGrad = ctx.createLinearGradient(0, 0, -len, 0);
-      tailGrad.addColorStop(0.00, `rgba(255,200,70,${0.40*a2})`);
-      tailGrad.addColorStop(0.45, `rgba(255,160,50,${0.26*a2})`);
+      tailGrad.addColorStop(0.00, `rgba(255,200,70,${0.40*a2*bottomFade})`);
+      tailGrad.addColorStop(0.45, `rgba(255,160,50,${0.26*a2* bottomFade})`);
       tailGrad.addColorStop(1.00,  `rgba(220,110,30,0)`);
       ctx.fillStyle = tailGrad;
 
