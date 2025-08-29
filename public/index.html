@@ -2003,13 +2003,13 @@ const SP_JITTER_FREQ   = 1.6;
 const SP_TAIL_STIFF   = 7.5;   // how strongly each tail segment is pulled toward its target (per-sec)
 const SP_TAIL_DAMP    = 6.0;   // damping (per-sec)
 const SP_TAIL_WAVE_K  = 0.045; // how quickly wave phase increases down the tail (rad/px)
-const SP_TAIL_WAVE_A0 = 6;     // base wave amplitude (px) near the head
-const SP_TAIL_WAVE_A1 = 0.020; // extra amplitude per px down the tail
-const SP_HAZE_HALF    = 26;    // max left/right spread (px) to “stay inside the haze”
+const SP_TAIL_WAVE_A0 = 8;     // base wave amplitude (px) near the head
+const SP_TAIL_WAVE_A1 = 0.030; // extra amplitude per px down the tail
+const SP_HAZE_HALF    = 36;    // max left/right spread (px) to “stay inside the haze”
 // px/s clamp so it never races
 const HAZE_LIFE_SCALE = 1.75;  // +75% length
-const SP_COLUMNS        = 3;   // number of side-by-side lanes
-const SP_COLUMN_SPREAD  = 8;   // px between lanes
+const SP_COLUMNS        = 5;   // number of side-by-side lanes
+const SP_COLUMN_SPREAD  = 11;   // px between lanes
 // --- Time-based sparkles ---
 const TB_SPARKLES_PER_SEC = 12;   // how many to emit per second
 const TB_MAX_SPARKLES     = 120;  // cap on sparkle particles on screen
@@ -2466,6 +2466,35 @@ function updateSparkleScroll(emitX, emitY, inheritVX_unused, dt){
   while (SP_SCROLL.slots.length < need){
     const i = SP_SCROLL.slots.length;
     // inside the 'while (SP_SCROLL.slots.length < need) { ... }' block
+// ▲▲▲ one simulated centerline … now emit multiple lanes around it
+const mid = (SP_COLUMNS - 1) * 0.5;
+for (let k = 0; k < SP_COLUMNS; k++){
+  const laneOffset = (k - mid) * SP_COLUMN_SPREAD;
+  let xk = s.px + laneOffset;
+
+  // clamp each lane to haze bounds
+  if (xk < minX) xk = minX;
+  if (xk > maxX) xk = maxX;
+
+  // NEW: subtle random lateral scatter so it isn't a perfect line
+  xk += (Math.random() - 0.5) * 6;   // ← try 4–8 to taste
+
+  const sizeJit = (k === mid ? 0 : (Math.random()-0.5)*0.6);
+  const tw      = 8 + Math.random()*4;
+
+  trail.push({
+    kind:"sparkle",
+    x: xk,
+    y,
+    vx: 0, vy: 0,
+    age: 0, life: 1,
+    size: (s.size + sizeJit),
+    twinkle: tw,
+    streak: 0.62 + Math.random()*0.16,
+    phase: s.phase + k * 0.7,
+    __scrollSpark: true
+  });
+}
 SP_SCROLL.slots.push({
   off: -i * SP_GAP,
   size: 3.6 + Math.random()*2.6,
