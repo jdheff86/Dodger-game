@@ -2010,7 +2010,9 @@ const SP_HAZE_HALF    = 26;    // max left/right spread (px) to “stay inside t
 const HAZE_LIFE_SCALE = 1.75;  // +75% length
 const SP_COLUMNS        = 3;   // number of side-by-side lanes
 const SP_COLUMN_SPREAD  = 8;   // px between lanes
-
+// --- Time-based sparkles ---
+const TB_SPARKLES_PER_SEC = 12;   // how many to emit per second
+const TB_MAX_SPARKLES     = 120;  // cap on sparkle particles on screen
 
 function spawnSparkleParticles(cx, cy){
   const base   = Math.PI / 2;               // emit downward
