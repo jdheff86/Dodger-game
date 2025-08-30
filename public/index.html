@@ -2475,14 +2475,6 @@ function updateSparkleScroll(emitX, emitY, inheritVX_unused, dt){
   });
 }
   
-SP_SCROLL.slots.push({
-  off: -i * SP_GAP,
-  size: 3.6 + Math.random()*2.6,
-  phase: Math.random()*Math.PI*2,
-  px: SP_SCROLL.headX,      // current x (simulated)
-  vx: 0                     // velocity for the spring
-});
-  }
 
   // remove last frame's synthetic particles
   for (let i = trail.length - 1; i >= 0; i--) {
@@ -2529,18 +2521,37 @@ for (const s of SP_SCROLL.slots){
     const sizeJit = (k === mid ? 0 : (Math.random()-0.5)*0.6);
     const tw      = 8 + Math.random()*4;
 
-    trail.push({
-      kind:"sparkle",
-      x: xk,
-      y,
-      vx: 0, vy: 0,
-      age: 0, life: 1,
-      size: (s.size + sizeJit),
-      twinkle: tw,
-      streak: 0.62 + Math.random()*0.16,
-      phase: s.phase + k * 0.7,   // slight phase offset per lane
-      __scrollSpark: true
-    });
+  // ◼️ emit multiple side-by-side lanes with a little jitter
+const mid = (SP_COLUMNS - 1) * 0.5;
+for (let k = 0; k < SP_COLUMNS; k++){
+  const laneOffset = (k - mid) * SP_COLUMN_SPREAD;
+  let xk = s.px + laneOffset;             // lane position around centerline
+
+  // clamp each lane to haze bounds
+  if (xk < minX) xk = minX;
+  if (xk > maxX) xk = maxX;
+
+  // jitter so it’s not a perfect ruler line
+  xk += (Math.random() - 0.5) * 6;        // lateral jitter (try 4–8)
+  const yJit = (Math.random() - 0.5) * 2; // tiny vertical jitter
+
+  // small per-lane variation
+  const sizeJit = (k === mid ? 0 : (Math.random()-0.5)*0.6);
+  const tw      = 8 + Math.random()*4;
+
+  trail.push({
+    kind: "sparkle",
+    x: xk,
+    y: y + yJit,
+    vx: 0, vy: 0,
+    age: 0, life: 1,
+    size: (s.size + sizeJit),
+    twinkle: tw,
+    streak: 0.62 + Math.random()*0.16,
+    phase: s.phase + k * 0.7,
+    __scrollSpark: true
+  });
+}
   }
 }
 }
@@ -2555,9 +2566,11 @@ switch (cosmetics.equipped.trail) {
     break;
 
   case "trail.sparkle":
- //spawnGoldHaze(emitX, emitY);          // ← new
-  //spawnSparkleParticles(emitX, emitY);
-//updateSparkleScroll(emitX, emitY, p.vx, dt);
+  // optional soft haze first:
+  // spawnGoldHaze(emitX, emitY);
+
+  // the important part:
+  updateSparkleScroll(emitX, emitY, p.vx, dt);
   break;
 
   case "trail.smoke":
