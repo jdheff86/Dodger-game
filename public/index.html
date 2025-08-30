@@ -2039,20 +2039,20 @@ function spawnSparkleParticles(cx, cy){
   }
 
   // hero sparkle (occasional larger)
-  if (Math.random() < HERO_SPARK_CHANCE){
-    const ang   = base + (Math.random()-0.5) * spread * 2;
-    const speed = 160 + Math.random()*160;  // a bit faster so tail shows
-    trail.push({
-      kind: "sparkle",
-      x: cx, y: cy,
-      vx: Math.cos(ang)*speed,
-      vy: Math.sin(ang)*speed,
-      age: 0,
-      life: 0.60 + Math.random()*0.30,
-      size: 4.8 + Math.random()*2.0,
-      twinkle: 8 + Math.random()*6,
-      streak: 0.88
-    });
+  //if (Math.random() < HERO_SPARK_CHANCE){
+    //const ang   = base + (Math.random()-0.5) * spread * 2;
+    //const speed = 160 + Math.random()*160;  // a bit faster so tail shows
+    //trail.push({
+      //kind: "sparkle",
+      //x: cx, y: cy,
+      //vx: Math.cos(ang)*speed,
+      //vy: Math.sin(ang)*speed,
+      //age: 0,
+      //life: 0.60 + Math.random()*0.30,
+      //size: 4.8 + Math.random()*2.0,
+      //twinkle: 8 + Math.random()*6,
+      //streak: 0.88
+    //});
   }
 }
 
@@ -2539,6 +2539,24 @@ for (let k = 0; k < SP_COLUMNS; k++){
   const sizeJit = (k === mid ? 0 : (Math.random()-0.5)*0.6);
   const tw      = 8 + Math.random()*4;
 
+  // multi-lane emission with jitter
+const mid = (SP_COLUMNS - 1) * 0.5;
+for (let k = 0; k < SP_COLUMNS; k++) {
+  const laneOffset = (k - mid) * SP_COLUMN_SPREAD;
+  let xk = s.px + laneOffset;
+
+  // clamp to haze bounds
+  if (xk < minX) xk = minX;
+  if (xk > maxX) xk = maxX;
+
+  // jitter: small lateral + vertical noise
+  xk += (Math.random() - 0.5) * 6;
+  const yJit = (Math.random() - 0.5) * 2;
+
+  // per-lane size & twinkle variation
+  const sizeJit = (k === mid ? 0 : (Math.random() - 0.5) * 0.6);
+  const tw = 8 + Math.random() * 4;
+
   trail.push({
     kind: "sparkle",
     x: xk,
@@ -2547,10 +2565,11 @@ for (let k = 0; k < SP_COLUMNS; k++){
     age: 0, life: 1,
     size: (s.size + sizeJit),
     twinkle: tw,
-    streak: 0.62 + Math.random()*0.16,
+    streak: 0.62 + Math.random() * 0.16,
     phase: s.phase + k * 0.7,
     __scrollSpark: true
   });
+}
 }
   }
 }
