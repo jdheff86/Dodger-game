@@ -2008,8 +2008,8 @@ const SP_TAIL_WAVE_A1 = 0.030; // extra amplitude per px down the tail
 const SP_HAZE_HALF    = 36;    // max left/right spread (px) to “stay inside the haze”
 // px/s clamp so it never races
 const HAZE_LIFE_SCALE = 1.75;  // +75% length
-const SP_COLUMNS        = 3;   // number of side-by-side lanes
-const SP_COLUMN_SPREAD  = 10;   // px between lanes
+const SP_COLUMNS        = 5;   // number of side-by-side lanes
+const SP_COLUMN_SPREAD  = 11;   // px between lanes
 // --- Time-based sparkles ---
 const TB_SPARKLES_PER_SEC = 12;   // how many to emit per second
 const TB_MAX_SPARKLES     = 120;  // cap on sparkle particles on screen
@@ -2039,20 +2039,20 @@ function spawnSparkleParticles(cx, cy){
   }
 
   // hero sparkle (occasional larger)
-  //if (Math.random() < HERO_SPARK_CHANCE){
-    //const ang   = base + (Math.random()-0.5) * spread * 2;
-    //const speed = 160 + Math.random()*160;  // a bit faster so tail shows
-    //trail.push({
-      //kind: "sparkle",
-      //x: cx, y: cy,
-      //vx: Math.cos(ang)*speed,
-      //vy: Math.sin(ang)*speed,
-      //age: 0,
-      //life: 0.60 + Math.random()*0.30,
-      //size: 4.8 + Math.random()*2.0,
-      //twinkle: 8 + Math.random()*6,
-      //streak: 0.88
-    //});
+  if (Math.random() < HERO_SPARK_CHANCE){
+    const ang   = base + (Math.random()-0.5) * spread * 2;
+    const speed = 160 + Math.random()*160;  // a bit faster so tail shows
+    trail.push({
+      kind: "sparkle",
+      x: cx, y: cy,
+      vx: Math.cos(ang)*speed,
+      vy: Math.sin(ang)*speed,
+      age: 0,
+      life: 0.60 + Math.random()*0.30,
+      size: 4.8 + Math.random()*2.0,
+      twinkle: 8 + Math.random()*6,
+      streak: 0.88
+    });
   }
 }
 
@@ -2463,18 +2463,46 @@ function updateSparkleScroll(emitX, emitY, inheritVX_unused, dt){
 
   // ensure enough slots
   const need = Math.min(SP_MAX_VISIBLE, Math.ceil(height / SP_GAP) + 16);
-  
   while (SP_SCROLL.slots.length < need){
-  const i = SP_SCROLL.slots.length;
-  SP_SCROLL.slots.push({
-    off: -i * SP_GAP,
-    size: 3.6 + Math.random()*2.6,
-    phase: Math.random()*Math.PI*2,
-    px: SP_SCROLL.headX,
-    vx: 0
+    const i = SP_SCROLL.slots.length;
+    // inside the 'while (SP_SCROLL.slots.length < need) { ... }' block
+// ▲▲▲ one simulated centerline … now emit multiple lanes around it
+const mid = (SP_COLUMNS - 1) * 0.5;
+for (let k = 0; k < SP_COLUMNS; k++){
+  const laneOffset = (k - mid) * SP_COLUMN_SPREAD;
+  let xk = s.px + laneOffset;
+
+  // clamp each lane to haze bounds
+  if (xk < minX) xk = minX;
+  if (xk > maxX) xk = maxX;
+
+  // NEW: subtle random lateral scatter so it isn't a perfect line
+  xk += (Math.random() - 0.5) * 6;   // ← try 4–8 to taste
+
+  const sizeJit = (k === mid ? 0 : (Math.random()-0.5)*0.6);
+  const tw      = 8 + Math.random()*4;
+
+  trail.push({
+    kind:"sparkle",
+    x: xk,
+    y,
+    vx: 0, vy: 0,
+    age: 0, life: 1,
+    size: (s.size + sizeJit),
+    twinkle: tw,
+    streak: 0.62 + Math.random()*0.16,
+    phase: s.phase + k * 0.7,
+    __scrollSpark: true
   });
 }
-  
+SP_SCROLL.slots.push({
+  off: -i * SP_GAP,
+  size: 3.6 + Math.random()*2.6,
+  phase: Math.random()*Math.PI*2,
+  px: SP_SCROLL.headX,      // current x (simulated)
+  vx: 0                     // velocity for the spring
+});
+  }
 
   // remove last frame's synthetic particles
   for (let i = trail.length - 1; i >= 0; i--) {
@@ -2521,56 +2549,18 @@ for (const s of SP_SCROLL.slots){
     const sizeJit = (k === mid ? 0 : (Math.random()-0.5)*0.6);
     const tw      = 8 + Math.random()*4;
 
-  // ◼️ emit multiple side-by-side lanes with a little jitter
-const mid = (SP_COLUMNS - 1) * 0.5;
-for (let k = 0; k < SP_COLUMNS; k++){
-  const laneOffset = (k - mid) * SP_COLUMN_SPREAD;
-  let xk = s.px + laneOffset;             // lane position around centerline
-
-  // clamp each lane to haze bounds
-  if (xk < minX) xk = minX;
-  if (xk > maxX) xk = maxX;
-
-  // jitter so it’s not a perfect ruler line
-  xk += (Math.random() - 0.5) * 6;        // lateral jitter (try 4–8)
-  const yJit = (Math.random() - 0.5) * 2; // tiny vertical jitter
-
-  // small per-lane variation
-  const sizeJit = (k === mid ? 0 : (Math.random()-0.5)*0.6);
-  const tw      = 8 + Math.random()*4;
-
-  // multi-lane emission with jitter
-const mid = (SP_COLUMNS - 1) * 0.5;
-for (let k = 0; k < SP_COLUMNS; k++) {
-  const laneOffset = (k - mid) * SP_COLUMN_SPREAD;
-  let xk = s.px + laneOffset;
-
-  // clamp to haze bounds
-  if (xk < minX) xk = minX;
-  if (xk > maxX) xk = maxX;
-
-  // jitter: small lateral + vertical noise
-  xk += (Math.random() - 0.5) * 6;
-  const yJit = (Math.random() - 0.5) * 2;
-
-  // per-lane size & twinkle variation
-  const sizeJit = (k === mid ? 0 : (Math.random() - 0.5) * 0.6);
-  const tw = 8 + Math.random() * 4;
-
-  trail.push({
-    kind: "sparkle",
-    x: xk,
-    y: y + yJit,
-    vx: 0, vy: 0,
-    age: 0, life: 1,
-    size: (s.size + sizeJit),
-    twinkle: tw,
-    streak: 0.62 + Math.random() * 0.16,
-    phase: s.phase + k * 0.7,
-    __scrollSpark: true
-  });
-}
-}
+    trail.push({
+      kind:"sparkle",
+      x: xk,
+      y,
+      vx: 0, vy: 0,
+      age: 0, life: 1,
+      size: (s.size + sizeJit),
+      twinkle: tw,
+      streak: 0.62 + Math.random()*0.16,
+      phase: s.phase + k * 0.7,   // slight phase offset per lane
+      __scrollSpark: true
+    });
   }
 }
 }
@@ -2585,11 +2575,9 @@ switch (cosmetics.equipped.trail) {
     break;
 
   case "trail.sparkle":
-  // optional soft haze first:
-  // spawnGoldHaze(emitX, emitY);
-
-  // the important part:
-  updateSparkleScroll(emitX, emitY, p.vx, dt);
+ //spawnGoldHaze(emitX, emitY);          // ← new
+  //spawnSparkleParticles(emitX, emitY);
+//updateSparkleScroll(emitX, emitY, p.vx, dt);
   break;
 
   case "trail.smoke":
@@ -3051,7 +3039,7 @@ ctx.globalCompositeOperation = "source-over";
       ctx.fillStyle="#2b1900"; ctx.font=`${Math.max(10, r*0.9)}px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial`; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("D", cx, cy+1);
     }
 
-    // bullets/
+    // /bullets/
     ctx.fillStyle = "#f8fafc";
     for (const b of state.bullets) roundRect(ctx, b.x, b.y, b.w, b.h, 4, true);
   }
