@@ -2862,6 +2862,80 @@ function drawNeonTrail(ctx, pts, core=NEON_COLOR_CORE, glow=NEON_COLOR_GLOW) {
   // CORE
   strokePath(NEON_CORE_WIDTH, 1.0,             0, core);
 }
+// Draw variable-width segments (tapered) between pts[i-1] -> pts[i]
+function strokeTapered(ctx, pts, baseWidth, color, glowBlur=0, baseAlpha=1){
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.shadowBlur = glowBlur;
+  ctx.shadowColor = color;
+
+  // draw segment-by-segment so we can vary width & alpha along the path
+  for (let i = 1; i < pts.length; i++){
+    const t  = i / (pts.length - 1);             // 0 tail → 1 head
+    const kW = NEON_TAIL_MIN + (NEON_TAIL_MAX - NEON_TAIL_MIN) * t;
+    const w  = baseWidth * kW;
+    const a  = baseAlpha * (0.40 + 0.60 * t);    // a bit brighter near head
+
+    ctx.globalAlpha = a;
+    ctx.lineWidth   = w;
+    ctx.beginPath();
+    ctx.moveTo(pts[i-1].x, pts[i-1].y);
+    ctx.lineTo(pts[i].x,   pts[i].y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Build a wiggled copy of the points using a normal-offset sine
+function makeWiggledPath(pts, time, whipK){
+  if (pts.length < 2) return pts;
+  const out = new Array(pts.length);
+
+  for (let i = 0; i < pts.length; i++){
+    const a = pts[Math.max(0, i-1)];
+    const b = pts[Math.min(pts.length-1, i+1)];
+
+    // tangent and unit normal
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.max(1e-4, Math.hypot(dx, dy));
+    const nx = -dy / len, ny = dx / len;
+
+    // t along path: 0 = tail (more wiggle), 1 = head (less)
+    const t = i / (pts.length - 1);
+
+    // wiggle amplitude: strongest at tail, scaled by neonWhip (0..1)
+    const amp = NEON_WIGGLE_AMP * whipK * (1 - t);
+
+    // phase uses time (global oscillation) + along-path term (multiple crests)
+    const phase = (time * NEON_WIGGLE_FREQ * 2*Math.PI) + (t * NEON_WIGGLE_ALONG * 2*Math.PI);
+
+    const off = Math.sin(phase) * amp;
+
+    out[i] = { x: pts[i].x + nx * off, y: pts[i].y + ny * off };
+  }
+  return out;
+}
+
+// Main neon renderer: TAPERED + WIGGLE
+function drawNeonTapered(ctx, pts, core=NEON_COLOR_CORE, glow=NEON_COLOR_GLOW){
+  if (!pts || pts.length < 2) return;
+
+  // last N points (like before)
+  const start = Math.max(0, pts.length - NEON_POINTS_MAX);
+  pts = pts.slice(start);
+
+  // apply wiggle based on neonWhip (0..1) and state.time
+  const wigPts = makeWiggledPath(pts, state.time, neonWhip);
+
+  // Pass 1: wide glow
+  strokeTapered(ctx, wigPts, NEON_TAPER_WIDE, glow, 16, 0.55);
+  // Pass 2: mid glow
+  strokeTapered(ctx, wigPts, NEON_TAPER_MID,  glow,  8, 0.80);
+  // Pass 3: core
+  strokeTapered(ctx, wigPts, NEON_TAPER_CORE, core,  0, 1.00);
+}
   function draw(){
     const g = ctx.createLinearGradient(0,0,0,height); g.addColorStop(0,"#0b1220"); g.addColorStop(1,"#0c0f14");
     ctx.fillStyle = g; ctx.fillRect(0,0,width,height);
