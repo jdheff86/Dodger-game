@@ -2979,7 +2979,17 @@ ctx.beginPath();
 const clipTop = p.y + ph ;              // just below the blue square
 ctx.rect(0, clipTop, width, height - clipTop);
 ctx.clip();
+// --- Neon trail (rendered only when equipped) ---
+if (cosmetics && cosmetics.equipped &&
+    cosmetics.equipped.trail === "trail.neon.blue") {  // or SKU_TRAIL_NEON_BLUE
+  // Option A: straight beam
+  // drawNeonTrail(ctx, neonPoints);
 
+  // Option B: tapered & wiggled (your “sick” look)
+  const pts = makeWiggledPath(neonPoints, state.time, neonWhip);
+  strokeTapered(ctx, pts, /*baseWidth*/ 10, NEON_COLOR_GLOW, /*glowBlur*/ 16, /*baseAlpha*/ 0.85);
+  strokeTapered(ctx, pts, /*baseWidth*/  4, NEON_COLOR_CORE, /*glowBlur*/  0, /*baseAlpha*/ 1.00);
+}
 // Neon beam: only visible below the player (prevents side peeking)
 // --- Neon Trail: record only when equipped ---
 
