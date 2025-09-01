@@ -2406,6 +2406,16 @@ let _prevVX = 0; // for whip calc
   targetVX += state.input.swipeVX;
   p.vx += (targetVX - p.vx) * Math.min(1, dt*10);
   p.x += p.vx * dt;
+  
+  // --- Neon Trail: record player center ---
+{
+  const cx = p.x + (p.w * p.scale) * 0.5;
+  const cy = p.y + (p.h * p.scale) * 0.5;
+  neonPoints.push({ x: cx, y: cy });
+  if (neonPoints.length > NEON_POINTS_MAX + 6) {
+    neonPoints.splice(0, neonPoints.length - (NEON_POINTS_MAX + 6));
+  }
+}
   // how hard the tail is whipping this frame (0..1)
 const speedX = Math.abs(p.vx);
 const accelX = Math.abs(p.vx - _prevVX) / Math.max(0.016, dt);
