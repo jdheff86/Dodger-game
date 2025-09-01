@@ -2041,7 +2041,7 @@ const NEON_WIGGLE_AMP   = 12;   // px max sideways wiggle (scaled by whip)
 const NEON_WIGGLE_FREQ  = 6.0;  // Hz base wiggle speed
 const NEON_WIGGLE_ALONG = 10.0; // how many waves along the length (phase multiplier)
 const NEON_TAIL_SAG = 52;  // adjust for more/less downward drop
-
+const NEON_STEP_MIN = 4;  // px min head movement to add a point
 function spawnSparkleParticles(cx, cy){
   const base   = Math.PI / 2;               // emit downward
   const spread = SPARKLE_CONE_RADIANS;
@@ -2429,28 +2429,31 @@ let _prevVX = 0; // for whip calc
 // --- Neon Trail: record only when equipped ---
 
 // --- Neon Trail (update): record bottom-center & seed ---
-const neonEquipped =
-  !!(cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE);
+
+// --- Neon Trail (update): distance-based sampling ---
+const neonEquipped = (cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE);
 
 if (neonEquipped) {
   const cx = p.x + (p.w * p.scale) * 0.5;
-  const cy = p.y + (p.h * p.scale) + 1;   // <-- BOTTOM edge +1px (not center)
+  const cy = p.y + (p.h * p.scale) + 1;
 
-  neonPoints.push({ x: cx, y: cy });
-
-  // keep a small buffer over max
-  if (neonPoints.length > NEON_POINTS_MAX + 6) {
-    neonPoints.splice(0, neonPoints.length - (NEON_POINTS_MAX + 6));
+  const last = neonPoints[neonPoints.length - 1];
+  if (!last) {
+    neonPoints.push({ x: cx, y: cy });
+  } else {
+    const dx = cx - last.x, dy = cy - last.y;
+    if (dx*dx + dy*dy >= NEON_STEP_MIN * NEON_STEP_MIN) {
+      neonPoints.push({ x: cx, y: cy });     // moved enough → add
+    } else {
+      last.x = cx; last.y = cy;              // tiny move → slide the head
+    }
   }
 
-  // seed a tiny path so it shows immediately
-  while (neonPoints.length < 6) neonPoints.unshift(neonPoints[0]);
-
-} else {
-  // clear buffer when switching away so old path doesn’t linger
+  // (Keep your existing buffer trim here; we'll refine it in Commit 3)
+  // while (neonPoints.length < 6) neonPoints.unshift({ ...neonPoints[0] }); // optional seeding
+} else if (neonPoints.length) {
   neonPoints.length = 0;
 }
-
 if (cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
   while (neonPoints.length < 6) {
     neonPoints.unshift(neonPoints[0]);
