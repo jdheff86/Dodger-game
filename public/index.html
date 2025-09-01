@@ -2948,9 +2948,7 @@ function drawNeonTapered(ctx, pts, core=NEON_COLOR_CORE, glow=NEON_COLOR_GLOW){
     
     // draw neon trail behind the player
 // draw neon trail behind the player
-if (cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
-  drawNeonTapered(ctx, neonPoints);
-}
+
     // --- draw flame trail particles ---
 // --- draw flame/sparkle/smoke, but only BELOW the player ---
 // ── Particle rendering (flame | sparkle | smoke) ─────────────────────────
@@ -2963,6 +2961,14 @@ ctx.beginPath();
 const clipTop = p.y + ph + 1;              // just below the blue square
 ctx.rect(0, clipTop, width, height - clipTop);
 ctx.clip();
+
+// Neon beam: only visible below the player (prevents side peeking)
+if (cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
+  // Use the tapered wiggle renderer if you added it; otherwise keep drawNeonTrail
+  drawNeonTapered
+    ? drawNeonTapered(ctx, neonPoints)
+    : drawNeonTrail(ctx, neonPoints);
+}
 
 for (const t of trail) {
   // fast sanity guards
