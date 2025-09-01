@@ -2425,17 +2425,30 @@ let _prevVX = 0; // for whip calc
   
   // --- Neon Trail: record player center ---
 // --- Neon Trail: record only when equipped ---
-if (cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
+
+// --- Neon Trail (update): record bottom-center & seed ---
+const neonEquipped =
+  !!(cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE);
+
+if (neonEquipped) {
   const cx = p.x + (p.w * p.scale) * 0.5;
-  const cy = p.y + (p.h * p.scale) * 0.5;
+  const cy = p.y + (p.h * p.scale) + 1;   // <-- BOTTOM edge +1px (not center)
+
   neonPoints.push({ x: cx, y: cy });
+
+  // keep a small buffer over max
   if (neonPoints.length > NEON_POINTS_MAX + 6) {
     neonPoints.splice(0, neonPoints.length - (NEON_POINTS_MAX + 6));
   }
-} else if (neonPoints.length) {
+
+  // seed a tiny path so it shows immediately
+  while (neonPoints.length < 6) neonPoints.unshift(neonPoints[0]);
+
+} else {
   // clear buffer when switching away so old path doesn’t linger
   neonPoints.length = 0;
 }
+
 if (cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
   while (neonPoints.length < 6) {
     neonPoints.unshift(neonPoints[0]);
@@ -2972,10 +2985,6 @@ ctx.clip();
 
 // If we just equipped and the path is too short, seed a tiny starter line
 // Neon beam: only visible below the player (prevents side peeking)
-if (cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
-  drawNeonTapered ? drawNeonTapered(ctx, neonPoints)
-                  : drawNeonTrail(ctx, neonPoints);
-}
 }
 
 for (const t of trail) {
