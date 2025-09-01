@@ -2040,6 +2040,8 @@ const NEON_TAIL_MAX     = 1.00; // head thickness factor (kept at 1.0)
 const NEON_WIGGLE_AMP   = 12;   // px max sideways wiggle (scaled by whip)
 const NEON_WIGGLE_FREQ  = 6.0;  // Hz base wiggle speed
 const NEON_WIGGLE_ALONG = 10.0; // how many waves along the length (phase multiplier)
+const NEON_TAIL_SAG = 52;  // adjust for more/less downward drop
+
 function spawnSparkleParticles(cx, cy){
   const base   = Math.PI / 2;               // emit downward
   const spread = SPARKLE_CONE_RADIANS;
@@ -2909,29 +2911,22 @@ function strokeTapered(ctx, pts, baseWidth, color, glowBlur=0, baseAlpha=1){
 // Build a wiggled copy of the points using a normal-offset sine
 function makeWiggledPath(pts, time, whipK){
   if (pts.length < 2) return pts;
-  const out = new Array(pts.length);
 
-  for (let i = 0; i < pts.length; i++){
-    const a = pts[Math.max(0, i-1)];
-    const b = pts[Math.min(pts.length-1, i+1)];
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const t = i / (pts.length - 1);   // 0 = tail, 1 = head
 
-    // tangent and unit normal
-    const dx = b.x - a.x, dy = b.y - a.y;
-    const len = Math.max(1e-4, Math.hypot(dx, dy));
-    const nx = -dy / len, ny = dx / len;
+    // Basic wiggle offset
+    const phase = (time * 6 + i * 0.4) * whipK;
+    const nx = Math.cos(phase) * 1.8;
+    const ny = Math.sin(phase) * 1.8;
+    const off = 3 * (1 - t) * whipK;  // less offset near head
 
-    // t along path: 0 = tail (more wiggle), 1 = head (less)
-    const t = i / (pts.length - 1);
+    // Vertical sag — max at tail, 0 at head
+    const sag = NEON_TAIL_SAG * (1 - t);
 
-    // wiggle amplitude: strongest at tail, scaled by neonWhip (0..1)
-    const amp = NEON_WIGGLE_AMP * whipK * (1 - t);
-
-    // phase uses time (global oscillation) + along-path term (multiple crests)
-    const phase = (time * NEON_WIGGLE_FREQ * 2*Math.PI) + (t * NEON_WIGGLE_ALONG * 2*Math.PI);
-
-    const off = Math.sin(phase) * amp;
-
-    out[i] = { x: pts[i].x + nx * off, y: pts[i].y + ny * off };
+    out[i] = { x: pts[i].x + nx * off,
+               y: pts[i].y + ny * off + sag };
   }
   return out;
 }
