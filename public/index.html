@@ -2949,7 +2949,7 @@ function drawNeonTapered(ctx, pts, core=NEON_COLOR_CORE, glow=NEON_COLOR_GLOW){
     // draw neon trail behind the player
 // draw neon trail behind the player
 if (cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
-  drawNeonTrail(ctx, neonPoints); // <- will swap to drawNeonTapered in a minute
+  drawNeonTapered(ctx, neonPoints);
 }
     // --- draw flame trail particles ---
 // --- draw flame/sparkle/smoke, but only BELOW the player ---
