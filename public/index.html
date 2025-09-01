@@ -1158,12 +1158,11 @@ const COSMETICS = [
   { sku:SKU_TRAIL_NEON_BLUE, type:"trail", name:"Neon Laser (Blue)", price:800 }
 ];
 // --- NEW: Neon laser trail SKU ---
-const SKU_TRAIL_NEON_BLUE = "trail.neon.blue";
 const cosmetics = {
   owned: new Set(),
   equipped: { trail:null, skin:null, death:null }
 };
-
+const SKU_TRAIL_NEON_BLUE = "trail.neon.blue";
 window.loadCosmeticsFromCloud = async function (){
   try{
     const inv = await window.firebase.loadInventory();
