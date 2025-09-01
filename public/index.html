@@ -2958,7 +2958,7 @@ ctx.imageSmoothingQuality = "high";
 // --- TRAIL: draw only below the player --------------------------------
 ctx.save();
 ctx.beginPath();
-const clipTop = p.y + ph + 1;              // just below the blue square
+const clipTop = p.y + ph ;              // just below the blue square
 ctx.rect(0, clipTop, width, height - clipTop);
 ctx.clip();
 
