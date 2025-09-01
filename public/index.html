@@ -2963,11 +2963,23 @@ ctx.rect(0, clipTop, width, height - clipTop);
 ctx.clip();
 
 // Neon beam: only visible below the player (prevents side peeking)
+// --- Neon Trail: record only when equipped ---
 if (cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
-  // Use the tapered wiggle renderer if you added it; otherwise keep drawNeonTrail
-  drawNeonTapered
-    ? drawNeonTapered(ctx, neonPoints)
-    : drawNeonTrail(ctx, neonPoints);
+  const cx = p.x + (p.w * p.scale) * 0.5;
+  const cy = p.y + (p.h * p.scale) + 1;     // <-- BOTTOM edge + 1px
+  neonPoints.push({ x: cx, y: cy });
+  if (neonPoints.length > NEON_POINTS_MAX + 6) {
+    neonPoints.splice(0, neonPoints.length - (NEON_POINTS_MAX + 6));
+  }
+} else if (neonPoints.length) {
+  neonPoints.length = 0;
+}
+
+// If we just equipped and the path is too short, seed a tiny starter line
+if (cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
+  while (neonPoints.length < 6) {
+    neonPoints.unshift(neonPoints[0]);  // duplicate the first point
+  }
 }
 
 for (const t of trail) {
