@@ -2436,6 +2436,11 @@ if (cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
   // clear buffer when switching away so old path doesn’t linger
   neonPoints.length = 0;
 }
+if (cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
+  while (neonPoints.length < 6) {
+    neonPoints.unshift(neonPoints[0]);
+  }
+}
   // how hard the tail is whipping this frame (0..1)
 const speedX = Math.abs(p.vx);
 const accelX = Math.abs(p.vx - _prevVX) / Math.max(0.016, dt);
@@ -2964,22 +2969,13 @@ ctx.clip();
 
 // Neon beam: only visible below the player (prevents side peeking)
 // --- Neon Trail: record only when equipped ---
-if (cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
-  const cx = p.x + (p.w * p.scale) * 0.5;
-  const cy = p.y + (p.h * p.scale) + 1;     // <-- BOTTOM edge + 1px
-  neonPoints.push({ x: cx, y: cy });
-  if (neonPoints.length > NEON_POINTS_MAX + 6) {
-    neonPoints.splice(0, neonPoints.length - (NEON_POINTS_MAX + 6));
-  }
-} else if (neonPoints.length) {
-  neonPoints.length = 0;
-}
 
 // If we just equipped and the path is too short, seed a tiny starter line
+// Neon beam: only visible below the player (prevents side peeking)
 if (cosmetics && cosmetics.equipped && cosmetics.equipped.trail === SKU_TRAIL_NEON_BLUE) {
-  while (neonPoints.length < 6) {
-    neonPoints.unshift(neonPoints[0]);  // duplicate the first point
-  }
+  drawNeonTapered ? drawNeonTapered(ctx, neonPoints)
+                  : drawNeonTrail(ctx, neonPoints);
+}
 }
 
 for (const t of trail) {
