@@ -2848,6 +2848,9 @@ function drawNeonTrail(ctx, pts, core=NEON_COLOR_CORE, glow=NEON_COLOR_GLOW) {
     for(let y=(height%grid); y<height; y+=grid){ ctx.moveTo(0,y); ctx.lineTo(width,y); } ctx.stroke(); ctx.globalAlpha = 1;
 
     const p = state.player, pw = p.w*p.scale, ph = p.h*p.scale;
+    
+    // draw neon trail behind the player
+drawNeonTrail(ctx, neonPoints);
     // --- draw flame trail particles ---
 // --- draw flame/sparkle/smoke, but only BELOW the player ---
 // ── Particle rendering (flame | sparkle | smoke) ─────────────────────────
