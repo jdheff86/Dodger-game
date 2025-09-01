@@ -1183,7 +1183,8 @@ let POWERUP_INTERVAL_MIN = 8, POWERUP_INTERVAL_MAX = 13; // seconds
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
-
+// recent player positions for neon trail
+const neonPoints = []; // [{x,y}, ... newest last]
 // --- Cached smoke puff sprites (fast) ---
 const SMOKE_SPRITES = [];
 (function buildSmokeSprites(){
@@ -2012,8 +2013,17 @@ const SP_COLUMNS        = 5;   // number of side-by-side lanes
 const SP_COLUMN_SPREAD  = 11;   // px between lanes
 // --- Time-based sparkles ---
 const TB_SPARKLES_PER_SEC = 12;   // how many to emit per second
-const TB_MAX_SPARKLES     = 120;  // cap on sparkle particles on screen
-
+const TB_MAX_SPARKLES     = 120; 
+/* === Neon Trail (TRON-style) === */
+const NEON_POINTS_MAX   = 26;   // how many positions to keep
+const NEON_CORE_WIDTH   = 3.5;  // thin center line
+const NEON_GLOW_WIDE    = 14;   // outer glow stroke width
+const NEON_GLOW_MID     = 8;    // mid glow width
+const NEON_ALPHA_WIDE   = 0.55; // wide glow opacity
+const NEON_ALPHA_MID    = 0.80; // mid glow opacity
+const NEON_COLOR_CORE   = "#7bd7ff";
+const NEON_COLOR_GLOW   = "#14a8ff";
+/* ================================= */
 function spawnSparkleParticles(cx, cy){
   const base   = Math.PI / 2;               // emit downward
   const spread = SPARKLE_CONE_RADIANS;
@@ -2789,7 +2799,36 @@ if (t.kind === "sparkle" && t.y > height + 24) {
 
 // flame particle integrator (already present below; keep as-is)
 
+function drawNeonTrail(ctx, pts, core=NEON_COLOR_CORE, glow=NEON_COLOR_GLOW) {
+  if (!pts || pts.length < 2) return;
 
+  // only last N points (fade by shortening length — simplest + fastest)
+  const start = Math.max(0, pts.length - NEON_POINTS_MAX);
+  pts = pts.slice(start);
+
+  const strokePath = (lw, alpha, shadowBlur, strokeStyle) => {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.lineWidth   = lw;
+    ctx.lineCap     = "round";
+    ctx.lineJoin    = "round";
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = strokeStyle;
+    ctx.shadowBlur  = shadowBlur;
+    ctx.shadowColor = strokeStyle;
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  // WIDE glow
+  strokePath(NEON_GLOW_WIDE, NEON_ALPHA_WIDE, 16, glow);
+  // MID glow
+  strokePath(NEON_GLOW_MID,  NEON_ALPHA_MID,   8, glow);
+  // CORE
+  strokePath(NEON_CORE_WIDTH, 1.0,             0, core);
+}
   function draw(){
     const g = ctx.createLinearGradient(0,0,0,height); g.addColorStop(0,"#0b1220"); g.addColorStop(1,"#0c0f14");
     ctx.fillStyle = g; ctx.fillRect(0,0,width,height);
