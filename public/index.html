@@ -1187,6 +1187,8 @@ let POWERUP_INTERVAL_MIN = 8, POWERUP_INTERVAL_MAX = 13; // seconds
   const ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
 // recent player positions for neon trail
 const neonPoints = []; // [{x,y}, ... newest last]
+// how hard the player is whipping side-to-side (0..1), captured each frame
+let neonWhip = 0;
 // --- Cached smoke puff sprites (fast) ---
 const SMOKE_SPRITES = [];
 (function buildSmokeSprites(){
@@ -2026,6 +2028,18 @@ const NEON_ALPHA_MID    = 0.80; // mid glow opacity
 const NEON_COLOR_CORE   = "#7bd7ff";
 const NEON_COLOR_GLOW   = "#14a8ff";
 /* ================================= */
+
+/* === Neon Tapered + Wiggle settings === */
+const NEON_TAPER_WIDE   = 14;   // base width for outer glow (at head)
+const NEON_TAPER_MID    = 8;    // base width for mid glow (at head)
+const NEON_TAPER_CORE   = 3.5;  // base width for core (at head)
+
+const NEON_TAIL_MIN     = 0.35; // tail thickness factor (0..1) — 0.35 = thin tail
+const NEON_TAIL_MAX     = 1.00; // head thickness factor (kept at 1.0)
+
+const NEON_WIGGLE_AMP   = 12;   // px max sideways wiggle (scaled by whip)
+const NEON_WIGGLE_FREQ  = 6.0;  // Hz base wiggle speed
+const NEON_WIGGLE_ALONG = 10.0; // how many waves along the length (phase multiplier)
 function spawnSparkleParticles(cx, cy){
   const base   = Math.PI / 2;               // emit downward
   const spread = SPARKLE_CONE_RADIANS;
@@ -2429,6 +2443,7 @@ const whip = Math.min(1,
   (speedX / 420) * 0.5 +     // moving sideways bends smoke
   (accelX / 1200)            // sudden turns add extra flare
 );
+neonWhip = whip;
 _prevVX = p.vx;
 
   const pw = p.w * p.scale, ph = p.h * p.scale;
