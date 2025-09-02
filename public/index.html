@@ -1186,7 +1186,7 @@ let POWERUP_INTERVAL_MIN = 8, POWERUP_INTERVAL_MAX = 13; // seconds
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
 // recent player positions for neon trail
-const neonPoints = []; // [{x,y}, ... newest last]
+// [{x,y}, ... newest last]
 // how hard the player is whipping side-to-side (0..1), captured each frame
 let neonWhip = 0;
 // --- Cached smoke puff sprites (fast) ---
