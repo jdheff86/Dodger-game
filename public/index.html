@@ -2042,6 +2042,21 @@ const NEON_WIGGLE_FREQ  = 6.0;  // Hz base wiggle speed
 const NEON_WIGGLE_ALONG = 10.0; // how many waves along the length (phase multiplier)
 const NEON_TAIL_SAG = 52;  // adjust for more/less downward drop
 const NEON_STEP_MIN = 4;  // px min head movement to add a point
+// --- Coil (pre-snap) controls ---
+const NEON_COIL_START   = 0.55; // fraction of snap interval when coil begins (0..1)
+const NEON_COIL_SQUASH  = 0.50; // how much the tail compresses at peak (0..1)
+const NEON_COIL_AMP     = 10;   // extra wiggle amplitude at the tail during coil (px)
+const NEON_COIL_WAVES   = 18;   // waves along just the tail during coil
+const NEON_COIL_SPIN_HZ = 3.0;  // how fast the coil “twirls” before the cut
+// tail recorder state
+let neonPoints = [];                 // history buffer
+let neonTailX = null, neonTailY = null, neonTailVX = 0;
+
+// spring tuning
+const NEON_SPRING_K = 12.0;          // pull strength (per-sec)
+const NEON_DAMP     = 14.0;          // damping (per-sec)
+let neonCoilK = 0;              // 0..1, updated every frame (how “coiled” we are)
+
 function spawnSparkleParticles(cx, cy){
   const base   = Math.PI / 2;               // emit downward
   const spread = SPARKLE_CONE_RADIANS;
